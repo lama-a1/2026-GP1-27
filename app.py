@@ -15,8 +15,6 @@ from dotenv import load_dotenv
 load_dotenv(BASE / ".env")
 app=Flask(__name__)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY', secrets.token_hex(32)), MAX_CONTENT_LENGTH=200*1024*1024, SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax', SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE')=='1')
-# Vercel functions do not share a durable local filesystem. Configure DATABASE_URL
-# with a managed PostgreSQL URL (e.g., Neon) for production persistence.
 DATABASE_URL=os.getenv('DATABASE_URL','').strip()
 DB=Path(os.getenv('DATABASE_PATH', '/tmp/siyaq.db' if os.getenv('VERCEL') else str(BASE/'siyaq.db')))
 UPLOAD=Path('/tmp/siyaq_uploads') if os.getenv('VERCEL') else BASE/'uploads'
@@ -28,7 +26,6 @@ if DATABASE_URL:
     from psycopg.rows import dict_row
 
     class PgConnection:
-        # Small compatibility layer for the existing SQLite-style query calls.
         def __init__(self):
             self.connection=psycopg.connect(DATABASE_URL, row_factory=dict_row)
         def __enter__(self):
@@ -60,7 +57,6 @@ def insert_id(c, sql, params):
 def init_db():
     if DATABASE_URL:
         with conn() as c:
-            # Keep dates as TEXT to preserve the existing application comparisons.
             c.execute('''CREATE TABLE IF NOT EXISTS users(
                 id BIGSERIAL PRIMARY KEY, full_name TEXT NOT NULL, email TEXT NOT NULL UNIQUE,
                 phone TEXT, password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'party',
@@ -167,6 +163,9 @@ def otp_digest(code, email):
 
 def branded_email_html(kicker, title, description, panel_html, footer_note):
     """Email-client-friendly RTL transactional email; content fragments are escaped by callers."""
+    base=os.getenv('PUBLIC_BASE_URL','https://siyaq-plum.vercel.app').strip().rstrip('/')
+    logo_url=html_escape(base+'/static/siyaq-email-logo.png',quote=True) if re.fullmatch(r'https://[^\s/]+',base) else ''
+    brand_logo=(f'<img src="{logo_url}" alt="سياق | SIYAQ" width="134" height="60" style="display:block;max-width:134px;height:auto;margin:auto;" />' if logo_url else 'سياق | SIYAQ')
     return f"""<!doctype html>
 <html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{html_escape(title)}</title></head>
@@ -174,8 +173,8 @@ def branded_email_html(kicker, title, description, panel_html, footer_note):
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f3f6f4;"><tr><td align="center" style="padding:38px 14px;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:570px;background:#ffffff;border:1px solid #e0e9e3;border-radius:18px;overflow:hidden;">
 <tr><td align="center" style="background:#006b36;padding:30px 26px;">
-<div style="color:#ffffff;font-size:36px;font-weight:800;letter-spacing:-1px;line-height:1.3;">سياق <span style="font-size:13px;font-weight:400;opacity:.85;letter-spacing:2px;">SIYAQ</span></div>
-<div style="color:#d8f1e1;font-size:12px;margin-top:6px;">نظام دعم تحليل الحوادث المرورية</div>
+<div style="display:inline-block;background:#ffffff;border-radius:12px;padding:8px 20px;">{brand_logo}</div>
+<div style="color:#d8f1e1;font-size:12px;margin-top:6px;">منصة سياق لإدارة بلاغات الحوادث المرورية</div>
 </td></tr>
 <tr><td style="padding:35px 34px 22px;direction:rtl;text-align:right;">
 <div style="color:#007342;font-size:12px;font-weight:bold;margin-bottom:12px;">{html_escape(kicker)}</div>
@@ -249,7 +248,6 @@ def send_brevo_api_email(email, subject, body, html_body=None):
             if response.status not in (200,201,202):
                 raise RuntimeError('تعذّر إرسال البريد عبر Brevo API.')
     except HTTPError as exc:
-        # Brevo may return detailed JSON errors. Do not log headers, tokens, email or OTP.
         app.logger.warning('Brevo API rejected email (HTTP %s)',exc.code)
         raise RuntimeError('تعذّر إرسال البريد عبر Brevo API (HTTP '+str(exc.code)+'). راجعي تفعيل API والمرسل وعناوين IP المسموحة.') from exc
     except (URLError,TimeoutError,OSError) as exc:
@@ -327,55 +325,6 @@ def send_case_invitation(email, link, reference):
     except (smtplib.SMTPException,OSError) as exc:
         app.logger.warning('Invitation SMTP send failed: %s',type(exc).__name__)
         raise RuntimeError('تعذّر إرسال الدعوة. تحققي من إعدادات SMTP.') from exc
-
-def normalize_saudi_phone(value):
-    """Return Saudi mobile in canonical 05XXXXXXXX form, or None."""
-    raw=normalized_digits(value)
-    digits=re.sub(r'[\s()\-]', '', raw)
-    if digits.startswith('+9665') and len(digits)==13:
-        digits='0'+digits[4:]
-    elif digits.startswith('009665') and len(digits)==14:
-        digits='0'+digits[5:]
-    elif digits.startswith('9665') and len(digits)==12:
-        digits='0'+digits[3:]
-    elif digits.startswith('5') and len(digits)==9:
-        digits='0'+digits
-    return digits if re.fullmatch(r'05\d{8}',digits) else None
-
-
-def send_brevo_sms_invitation(phone, link):
-    """Send a single private invite through the current Brevo transactional SMS API."""
-    api_key=os.getenv('BREVO_API_KEY','').strip()
-    sender=os.getenv('BREVO_SMS_SENDER','SIYAQ').strip()
-    if not api_key:
-        raise RuntimeError('مفتاح BREVO_API_KEY غير موجود في .env.')
-    if not re.fullmatch(r'[A-Za-z0-9]{1,11}',sender):
-        raise RuntimeError('اسم مرسل SMS غير صالح؛ استخدمي أحرفًا وأرقامًا إنجليزية فقط (حتى 11 حرفًا).')
-    normalized=normalize_saudi_phone(phone)
-    if not normalized:
-        raise RuntimeError('رقم الجوال غير صحيح. استخدمي رقمًا سعوديًا يبدأ بـ 05.')
-    payload={
-        'sender':sender,
-        'recipient':'966'+normalized[1:],
-        'content':f'Siyaq: You are invited to join an accident report. Open this private link within 7 days: {link}',
-        'type':'transactional',
-        'tag':'siyaq-party-invite',
-    }
-    req=Request('https://api.brevo.com/v3/transactionalSMS/send',
-                data=json.dumps(payload,ensure_ascii=False).encode('utf-8'),
-                headers={'api-key':api_key,'Content-Type':'application/json','accept':'application/json'},
-                method='POST')
-    try:
-        with urlopen(req,timeout=20) as response:
-            if response.status!=201:
-                raise RuntimeError('لم يقبل Brevo طلب إرسال SMS.')
-    except HTTPError as exc:
-        app.logger.warning('Brevo SMS request rejected (HTTP %s)',exc.code)
-        raise RuntimeError(f'تعذّر إرسال SMS عبر Brevo (HTTP {exc.code}). راجعي رصيد SMS وتفعيل المرسل والصلاحيات وعنوان IP.') from exc
-    except (URLError,TimeoutError,OSError) as exc:
-        app.logger.warning('Brevo SMS connection failure: %s',type(exc).__name__)
-        raise RuntimeError('تعذّر الاتصال بخدمة Brevo SMS. تحققي من الإنترنت.') from exc
-
 
 def safe_invitation_next(value):
     return bool(re.fullmatch(r'/invite/[A-Za-z0-9_-]{20,100}', value or ''))
@@ -521,19 +470,19 @@ def case_detail(case_id):
     with conn() as c:
         parties=c.execute('SELECT * FROM parties WHERE case_id=? ORDER BY position',(case_id,)).fetchall()
         videos=c.execute('SELECT v.*,p.position FROM videos v JOIN parties p ON p.id=v.party_id WHERE v.case_id=? ORDER BY v.id DESC',(case_id,)).fetchall()
-        invite=c.execute('SELECT * FROM invitations WHERE case_id=? AND recipient_phone IS NOT NULL ORDER BY id DESC LIMIT 1',(case_id,)).fetchone()
+        invite=c.execute('SELECT * FROM invitations WHERE case_id=? AND recipient_email IS NOT NULL ORDER BY id DESC LIMIT 1',(case_id,)).fetchone()
     return render_template('case.html',case=case,party=party,parties=parties,videos=videos,invite=invite,now_iso=datetime.utcnow().isoformat())
 @app.post('/cases/<int:case_id>/invite')
 @login_required
 def invite(case_id):
     case,party=case_access(case_id)
     if case['creator_id']!=session['uid']: abort(403)
-    phone=normalize_saudi_phone(request.form.get('recipient_phone',''))
-    if not phone:
-        flash('أدخلي رقم جوال سعودي صحيح مثل 05XXXXXXXX أو +9665XXXXXXXX.','error')
+    recipient_email=request.form.get('recipient_email','').strip().lower()
+    if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',recipient_email) or len(recipient_email)>254:
+        flash('أدخل بريدًا إلكترونيًا صحيحًا للطرف الثاني.','error')
         return redirect(url_for('case_detail',case_id=case_id))
-    if normalize_saudi_phone(current_user()['phone'] or '')==phone:
-        flash('لا يمكن إرسال الدعوة إلى جوال منشئ البلاغ نفسه.','error')
+    if current_user()['email'].strip().lower()==recipient_email:
+        flash('لا يمكن إرسال الدعوة إلى بريد منشئ البلاغ نفسه.','error')
         return redirect(url_for('case_detail',case_id=case_id))
     with conn() as c:
         second=c.execute("SELECT user_id FROM parties WHERE case_id=? AND position='B'",(case_id,)).fetchone()
@@ -547,8 +496,7 @@ def invite(case_id):
     token=secrets.token_urlsafe(32)
     exp=(datetime.utcnow()+timedelta(days=7)).isoformat()
     with conn() as c:
-        invitation_id=insert_id(c,'INSERT INTO invitations(case_id,token,expires_at,recipient_phone) VALUES(?,?,?,?)',(case_id,hashlib.sha256(token.encode()).hexdigest(),exp,phone))
-    # Commit first so the recipient can open the link immediately. Undo on send failure.
+        invitation_id=insert_id(c,'INSERT INTO invitations(case_id,token,expires_at,recipient_email) VALUES(?,?,?,?)',(case_id,hashlib.sha256(token.encode()).hexdigest(),exp,recipient_email))
     public_base=os.getenv('PUBLIC_BASE_URL','').strip().rstrip('/')
     if public_base and not re.fullmatch(r'https://[^\s/]+(?:\:[0-9]{2,5})?',public_base):
         with conn() as c: c.execute('DELETE FROM invitations WHERE id=?',(invitation_id,))
@@ -557,10 +505,10 @@ def invite(case_id):
     link=(public_base+url_for('invitation',token=token)) if public_base else url_for('invitation',token=token,_external=True)
     if not public_base and request.host.split(':')[0] in ('localhost','127.0.0.1'):
         with conn() as c: c.execute('DELETE FROM invitations WHERE id=?',(invitation_id,))
-        flash('قبل إرسال SMS أضيفي PUBLIC_BASE_URL لرابط موقع سياق المنشور على HTTPS؛ localhost لا يفتح على جوال الطرف الثاني.','error')
+        flash('قبل إرسال الدعوة أضيفي PUBLIC_BASE_URL لرابط موقع سياق المنشور على HTTPS؛ localhost لا يفتح على جوال الطرف الثاني.','error')
         return redirect(url_for('case_detail',case_id=case_id))
     try:
-        send_brevo_sms_invitation(phone,link)
+        send_case_invitation(recipient_email,link,case['reference'])
     except RuntimeError as exc:
         with conn() as c: c.execute('DELETE FROM invitations WHERE id=? AND claimed_by IS NULL',(invitation_id,))
         flash(str(exc),'error')
@@ -568,7 +516,7 @@ def invite(case_id):
     with conn() as c:
         c.execute('UPDATE invitations SET revoked_at=? WHERE case_id=? AND id<>? AND claimed_by IS NULL AND revoked_at IS NULL',
                   (datetime.utcnow().isoformat(),case_id,invitation_id))
-    flash('قبل Brevo طلب إرسال SMS للطرف الثاني. تأكدي من وصولها إلى الجوال.','success')
+    flash('تم إرسال الدعوة إلى البريد الإلكتروني للطرف الثاني. يُرجى التحقق من صندوق الوارد والرسائل غير المرغوبة.','success')
     return redirect(url_for('case_detail',case_id=case_id))
 
 @app.get('/invite/<token>')
@@ -577,12 +525,12 @@ def invitation(token):
     with conn() as c:
         inv=c.execute('SELECT * FROM invitations WHERE token=?',(digest,)).fetchone()
         if not inv: abort(404)
-        valid=bool(inv['recipient_phone'] and not inv['revoked_at'] and not inv['claimed_by'] and inv['expires_at']>datetime.utcnow().isoformat())
+        valid=bool(inv['recipient_email'] and not inv['revoked_at'] and not inv['claimed_by'] and inv['expires_at']>datetime.utcnow().isoformat())
         party=c.execute("SELECT user_id FROM parties WHERE case_id=? AND position='B'",(inv['case_id'],)).fetchone()
         if not party or party['user_id']: valid=False
     user=current_user()
-    matched=bool(user and normalize_saudi_phone(user['phone'] or '')==inv['recipient_phone'])
-    return render_template('invitation.html',token=token,valid=valid,matched=matched,recipient_phone=inv['recipient_phone'])
+    matched=bool(user and user['email'].strip().lower()==inv['recipient_email'].strip().lower())
+    return render_template('invitation.html',token=token,valid=valid,matched=matched,recipient_email=inv['recipient_email'])
 
 @app.post('/invite/<token>/accept')
 @login_required
@@ -590,10 +538,10 @@ def accept_invitation(token):
     digest=hashlib.sha256(token.encode()).hexdigest()
     with conn() as c:
         inv=c.execute('SELECT * FROM invitations WHERE token=?',(digest,)).fetchone()
-        if not inv or not inv['recipient_phone'] or inv['revoked_at'] or inv['expires_at']<=datetime.utcnow().isoformat() or inv['claimed_by']:
+        if not inv or not inv['recipient_email'] or inv['revoked_at'] or inv['expires_at']<=datetime.utcnow().isoformat() or inv['claimed_by']:
             abort(403)
         u=c.execute('SELECT email,full_name,phone FROM users WHERE id=?',(session['uid'],)).fetchone()
-        if not u or normalize_saudi_phone(u['phone'] or '')!=inv['recipient_phone']: abort(403)
+        if not u or u['email'].strip().lower()!=inv['recipient_email'].strip().lower(): abort(403)
         party=c.execute("SELECT * FROM parties WHERE case_id=? AND position='B'",(inv['case_id'],)).fetchone()
         if not party or party['user_id']: abort(403)
         updated=c.execute('UPDATE parties SET user_id=?,full_name=? WHERE id=? AND user_id IS NULL',
