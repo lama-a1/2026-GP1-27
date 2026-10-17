@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'إنشاء حساب' if mode=='register' else 'تسجيل الدخول' }} | سياق{% endblock %}
+{% block content %}
+<div class="figma-auth">
+  <aside class="figma-auth-side">
+    <div>
+      <span class="auth-chip">● قرار بشري مدعوم بالأدلة</span>
+      <h2>لأن تفاصيل الحادث<br>تصنع فارقًا.</h2>
+      <p>نجمع التسجيل، والأحداث المرصودة، والقاعدة ذات الصلة في مسار واحد واضح.</p>
+    </div>
+    <div class="auth-journey">
+      <h3>تحليل مفهوم، خطوة بخطوة</h3>
+      <div class="journey-steps"><span>✓<small>الفيديو</small></span><span>✓<small>الأدلة</small></span><span>✧<small>التحليل</small></span><span>▤<small>نسبة مقترحة</small></span><span>♙<small>مراجعة الخبير</small></span><span>♢<small>قرار معتمد</small></span></div>
+    </div>
+  </aside>
+  <section class="figma-auth-card">
+    <div class="auth-heading">
+      <h1>{{ 'إنشاء حساب' if mode=='register' else 'مرحبًا بعودتك' }}</h1>
+      <p>{{ 'أدخل بياناتك مرة واحدة لتستخدمها في بلاغاتك القادمة.' if mode=='register' else 'سجّل الدخول لمتابعة بلاغاتك أو بدء بلاغ جديد.' }}</p>
+    </div>
+    {% with msgs=get_flashed_messages(with_categories=true) %}{% for category,message in msgs %}<div class="auth-inline-alert {{category}}" role="alert">{{message}}</div>{% endfor %}{% endwith %}
+    <form method="post" id="identity-form" class="figma-auth-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% if mode=='register' %}
+      <div class="identity-grid">
+        <label>الاسم الكامل<input name="full_name" required placeholder="مثال: نورة محمد العتيبي" autocomplete="name"></label>
+        <label>تاريخ الميلاد<input name="birth_date" type="date" required></label>
+        <label>رقم الهوية الوطنية<input name="national_id" inputmode="numeric" dir="ltr" minlength="10" maxlength="10" pattern="[0-9٠-٩]{10}" required placeholder="١٠ أرقام"></label>
+        <label>البريد الإلكتروني<input name="email" type="email" required autocomplete="email" placeholder="name@example.com"></label>
+        <label>رقم الجوال<input name="phone" inputmode="tel" dir="ltr" maxlength="10" required placeholder="05xxxxxxxx"></label>
+        <label>كلمة المرور<input name="password" type="password" minlength="8" required autocomplete="new-password"><small>٨ أحرف على الأقل، وتتضمن حرفًا ورقمًا.</small></label>
+        <label>تأكيد كلمة المرور<input name="confirm_password" type="password" minlength="8" required autocomplete="new-password"></label>
+      </div>
+      <button class="figma-auth-submit" type="submit">إنشاء الحساب ←</button>
+      <p class="identity-note">سيُرسل رمز تحقق من 6 أرقام إلى بريدك الإلكتروني قبل تفعيل الحساب.</p>
+      {% else %}
+      <div class="identity-stack">
+        <label>رقم الهوية الوطنية<input name="national_id" inputmode="numeric" dir="ltr" minlength="10" maxlength="10" pattern="[0-9٠-٩]{10}" required placeholder="١٠ أرقام" autocomplete="username"></label>
+        <label>كلمة المرور<input name="password" type="password" required autocomplete="current-password"></label>
+      </div>
+      <button class="figma-auth-submit" type="submit">تسجيل الدخول ←</button>
+      {% endif %}
+    </form>
+    <div class="figma-auth-switch">{% if mode=='register' %}لديك حساب؟ <a href="{{url_for('login',next=request.args.get('next',''))}}">تسجيل الدخول</a>{% else %}ليس لديك حساب؟ <a href="{{url_for('register',next=request.args.get('next',''))}}">إنشاء حساب</a>{% endif %}</div>
+    <div class="figma-auth-security">♧ اتصال آمن ومعلوماتك متاحة للمصرح لهم فقط</div>
+  </section>
+</div>
+{% endblock %}

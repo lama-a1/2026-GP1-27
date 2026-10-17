@@ -1,0 +1,660 @@
+import os, re, sqlite3, secrets, uuid, json, time, hmac, hashlib, smtplib, ssl
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
+from email.message import EmailMessage
+from html import escape as html_escape
+from pathlib import Path
+from datetime import datetime, timedelta
+from functools import wraps
+from flask import Flask, render_template, request, redirect, url_for, session, flash, abort, send_from_directory, jsonify
+from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
+
+BASE=Path(__file__).resolve().parent
+from dotenv import load_dotenv
+load_dotenv(BASE / ".env")
+app=Flask(__name__)
+app.config.update(SECRET_KEY=os.getenv('SECRET_KEY', secrets.token_hex(32)), MAX_CONTENT_LENGTH=200*1024*1024, SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax', SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE')=='1')
+DB=Path(os.getenv('DATABASE_PATH',str(BASE/'siyaq.db')))
+UPLOAD=BASE/'uploads'; UPLOAD.mkdir(exist_ok=True)
+ALLOWED={'mp4','mov','avi','webm','mkv'}
+
+def conn():
+    c=sqlite3.connect(DB); c.row_factory=sqlite3.Row; c.execute('PRAGMA foreign_keys=ON'); return c
+
+def init_db():
+    with conn() as c:
+        c.executescript('''
+        CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, full_name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, phone TEXT, password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'party', created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS cases(id INTEGER PRIMARY KEY, reference TEXT NOT NULL UNIQUE, creator_id INTEGER NOT NULL REFERENCES users(id), accident_type TEXT NOT NULL, accident_date TEXT NOT NULL, accident_time TEXT NOT NULL, location TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending_second_party', created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS parties(id INTEGER PRIMARY KEY, case_id INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE, user_id INTEGER REFERENCES users(id), position TEXT NOT NULL CHECK(position IN ('A','B')), full_name TEXT, national_id TEXT, phone TEXT, description TEXT, completed INTEGER NOT NULL DEFAULT 0, UNIQUE(case_id,position));
+        CREATE TABLE IF NOT EXISTS vehicles(id INTEGER PRIMARY KEY, party_id INTEGER NOT NULL UNIQUE REFERENCES parties(id) ON DELETE CASCADE, plate TEXT, manufacturer TEXT, model TEXT, year INTEGER, color TEXT);
+        CREATE TABLE IF NOT EXISTS invitations(id INTEGER PRIMARY KEY, case_id INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE, token TEXT NOT NULL UNIQUE, expires_at TEXT NOT NULL, claimed_by INTEGER REFERENCES users(id), created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS videos(id INTEGER PRIMARY KEY, case_id INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE, party_id INTEGER NOT NULL REFERENCES parties(id), original_name TEXT NOT NULL, stored_name TEXT NOT NULL, processed_name TEXT, privacy_status TEXT NOT NULL DEFAULT 'pending', uploaded_at TEXT DEFAULT CURRENT_TIMESTAMP, processing_note TEXT);
+        CREATE TABLE IF NOT EXISTS garage_vehicles(id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, plate TEXT NOT NULL, manufacturer TEXT NOT NULL, model TEXT NOT NULL, year INTEGER NOT NULL, color TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS analysis_jobs(id INTEGER PRIMARY KEY, video_id INTEGER NOT NULL UNIQUE REFERENCES videos(id) ON DELETE CASCADE, status TEXT NOT NULL DEFAULT 'not_started', details TEXT, updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
+        ''')
+        cols={r[1] for r in c.execute('PRAGMA table_info(users)').fetchall()}
+        if 'national_id' not in cols: c.execute('ALTER TABLE users ADD COLUMN national_id TEXT')
+        if 'birth_date' not in cols: c.execute('ALTER TABLE users ADD COLUMN birth_date TEXT')
+        if 'notification_status' not in cols: c.execute('ALTER TABLE users ADD COLUMN notification_status INTEGER DEFAULT 1')
+        if 'notification_result' not in cols: c.execute('ALTER TABLE users ADD COLUMN notification_result INTEGER DEFAULT 1')
+        c.execute('CREATE UNIQUE INDEX IF NOT EXISTS users_national_id_unique ON users(national_id)')
+        invite_cols={r[1] for r in c.execute('PRAGMA table_info(invitations)').fetchall()}
+        if 'recipient_email' not in invite_cols: c.execute('ALTER TABLE invitations ADD COLUMN recipient_email TEXT')
+        if 'recipient_phone' not in invite_cols: c.execute('ALTER TABLE invitations ADD COLUMN recipient_phone TEXT')
+        if 'revoked_at' not in invite_cols: c.execute('ALTER TABLE invitations ADD COLUMN revoked_at TEXT')
+
+def csrf():
+    if 'csrf' not in session: session['csrf']=secrets.token_urlsafe(32)
+    return session['csrf']
+app.jinja_env.globals['csrf_token']=csrf
+@app.before_request
+def protect():
+    if request.method in ('POST','PUT','PATCH','DELETE'):
+        if not secrets.compare_digest(request.form.get('csrf_token',''), session.get('csrf','')): abort(400,'Invalid CSRF token. Refresh and retry.')
+
+def login_required(fn):
+    @wraps(fn)
+    def wrapped(*args,**kwargs):
+        if not session.get('uid'):
+            flash('يرجى تسجيل الدخول أولاً','error'); return redirect(url_for('login',next=request.path))
+        return fn(*args,**kwargs)
+    return wrapped
+
+def current_user():
+    if not session.get('uid'): return None
+    with conn() as c: return c.execute('SELECT * FROM users WHERE id=?',(session['uid'],)).fetchone()
+@app.context_processor
+def globals_ctx(): return {'user':current_user()}
+
+def case_access(case_id):
+    with conn() as c:
+        case=c.execute('SELECT * FROM cases WHERE id=?',(case_id,)).fetchone()
+        if not case: abort(404)
+        party=c.execute('SELECT * FROM parties WHERE case_id=? AND user_id=?',(case_id,session.get('uid'))).fetchone()
+        if not party and case['creator_id']!=session.get('uid'): abort(403)
+        return case,party
+
+@app.get('/')
+def home(): return render_template('home.html')
+def normalized_digits(value):
+    return str(value).translate(str.maketrans('٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹','01234567890123456789')).strip()
+
+def otp_digest(code, email):
+    key=app.secret_key.encode() if isinstance(app.secret_key,str) else app.secret_key
+    return hmac.new(key, f"{email.lower()}:{code}".encode(), hashlib.sha256).hexdigest()
+
+def branded_email_html(kicker, title, description, panel_html, footer_note):
+    """Email-client-friendly RTL transactional email; content fragments are escaped by callers."""
+    return f"""<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{html_escape(title)}</title></head>
+<body style="margin:0;padding:0;background:#f3f6f4;font-family:Tahoma,Arial,sans-serif;color:#17382a;direction:rtl;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f3f6f4;"><tr><td align="center" style="padding:38px 14px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:570px;background:#ffffff;border:1px solid #e0e9e3;border-radius:18px;overflow:hidden;">
+<tr><td align="center" style="background:#006b36;padding:30px 26px;">
+<div style="color:#ffffff;font-size:36px;font-weight:800;letter-spacing:-1px;line-height:1.3;">سياق <span style="font-size:13px;font-weight:400;opacity:.85;letter-spacing:2px;">SIYAQ</span></div>
+<div style="color:#d8f1e1;font-size:12px;margin-top:6px;">نظام دعم تحليل الحوادث المرورية</div>
+</td></tr>
+<tr><td style="padding:35px 34px 22px;direction:rtl;text-align:right;">
+<div style="color:#007342;font-size:12px;font-weight:bold;margin-bottom:12px;">{html_escape(kicker)}</div>
+<h1 style="font-size:25px;line-height:1.6;margin:0 0 12px;color:#123d2b;">{html_escape(title)}</h1>
+<p style="font-size:15px;line-height:2;margin:0 0 25px;color:#52675c;">{html_escape(description)}</p>
+{panel_html}
+<p style="font-size:13px;line-height:1.9;color:#697c71;margin:24px 0 0;">{html_escape(footer_note)}</p>
+</td></tr>
+<tr><td align="center" style="border-top:1px solid #e5ece7;padding:23px 24px;background:#fafcfb;color:#819187;font-size:12px;line-height:1.9;">
+هذه رسالة تلقائية من سياق — لا ترد على هذا البريد.<br>
+إذا وصلتك الرسالة بالخطأ، يمكنك تجاهلها بأمان.<br>
+<span dir="ltr" style="color:#006b36;font-weight:bold;">SIYAQ • سياق</span>
+</td></tr></table></td></tr></table></body></html>"""
+
+
+def otp_email_html(code):
+    safe_code=html_escape(str(code))
+    panel=(f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f8f3;border:1px solid #d8eadd;border-radius:12px;"><tr><td align="center" style="padding:22px 14px;">'
+           f'<div style="font-size:12px;color:#587563;margin-bottom:8px;">رمز التحقق الخاص بك</div>'
+           f'<div dir="ltr" style="font-family:Arial,sans-serif;font-size:35px;font-weight:800;letter-spacing:9px;color:#006b36;">{safe_code}</div>'
+           f'<div style="font-size:12px;color:#587563;margin-top:12px;">صالح لمدة 10 دقائق</div>'
+           f'</td></tr></table>')
+    return branded_email_html('التحقق من البريد الإلكتروني','تأكيد بريدك الإلكتروني',
+                              'استخدمي الرمز التالي لإكمال إنشاء حسابك في سياق.',panel,
+                              'لأمان حسابك، لا تشاركي رمز التحقق مع أي شخص.')
+
+
+def invitation_email_html(link, reference):
+    safe_link=html_escape(str(link),quote=True)
+    safe_ref=html_escape(str(reference))
+    panel=(f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f8f5;border:1px solid #e1eae4;border-radius:12px;">'
+           f'<tr><td style="padding:16px 18px;text-align:right;">'
+           f'<div style="color:#718678;font-size:12px;">رقم البلاغ</div>'
+           f'<div dir="ltr" style="text-align:right;color:#153d2b;font-weight:bold;font-size:17px;margin-top:6px;">{safe_ref}</div>'
+           f'<div style="border-top:1px solid #dfe9e2;margin:14px 0;"></div>'
+           f'<div style="color:#718678;font-size:12px;">صلاحية الدعوة</div>'
+           f'<div style="color:#153d2b;font-size:14px;font-weight:bold;margin-top:6px;">7 أيام • استخدام واحد</div>'
+           f'</td></tr></table>'
+           f'<table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr><td align="center" style="padding:26px 0 14px;">'
+           f'<a href="{safe_link}" style="display:inline-block;background:#006b36;color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:16px 30px;border-radius:9px;">فتح الدعوة والانضمام للبلاغ ←</a>'
+           f'</td></tr></table>'
+           f'<div style="color:#6d8175;font-size:12px;line-height:1.9;overflow-wrap:anywhere;word-break:break-word;">إذا ما فتح الزر، انسخ الرابط التالي إلى المتصفح:<br><a href="{safe_link}" style="color:#006b36;text-decoration:underline;" dir="ltr">{safe_link}</a></div>')
+    return branded_email_html('دعوة خاصة • الطرف الثاني','تمت دعوتك للانضمام إلى بلاغ',
+                              'وصلك طلب للمشاركة بصفتك الطرف الثاني في بلاغ حادث على سياق. افتح الدعوة، ثم سجّل الدخول أو أنشئ حسابًا ببريدك الموثّق لإكمال بياناتك وإضافة إفادتك أو فيديو الحادث إن توفر.',
+                              panel,'هذا الرابط مخصص للبريد الذي استقبل الدعوة فقط. لا تشاركه مع أي شخص. لن تظهر تفاصيل البلاغ قبل التحقق من حسابك.')
+
+
+def send_brevo_api_email(email, subject, body, html_body=None):
+    """Send transactional email through Brevo's REST API, without exposing the API key."""
+    api_key=os.getenv('BREVO_API_KEY','').strip()
+    sender=os.getenv('BREVO_SENDER_EMAIL',os.getenv('SMTP_FROM','')).strip()
+    sender_name=os.getenv('BREVO_SENDER_NAME','Siyaq').strip() or 'Siyaq'
+    if not api_key or not sender:
+        raise RuntimeError('إعدادات Brevo API غير مكتملة. أضيفي BREVO_API_KEY و BREVO_SENDER_EMAIL إلى ملف .env.')
+    payload={
+        'sender':{'name':sender_name,'email':sender},
+        'to':[{'email':email}],
+        'subject':subject,
+        'textContent':body,
+    }
+    if html_body:
+        payload['htmlContent']=html_body
+    req=Request(
+        'https://api.brevo.com/v3/smtp/email',
+        data=json.dumps(payload,ensure_ascii=False).encode('utf-8'),
+        headers={'api-key':api_key,'Content-Type':'application/json','accept':'application/json'},
+        method='POST',
+    )
+    try:
+        with urlopen(req,timeout=20) as response:
+            if response.status not in (200,201,202):
+                raise RuntimeError('تعذّر إرسال البريد عبر Brevo API.')
+    except HTTPError as exc:
+        # Brevo may return detailed JSON errors. Do not log headers, tokens, email or OTP.
+        app.logger.warning('Brevo API rejected email (HTTP %s)',exc.code)
+        raise RuntimeError('تعذّر إرسال البريد عبر Brevo API (HTTP '+str(exc.code)+'). راجعي تفعيل API والمرسل وعناوين IP المسموحة.') from exc
+    except (URLError,TimeoutError,OSError) as exc:
+        app.logger.warning('Brevo API network error: %s',type(exc).__name__)
+        raise RuntimeError('تعذّر الاتصال بخدمة Brevo API. تحققي من الإنترنت وحاولي مجددًا.') from exc
+
+
+def send_email_otp(email, code):
+    """Send the OTP using the configured transport (REST API or SMTP)."""
+    body=(f'رمز التحقق من حساب سياق: {code}\nصلاحية الرمز 10 دقائق. لا تشارك هذا الرمز مع أي شخص.\n\n'
+          f'Siyaq verification code: {code}\nExpires in 10 minutes.')
+    if os.getenv('OTP_MODE','api').strip().lower()=='api':
+        return send_brevo_api_email(email,'Siyaq | رمز التحقق من البريد الإلكتروني',body,otp_email_html(code))
+    host=os.getenv('SMTP_HOST','').strip()
+    username=os.getenv('SMTP_USER','').strip()
+    password=os.getenv('SMTP_PASSWORD','').strip()
+    sender=os.getenv('SMTP_FROM',username).strip()
+    port=int(os.getenv('SMTP_PORT','587'))
+    if not all((host,username,password,sender)):
+        raise RuntimeError('إعدادات SMTP غير مكتملة. راجعي ملف .env.')
+    msg=EmailMessage()
+    msg['Subject']='Siyaq | رمز التحقق من البريد الإلكتروني'
+    msg['From']=sender
+    msg['To']=email
+    msg.set_content(body)
+    msg.add_alternative(otp_email_html(code),subtype='html')
+    try:
+        if port==465:
+            with smtplib.SMTP_SSL(host,port,timeout=20,context=ssl.create_default_context()) as smtp:
+                smtp.login(username,password)
+                smtp.send_message(msg)
+        else:
+            with smtplib.SMTP(host,port,timeout=20) as smtp:
+                smtp.starttls(context=ssl.create_default_context())
+                smtp.login(username,password)
+                smtp.send_message(msg)
+    except (smtplib.SMTPException,OSError) as exc:
+        app.logger.warning('SMTP send failed: %s',type(exc).__name__)
+        raise RuntimeError('تعذّر إرسال رمز البريد. تحققي من إعدادات SMTP.') from exc
+
+
+def send_case_invitation(email, link, reference):
+    """Send a private invitation with the same email transport as registration OTP."""
+    body=(
+        'مرحبًا،\n\nتمت دعوتك بصفتك الطرف الثاني لاستكمال بيانات بلاغ في سياق.\n'
+        'رقم البلاغ: '+reference+'\n\n'
+        'افتح الرابط التالي لتسجيل الدخول بحسابك الموثّق وإضافة إفادتك وفيديو الحادث إن توفر:\n'
+        +link+'\n\n'
+        'الرابط صالح لمدة 7 أيام، ولمرة واحدة، ومخصص للبريد الذي استقبل الدعوة فقط.\n'
+        'إذا لم تكن معنيًا بهذا البلاغ، تجاهل الرسالة. لا تشارك الرابط مع أحد.\n\nفريق سياق'
+    )
+    if os.getenv('OTP_MODE','api').strip().lower()=='api':
+        return send_brevo_api_email(email,'Siyaq | دعوة للمشاركة في بلاغ حادث',body,invitation_email_html(link,reference))
+    host=os.getenv('SMTP_HOST','').strip()
+    username=os.getenv('SMTP_USER','').strip()
+    password=os.getenv('SMTP_PASSWORD','').strip()
+    sender=os.getenv('SMTP_FROM',username).strip()
+    port=int(os.getenv('SMTP_PORT','587'))
+    if not all((host,username,password,sender)):
+        raise RuntimeError('إعدادات SMTP غير مكتملة. راجعي ملف .env.')
+    msg=EmailMessage()
+    msg['Subject']='Siyaq | دعوة للمشاركة في بلاغ حادث'
+    msg['From']=sender
+    msg['To']=email
+    msg.set_content(body)
+    msg.add_alternative(invitation_email_html(link,reference),subtype='html')
+    try:
+        if port==465:
+            with smtplib.SMTP_SSL(host,port,timeout=20,context=ssl.create_default_context()) as smtp:
+                smtp.login(username,password); smtp.send_message(msg)
+        else:
+            with smtplib.SMTP(host,port,timeout=20) as smtp:
+                smtp.starttls(context=ssl.create_default_context())
+                smtp.login(username,password); smtp.send_message(msg)
+    except (smtplib.SMTPException,OSError) as exc:
+        app.logger.warning('Invitation SMTP send failed: %s',type(exc).__name__)
+        raise RuntimeError('تعذّر إرسال الدعوة. تحققي من إعدادات SMTP.') from exc
+
+def normalize_saudi_phone(value):
+    """Return Saudi mobile in canonical 05XXXXXXXX form, or None."""
+    raw=normalized_digits(value)
+    digits=re.sub(r'[\s()\-]', '', raw)
+    if digits.startswith('+9665') and len(digits)==13:
+        digits='0'+digits[4:]
+    elif digits.startswith('009665') and len(digits)==14:
+        digits='0'+digits[5:]
+    elif digits.startswith('9665') and len(digits)==12:
+        digits='0'+digits[3:]
+    elif digits.startswith('5') and len(digits)==9:
+        digits='0'+digits
+    return digits if re.fullmatch(r'05\d{8}',digits) else None
+
+
+def send_brevo_sms_invitation(phone, link):
+    """Send a single private invite through the current Brevo transactional SMS API."""
+    api_key=os.getenv('BREVO_API_KEY','').strip()
+    sender=os.getenv('BREVO_SMS_SENDER','SIYAQ').strip()
+    if not api_key:
+        raise RuntimeError('مفتاح BREVO_API_KEY غير موجود في .env.')
+    if not re.fullmatch(r'[A-Za-z0-9]{1,11}',sender):
+        raise RuntimeError('اسم مرسل SMS غير صالح؛ استخدمي أحرفًا وأرقامًا إنجليزية فقط (حتى 11 حرفًا).')
+    normalized=normalize_saudi_phone(phone)
+    if not normalized:
+        raise RuntimeError('رقم الجوال غير صحيح. استخدمي رقمًا سعوديًا يبدأ بـ 05.')
+    payload={
+        'sender':sender,
+        'recipient':'966'+normalized[1:],
+        'content':f'Siyaq: You are invited to join an accident report. Open this private link within 7 days: {link}',
+        'type':'transactional',
+        'tag':'siyaq-party-invite',
+    }
+    req=Request('https://api.brevo.com/v3/transactionalSMS/send',
+                data=json.dumps(payload,ensure_ascii=False).encode('utf-8'),
+                headers={'api-key':api_key,'Content-Type':'application/json','accept':'application/json'},
+                method='POST')
+    try:
+        with urlopen(req,timeout=20) as response:
+            if response.status!=201:
+                raise RuntimeError('لم يقبل Brevo طلب إرسال SMS.')
+    except HTTPError as exc:
+        app.logger.warning('Brevo SMS request rejected (HTTP %s)',exc.code)
+        raise RuntimeError(f'تعذّر إرسال SMS عبر Brevo (HTTP {exc.code}). راجعي رصيد SMS وتفعيل المرسل والصلاحيات وعنوان IP.') from exc
+    except (URLError,TimeoutError,OSError) as exc:
+        app.logger.warning('Brevo SMS connection failure: %s',type(exc).__name__)
+        raise RuntimeError('تعذّر الاتصال بخدمة Brevo SMS. تحققي من الإنترنت.') from exc
+
+
+def safe_invitation_next(value):
+    return bool(re.fullmatch(r'/invite/[A-Za-z0-9_-]{20,100}', value or ''))
+
+def issue_otp(pending):
+    code=f'{secrets.randbelow(1000000):06d}'
+    mode=os.getenv('OTP_MODE','api').strip().lower()
+    if mode=='demo':
+        # DEMO IS NOT IDENTITY VERIFICATION. Never permit demo outside localhost.
+        if request.remote_addr not in ('127.0.0.1','::1'):
+            raise RuntimeError('وضع التجربة متاح محليًا فقط. فعّل إرسال البريد الحقيقي.')
+        pending['demo_code']=code
+    elif mode in ('smtp','api'):
+        send_email_otp(pending['email'],code)
+        pending.pop('demo_code',None)
+    else:
+        raise RuntimeError('OTP_MODE يجب أن يكون api أو smtp أو demo.')
+    pending['otp_digest']=otp_digest(code,pending['email'])
+    pending['last_sent']=time.time()
+    pending['attempts']=0
+    return pending
+
+def registration_errors(name,nid,phone,birth,password,confirm):
+    errors=[]
+    if not name: errors.append('أدخل الاسم الكامل.')
+    if not re.fullmatch(r'[12]\d{9}',nid): errors.append('رقم الهوية يجب أن يبدأ بـ 1 أو 2 ويتكون من 10 أرقام.')
+    if not re.fullmatch(r'05\d{8}',phone): errors.append('رقم الجوال يجب أن يبدأ بـ 05 ويتكون من 10 أرقام.')
+    if not birth: errors.append('اختر تاريخ الميلاد.')
+    else:
+        try:
+            if datetime.strptime(birth,'%Y-%m-%d').date()>datetime.now().date(): errors.append('تاريخ الميلاد لا يمكن أن يكون في المستقبل.')
+        except ValueError: errors.append('تاريخ الميلاد غير صالح.')
+    if len(password)<8 or not re.search(r'[A-Za-z\u0600-\u06FF]',password) or not re.search(r'\d',password): errors.append('كلمة المرور يجب أن تحتوي على 8 أحرف على الأقل، منها حرف ورقم.')
+    if password!=confirm: errors.append('تأكيد كلمة المرور غير مطابق.')
+    return errors
+
+@app.route('/register',methods=['GET','POST'])
+def register():
+    if request.method=='GET' and safe_invitation_next(request.args.get('next','')):
+        session['after_registration']=request.args['next']
+    if request.method=='POST':
+        name=request.form.get('full_name','').strip()
+        nid=normalized_digits(request.form.get('national_id',''))
+        phone=normalized_digits(request.form.get('phone',''))
+        birth=request.form.get('birth_date','').strip()
+        email=request.form.get('email','').strip().lower()
+        password=request.form.get('password','')
+        errors=registration_errors(name,nid,phone,birth,password,request.form.get('confirm_password',''))
+        if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',email) or len(email)>254: errors.append('أدخل بريدًا إلكترونيًا صالحًا.')
+        if errors:
+            for error in errors: flash(error,'error')
+        else:
+            with conn() as c: exists=c.execute('SELECT id FROM users WHERE national_id=? OR email=?',(nid,email)).fetchone()
+            if exists: flash('رقم الهوية الوطنية أو البريد الإلكتروني مسجل مسبقًا.','error')
+            else:
+                try:
+                    pending={'full_name':name,'national_id':nid,'phone':phone,'email':email,'birth_date':birth,'password_hash':generate_password_hash(password),'started':time.time(),'attempts':0}
+                    session['pending_registration']=issue_otp(pending)
+                    return redirect(url_for('verify_email'))
+                except RuntimeError as e: flash(str(e),'error')
+    return render_template('auth.html',mode='register')
+
+@app.route('/verify-email',methods=['GET','POST'])
+def verify_email():
+    pending=session.get('pending_registration')
+    if not pending: return redirect(url_for('register'))
+    if time.time()-pending['started']>1800 or time.time()-pending.get('last_sent',0)>600:
+        session.pop('pending_registration',None)
+        flash('انتهت مهلة التحقق. أعد التسجيل.','error')
+        return redirect(url_for('register'))
+    if request.method=='POST':
+        action=request.form.get('action','verify')
+        if action=='resend':
+            if time.time()-pending.get('last_sent',0)<60: flash('انتظر دقيقة قبل طلب رمز جديد.','error')
+            else:
+                try:
+                    session['pending_registration']=issue_otp(pending)
+                    flash('تم طلب رمز جديد.','success')
+                except RuntimeError as e: flash(str(e),'error')
+        else:
+            code=normalized_digits(request.form.get('code',''))
+            if pending['attempts']>=5: flash('تجاوزت عدد المحاولات. ابدأ التسجيل مجددًا.','error')
+            elif not re.fullmatch(r'\d{6}',code): flash('أدخل رمز التحقق الرقمي الصحيح.','error')
+            else:
+                pending['attempts']+=1;session['pending_registration']=pending
+                try:
+                    if hmac.compare_digest(otp_digest(code,pending['email']),pending.get('otp_digest','')):
+                        try:
+                            with conn() as c:
+                                cur=c.execute('INSERT INTO users(full_name,email,phone,password_hash,national_id,birth_date) VALUES(?,?,?,?,?,?)',
+                                    (pending['full_name'],pending['email'],pending['phone'],pending['password_hash'],pending['national_id'],pending['birth_date']))
+                                uid=cur.lastrowid
+                            destination=session.get('after_registration')
+                            session.clear();session['uid']=uid;csrf()
+                            return redirect(destination if safe_invitation_next(destination) else url_for('dashboard'))
+                        except sqlite3.IntegrityError: flash('رقم الهوية مسجل مسبقًا.','error')
+                    else: flash('رمز التحقق غير صحيح أو انتهت صلاحيته.','error')
+                except RuntimeError as e: flash(str(e),'error')
+    return render_template('verify_email.html',email=pending['email'],demo_code=pending.get('demo_code') if os.getenv('OTP_MODE','api').lower()=='demo' else None)
+
+@app.route('/login',methods=['GET','POST'])
+def login():
+    if request.method=='POST':
+        nid=normalized_digits(request.form.get('national_id',''))
+        with conn() as c:
+            u=c.execute('SELECT * FROM users WHERE national_id=?',(nid,)).fetchone()
+        if u and check_password_hash(u['password_hash'],request.form.get('password','')):
+            session.clear();session['uid']=u['id'];csrf()
+            nxt=request.args.get('next','')
+            return redirect(nxt if nxt.startswith('/') and not nxt.startswith('//') else url_for('dashboard'))
+        flash('رقم الهوية الوطنية أو كلمة المرور غير صحيحة.','error')
+    return render_template('auth.html',mode='login')
+@app.post('/logout')
+def logout(): session.clear(); return redirect(url_for('home'))
+@app.get('/dashboard')
+@login_required
+def dashboard():
+    with conn() as c:
+        cases=c.execute('''SELECT DISTINCT ca.* FROM cases ca LEFT JOIN parties p ON p.case_id=ca.id WHERE ca.creator_id=? OR p.user_id=? ORDER BY ca.id DESC''',(session['uid'],session['uid'])).fetchall()
+    return render_template('dashboard.html',cases=cases)
+@app.route('/cases/new',methods=['GET','POST'])
+@login_required
+def new_case():
+    if request.method=='POST':
+        eligible=all(request.form.get(k)=='yes' for k in ('no_injuries','daylight','clear_weather','two_vehicles'))
+        if not eligible:
+            flash('هذه الحالة خارج نطاق سياق الحالي: الحوادث البسيطة دون إصابات، نهارًا وبطقس واضح ولمركبتين.','error')
+            return redirect(url_for('new_case'))
+        typ=request.form.get('accident_type'); date=request.form.get('accident_date');time=request.form.get('accident_time'); location=request.form.get('location','').strip()
+        if typ not in ('REAR_END','LANE_CHANGE') or not date or not time or not location: flash('جميع بيانات الحادث مطلوبة.','error')
+        else:
+            ref='SQ-'+datetime.now().strftime('%y%m')+'-'+secrets.token_hex(3).upper()
+            with conn() as c:
+                cur=c.execute('INSERT INTO cases(reference,creator_id,accident_type,accident_date,accident_time,location) VALUES(?,?,?,?,?,?)',(ref,session['uid'],typ,date,time,location)); cid=cur.lastrowid
+                c.execute('INSERT INTO parties(case_id,user_id,position,full_name) VALUES(?,?,?,?)',(cid,session['uid'],'A',current_user()['full_name']))
+                c.execute('INSERT INTO parties(case_id,position) VALUES(?,?)',(cid,'B'))
+            return redirect(url_for('case_detail',case_id=cid))
+    return render_template('new_case.html')
+@app.get('/cases/<int:case_id>')
+@login_required
+def case_detail(case_id):
+    case,party=case_access(case_id)
+    with conn() as c:
+        parties=c.execute('SELECT * FROM parties WHERE case_id=? ORDER BY position',(case_id,)).fetchall()
+        videos=c.execute('SELECT v.*,p.position FROM videos v JOIN parties p ON p.id=v.party_id WHERE v.case_id=? ORDER BY v.id DESC',(case_id,)).fetchall()
+        invite=c.execute('SELECT * FROM invitations WHERE case_id=? AND recipient_phone IS NOT NULL ORDER BY id DESC LIMIT 1',(case_id,)).fetchone()
+    return render_template('case.html',case=case,party=party,parties=parties,videos=videos,invite=invite,now_iso=datetime.utcnow().isoformat())
+@app.post('/cases/<int:case_id>/invite')
+@login_required
+def invite(case_id):
+    case,party=case_access(case_id)
+    if case['creator_id']!=session['uid']: abort(403)
+    phone=normalize_saudi_phone(request.form.get('recipient_phone',''))
+    if not phone:
+        flash('أدخلي رقم جوال سعودي صحيح مثل 05XXXXXXXX أو +9665XXXXXXXX.','error')
+        return redirect(url_for('case_detail',case_id=case_id))
+    if normalize_saudi_phone(current_user()['phone'] or '')==phone:
+        flash('لا يمكن إرسال الدعوة إلى جوال منشئ البلاغ نفسه.','error')
+        return redirect(url_for('case_detail',case_id=case_id))
+    with conn() as c:
+        second=c.execute("SELECT user_id FROM parties WHERE case_id=? AND position='B'",(case_id,)).fetchone()
+        if not second or second['user_id']:
+            flash('الطرف الثاني مرتبط بالبلاغ بالفعل، ولا يمكن إرسال دعوة جديدة.','error')
+            return redirect(url_for('case_detail',case_id=case_id))
+        latest=c.execute('SELECT created_at FROM invitations WHERE case_id=? ORDER BY id DESC LIMIT 1',(case_id,)).fetchone()
+        if latest and datetime.utcnow()-datetime.fromisoformat(latest['created_at'])<timedelta(seconds=60):
+            flash('يرجى الانتظار دقيقة قبل إرسال دعوة أخرى لنفس البلاغ.','error')
+            return redirect(url_for('case_detail',case_id=case_id))
+    token=secrets.token_urlsafe(32)
+    exp=(datetime.utcnow()+timedelta(days=7)).isoformat()
+    with conn() as c:
+        cur=c.execute('INSERT INTO invitations(case_id,token,expires_at,recipient_phone) VALUES(?,?,?,?)',(case_id,hashlib.sha256(token.encode()).hexdigest(),exp,phone))
+        invitation_id=cur.lastrowid
+    # Commit first so the recipient can open the link immediately. Undo on send failure.
+    public_base=os.getenv('PUBLIC_BASE_URL','').strip().rstrip('/')
+    if public_base and not re.fullmatch(r'https://[^\s/]+(?:\:[0-9]{2,5})?',public_base):
+        with conn() as c: c.execute('DELETE FROM invitations WHERE id=?',(invitation_id,))
+        flash('PUBLIC_BASE_URL يجب أن يكون رابط HTTPS عامًّا بدون مسار، مثل https://siyaq.example.','error')
+        return redirect(url_for('case_detail',case_id=case_id))
+    link=(public_base+url_for('invitation',token=token)) if public_base else url_for('invitation',token=token,_external=True)
+    if not public_base and request.host.split(':')[0] in ('localhost','127.0.0.1'):
+        with conn() as c: c.execute('DELETE FROM invitations WHERE id=?',(invitation_id,))
+        flash('قبل إرسال SMS أضيفي PUBLIC_BASE_URL لرابط موقع سياق المنشور على HTTPS؛ localhost لا يفتح على جوال الطرف الثاني.','error')
+        return redirect(url_for('case_detail',case_id=case_id))
+    try:
+        send_brevo_sms_invitation(phone,link)
+    except RuntimeError as exc:
+        with conn() as c: c.execute('DELETE FROM invitations WHERE id=? AND claimed_by IS NULL',(invitation_id,))
+        flash(str(exc),'error')
+        return redirect(url_for('case_detail',case_id=case_id))
+    with conn() as c:
+        c.execute('UPDATE invitations SET revoked_at=? WHERE case_id=? AND id<>? AND claimed_by IS NULL AND revoked_at IS NULL',
+                  (datetime.utcnow().isoformat(),case_id,invitation_id))
+    flash('قبل Brevo طلب إرسال SMS للطرف الثاني. تأكدي من وصولها إلى الجوال.','success')
+    return redirect(url_for('case_detail',case_id=case_id))
+
+@app.get('/invite/<token>')
+def invitation(token):
+    digest=hashlib.sha256(token.encode()).hexdigest()
+    with conn() as c:
+        inv=c.execute('SELECT * FROM invitations WHERE token=?',(digest,)).fetchone()
+        if not inv: abort(404)
+        valid=bool(inv['recipient_phone'] and not inv['revoked_at'] and not inv['claimed_by'] and inv['expires_at']>datetime.utcnow().isoformat())
+        party=c.execute("SELECT user_id FROM parties WHERE case_id=? AND position='B'",(inv['case_id'],)).fetchone()
+        if not party or party['user_id']: valid=False
+    user=current_user()
+    matched=bool(user and normalize_saudi_phone(user['phone'] or '')==inv['recipient_phone'])
+    return render_template('invitation.html',token=token,valid=valid,matched=matched,recipient_phone=inv['recipient_phone'])
+
+@app.post('/invite/<token>/accept')
+@login_required
+def accept_invitation(token):
+    digest=hashlib.sha256(token.encode()).hexdigest()
+    with conn() as c:
+        inv=c.execute('SELECT * FROM invitations WHERE token=?',(digest,)).fetchone()
+        if not inv or not inv['recipient_phone'] or inv['revoked_at'] or inv['expires_at']<=datetime.utcnow().isoformat() or inv['claimed_by']:
+            abort(403)
+        u=c.execute('SELECT email,full_name,phone FROM users WHERE id=?',(session['uid'],)).fetchone()
+        if not u or normalize_saudi_phone(u['phone'] or '')!=inv['recipient_phone']: abort(403)
+        party=c.execute("SELECT * FROM parties WHERE case_id=? AND position='B'",(inv['case_id'],)).fetchone()
+        if not party or party['user_id']: abort(403)
+        updated=c.execute('UPDATE parties SET user_id=?,full_name=? WHERE id=? AND user_id IS NULL',
+                          (session['uid'],u['full_name'],party['id']))
+        if updated.rowcount!=1: abort(403)
+        claimed=c.execute('UPDATE invitations SET claimed_by=? WHERE id=? AND claimed_by IS NULL AND revoked_at IS NULL',
+                          (session['uid'],inv['id']))
+        if claimed.rowcount!=1: abort(403)
+    return redirect(url_for('wizard',case_id=inv['case_id'],step=1))
+
+STEPS=['معلومات الحادث','بيانات الطرف','بيانات المركبة','وصف الحادث','رفع الفيديو','المراجعة']
+@app.route('/cases/<int:case_id>/steps/<int:step>',methods=['GET','POST'])
+@login_required
+def wizard(case_id,step):
+    if step not in range(1,7): abort(404)
+    case,party=case_access(case_id)
+    if not party: abort(403)
+    if request.method=='POST':
+        if step==2:
+            full_name=request.form.get('full_name','').strip(); national=request.form.get('national_id','').strip(); phone=request.form.get('phone','').strip()
+            if not full_name or not re.fullmatch(r'05\d{8}',normalized_digits(phone)): flash('الاسم ورقم الجوال الصحيح مطلوبان.','error');return redirect(request.url)
+            with conn() as c: c.execute('UPDATE parties SET full_name=?,national_id=?,phone=? WHERE id=?',(full_name,national,phone,party['id']))
+        elif step==3:
+            fields=['plate','manufacturer','model','year','color']
+            if any(not request.form.get(k,'').strip() for k in fields) or not request.form.get('year','').isdigit():
+                flash('أكمل جميع بيانات المركبة.','error'); return redirect(request.url)
+            with conn() as c:
+                c.execute('''INSERT INTO vehicles(party_id,plate,manufacturer,model,year,color) VALUES(?,?,?,?,?,?) ON CONFLICT(party_id) DO UPDATE SET plate=excluded.plate,manufacturer=excluded.manufacturer,model=excluded.model,year=excluded.year,color=excluded.color''',(party['id'],request.form.get('plate',''),request.form.get('manufacturer',''),request.form.get('model',''),int(request.form['year']) if request.form.get('year','').isdigit() else None,request.form.get('color','')))
+        elif step==4:
+            with conn() as c:c.execute('UPDATE parties SET description=? WHERE id=?',(request.form.get('description','').strip(),party['id']))
+        elif step==5:
+            f=request.files.get('video')
+            if f and f.filename:
+                ext=f.filename.rsplit('.',1)[-1].lower() if '.' in f.filename else ''
+                if ext not in ALLOWED: flash('صيغة الفيديو غير مدعومة.','error');return redirect(request.url)
+                filename=uuid.uuid4().hex+'.'+ext
+                f.save(UPLOAD/filename)
+                with conn() as c:
+                    cur=c.execute('INSERT INTO videos(case_id,party_id,original_name,stored_name) VALUES(?,?,?,?)',(case_id,party['id'],secure_filename(f.filename),filename))
+                    c.execute('INSERT INTO analysis_jobs(video_id) VALUES(?)',(cur.lastrowid,))
+        elif step==6:
+            if request.form.get('consent')!='yes': flash('يجب الموافقة قبل الإرسال.','error');return redirect(request.url)
+            with conn() as c:
+                c.execute('UPDATE parties SET completed=1 WHERE id=?',(party['id'],))
+                count=c.execute('SELECT COUNT(*) FROM parties WHERE case_id=? AND completed=1',(case_id,)).fetchone()[0]
+                c.execute('UPDATE cases SET status=? WHERE id=?',('submitted' if count==2 else 'awaiting_other_party',case_id))
+            flash('تم حفظ بياناتك بنجاح.','success');return redirect(url_for('case_detail',case_id=case_id))
+        return redirect(url_for('wizard',case_id=case_id,step=step+1))
+    with conn() as c:
+        vehicle=c.execute('SELECT * FROM vehicles WHERE party_id=?',(party['id'],)).fetchone()
+        videos=c.execute('SELECT * FROM videos WHERE party_id=?',(party['id'],)).fetchall()
+    return render_template('wizard.html',case=case,party=party,vehicle=vehicle,videos=videos,step=step,steps=STEPS)
+@app.get('/videos/<int:video_id>/download')
+@login_required
+def download_video(video_id):
+    with conn() as c: v=c.execute('SELECT * FROM videos WHERE id=?',(video_id,)).fetchone()
+    if not v:abort(404)
+    case_access(v['case_id'])
+    return send_from_directory(UPLOAD,v['processed_name'] or v['stored_name'],as_attachment=True,download_name=v['original_name'])
+@app.post('/videos/<int:video_id>/process')
+@login_required
+def process_video(video_id):
+    with conn() as c: v=c.execute('SELECT * FROM videos WHERE id=?',(video_id,)).fetchone()
+    if not v:abort(404)
+    case_access(v['case_id'])
+    from privacy import process_privacy
+    result=process_privacy(UPLOAD/v['stored_name'],UPLOAD)
+    with conn() as c:
+        c.execute('UPDATE videos SET processed_name=?,privacy_status=?,processing_note=? WHERE id=?',(result.get('filename'),result['status'],result['note'],video_id))
+        c.execute('UPDATE analysis_jobs SET status=?,details=?,updated_at=CURRENT_TIMESTAMP WHERE video_id=?',('privacy_processed' if result.get('filename') else 'requires_review',result['note'],video_id))
+    flash(result['note'],'success' if result.get('filename') else 'error')
+    return redirect(url_for('case_detail',case_id=v['case_id']))
+
+@app.route('/profile',methods=['GET','POST'])
+@login_required
+def profile():
+    tab=request.args.get('tab','personal')
+    if request.method=='POST':
+        action=request.form.get('action')
+        if action=='personal':
+            phone=normalized_digits(request.form.get('phone',''))
+            if not re.fullmatch(r'05\d{8}',phone): flash('رقم الجوال غير صحيح.','error')
+            else:
+                with conn() as c:c.execute('UPDATE users SET phone=? WHERE id=?',(phone,session['uid']))
+                flash('تم حفظ التغييرات.','success')
+        elif action=='password':
+            u=current_user(); old=request.form.get('current',''); new=request.form.get('next','')
+            if not check_password_hash(u['password_hash'],old):flash('كلمة المرور الحالية غير صحيحة.','error')
+            elif len(new)<8 or not re.search(r'[A-Za-z\u0600-\u06FF]',new) or not re.search(r'\d',new):flash('كلمة المرور الجديدة تتطلب ٨ أحرف وحرفًا ورقمًا.','error')
+            elif new!=request.form.get('confirm',''):flash('كلمتا المرور غير متطابقتين.','error')
+            else:
+                with conn() as c:c.execute('UPDATE users SET password_hash=? WHERE id=?',(generate_password_hash(new),session['uid']))
+                flash('تم تغيير كلمة المرور.','success')
+        elif action=='notifications':
+            with conn() as c:c.execute('UPDATE users SET notification_status=?,notification_result=? WHERE id=?',(int(request.form.get('status')=='on'),int(request.form.get('result')=='on'),session['uid']))
+            flash('تم حفظ تفضيلات الإشعارات محليًا.','success')
+        return redirect(url_for('profile',tab=tab))
+    with conn() as c: cars=c.execute('SELECT * FROM garage_vehicles WHERE user_id=? ORDER BY id DESC',(session['uid'],)).fetchall()
+    return render_template('profile.html',tab=tab,cars=cars)
+
+@app.post('/profile/vehicles')
+@login_required
+def save_vehicle():
+    data={k:request.form.get(k,'').strip() for k in ('plate','manufacturer','model','year','color')}
+    if any(not v for v in data.values()) or not re.fullmatch(r'\d{4}',normalized_digits(data['year'])):
+        flash('أكمل بيانات المركبة بما فيها سنة من أربعة أرقام.','error');return redirect(url_for('profile',tab='vehicles'))
+    data['year']=normalized_digits(data['year'])
+    vid=request.form.get('vehicle_id','')
+    with conn() as c:
+        if vid.isdigit():
+            cur=c.execute('UPDATE garage_vehicles SET plate=?,manufacturer=?,model=?,year=?,color=? WHERE id=? AND user_id=?',(*[data[k] for k in ('plate','manufacturer','model','year','color')],int(vid),session['uid']))
+            if not cur.rowcount:abort(404)
+        else:c.execute('INSERT INTO garage_vehicles(user_id,plate,manufacturer,model,year,color) VALUES(?,?,?,?,?,?)',(session['uid'],*[data[k] for k in ('plate','manufacturer','model','year','color')]))
+    flash('تم حفظ المركبة بنجاح.','success');return redirect(url_for('profile',tab='vehicles'))
+
+@app.post('/profile/vehicles/<int:vehicle_id>/delete')
+@login_required
+def delete_vehicle(vehicle_id):
+    with conn() as c:
+        cur=c.execute('DELETE FROM garage_vehicles WHERE id=? AND user_id=?',(vehicle_id,session['uid']))
+        if not cur.rowcount:abort(404)
+    flash('تم حذف المركبة.','success');return redirect(url_for('profile',tab='vehicles'))
+
+@app.get('/privacy')
+def privacy_page():return render_template('legal.html',privacy=True)
+
+@app.get('/terms')
+def terms_page():return render_template('legal.html',privacy=False)
+
+@app.get('/cases')
+@login_required
+def cases_page():
+    with conn() as c:
+        cases=c.execute('SELECT DISTINCT ca.* FROM cases ca LEFT JOIN parties p ON p.case_id=ca.id WHERE ca.creator_id=? OR p.user_id=? ORDER BY ca.id DESC',(session['uid'],session['uid'])).fetchall()
+    return render_template('dashboard.html',cases=cases,all_cases=True)
+
+@app.get('/health')
+def health():
+    with conn() as c: c.execute('SELECT 1')
+    return jsonify(status='ok',database='connected')
+
+init_db()
+if __name__=='__main__': app.run(debug=os.getenv('FLASK_DEBUG')=='1',port=int(os.getenv('PORT','5000')))
