@@ -125,7 +125,9 @@
 
         {% elif step==4 %}
         <!-- 4: وصف الحادث -->
-        <label>صفي ما حدث من وجهة نظرك<textarea name="description" rows="7" required placeholder="اذكري اتجاه السير، تسلسل الأحداث، وأي ملاحظات مهمة...">{{party.description or ''}}</textarea></label>
+        <textarea name="description" rows="7"
+          required minlength="10" maxlength="500"
+          placeholder="اذكري اتجاه السير، تسلسل الأحداث، وأي ملاحظات مهمة...">{{party.description or ''}}</textarea></label>
         <p class="fineprint">تُحفظ إفادتك كما كتبتها ولا تمثل حكماً على المسؤولية.</p>
 
         {% elif step==5 %}
@@ -239,7 +241,12 @@
 
       <!-- الأزرار -->
       <div class="wizardfooter">
-        <a class="btn secondary" href="{{url_for('wizard',case_id=case.id,step=step-1) if step>1 else url_for('dashboard')}}">{{'إلغاء' if step==1 else 'السابق'}}</a>
+        {% if not party.completed %}
+<a class="btn secondary"
+   href="{{url_for('wizard',case_id=case.id,step=step-1) if step>1 else url_for('dashboard')}}">
+   {{'إلغاء' if step==1 else 'السابق'}}
+</a>
+{% endif %}
         {% if step==7 %}
         <a class="btn primary" href="{{url_for('dashboard')}}">العودة إلى بلاغاتي ←</a>
         {% else %}
