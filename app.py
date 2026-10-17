@@ -15,7 +15,12 @@ from dotenv import load_dotenv
 load_dotenv(BASE / ".env")
 app=Flask(__name__)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY', secrets.token_hex(32)), MAX_CONTENT_LENGTH=200*1024*1024, SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax', SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE')=='1')
-DB=Path(os.getenv('DATABASE_PATH',str(BASE/'siyaq.db')))
+DB=DB = Path(
+    os.getenv(
+        "DATABASE_PATH",
+        "/tmp/siyaq.db" if os.environ.get("VERCEL") else str(BASE / "siyaq.db")
+    )
+)
 UPLOAD=BASE/'uploads'; import os
 
 if os.environ.get("VERCEL"):
