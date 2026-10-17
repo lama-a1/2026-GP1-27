@@ -20,6 +20,21 @@ DB=Path(os.getenv('DATABASE_PATH', '/tmp/siyaq.db' if os.getenv('VERCEL') else s
 UPLOAD=Path('/tmp/siyaq_uploads') if os.getenv('VERCEL') else BASE/'uploads'
 UPLOAD.mkdir(parents=True,exist_ok=True)
 ALLOWED={'mp4','mov','avi','webm','mkv'}
+VIDEO_MAX_BYTES = 200 * 1024 * 1024
+VIDEO_MIME = {'mp4':'video/mp4','mov':'video/quicktime','avi':'video/x-msvideo','webm':'video/webm','mkv':'video/x-matroska'}
+
+def storage_ready():
+    return bool(os.getenv('S3_BUCKET', '').strip() and os.getenv('AWS_REGION', '').strip()
+                and os.getenv('AWS_ACCESS_KEY_ID', '').strip() and os.getenv('AWS_SECRET_ACCESS_KEY', '').strip())
+
+def storage_client():
+    import boto3
+    return boto3.client('s3', region_name=os.environ['AWS_REGION'])
+
+def stored_s3_key(value):
+    return value[5:] if value.startswith('s3://') else None
+
+
 
 if DATABASE_URL:
     import psycopg
@@ -131,7 +146,7 @@ app.jinja_env.globals['csrf_token']=csrf
 @app.before_request
 def protect():
     if request.method in ('POST','PUT','PATCH','DELETE'):
-        if not secrets.compare_digest(request.form.get('csrf_token',''), session.get('csrf','')): abort(400,'Invalid CSRF token. Refresh and retry.')
+        if not secrets.compare_digest(request.form.get('csrf_token','') or request.headers.get('X-CSRF-Token',''), session.get('csrf','')): abort(400,'Invalid CSRF token. Refresh and retry.')
 
 def login_required(fn):
     @wraps(fn)
@@ -451,36 +466,47 @@ def login():
 def expert_register():
     if session.get('expert_authenticated'):
         return redirect(url_for('expert_cases'))
-    registration_enabled = bool(os.getenv('EXPERT_REGISTRATION_CODE', '').strip())
+    configured_code = os.getenv('EXPERT_REGISTRATION_CODE', '').strip()
+    pending = session.get('expert_registration')
+    verified = bool(pending and time.time() - pending.get('verified_at', 0) < 600)
+    if not verified:
+        session.pop('expert_registration', None)
     if request.method == 'POST':
-        full_name = request.form.get('full_name', '').strip()
-        username = request.form.get('username', '').strip().lower()
-        password = request.form.get('password', '')
-        confirm_password = request.form.get('confirm_password', '')
-        authorization_code = request.form.get('authorization_code', '')
-        configured_code = os.getenv('EXPERT_REGISTRATION_CODE', '').strip()
-        valid_code = bool(configured_code) and hmac.compare_digest(authorization_code, configured_code)
-        if not valid_code:
-            flash('رمز تفويض الخبير غير صحيح أو التسجيل غير مفعّل.', 'error')
-        elif len(full_name) < 3 or len(full_name) > 100:
-            flash('أدخل الاسم الكامل للخبير (٣ إلى ١٠٠ حرف).', 'error')
-        elif not re.fullmatch(r'[a-z0-9][a-z0-9_.-]{3,31}', username):
-            flash('معرّف الخبير يجب أن يكون من ٤ إلى ٣٢ حرفًا إنجليزيًا أو رقمًا.', 'error')
-        elif len(password) < 12 or len(password) > 128:
-            flash('كلمة المرور يجب أن تحتوي على ١٢ حرفًا على الأقل.', 'error')
-        elif password != confirm_password:
-            flash('كلمتا المرور غير متطابقتين.', 'error')
+        action = request.form.get('action', 'verify')
+        if action == 'verify':
+            full_name = request.form.get('full_name', '').strip()
+            supplied_code = request.form.get('authorization_code', '').strip()
+            if not configured_code or not hmac.compare_digest(supplied_code, configured_code):
+                flash('تعذر التحقق من رمز التفويض. يرجى التأكد من البيانات.', 'error')
+            elif not 3 <= len(full_name) <= 100:
+                flash('يرجى إدخال الاسم الكامل.', 'error')
+            else:
+                session['expert_registration'] = {'full_name': full_name, 'verified_at': time.time()}
+                return redirect(url_for('expert_register'))
+        elif action == 'create' and verified:
+            username = request.form.get('username', '').strip().lower()
+            password = request.form.get('password', '')
+            confirm_password = request.form.get('confirm_password', '')
+            if not re.fullmatch(r'[a-z0-9][a-z0-9_.-]{3,31}', username):
+                flash('معرّف الخبير يجب أن يكون من ٤ إلى ٣٢ حرفًا إنجليزيًا أو رقمًا.', 'error')
+            elif not 12 <= len(password) <= 128:
+                flash('كلمة المرور يجب أن تحتوي على ١٢ حرفًا على الأقل.', 'error')
+            elif password != confirm_password:
+                flash('كلمتا المرور غير متطابقتين.', 'error')
+            else:
+                with conn() as c:
+                    existing = c.execute('SELECT id FROM expert_accounts WHERE username=?', (username,)).fetchone()
+                    if existing:
+                        flash('معرّف الخبير مستخدم بالفعل.', 'error')
+                    else:
+                        c.execute('INSERT INTO expert_accounts(full_name, username, password_hash) VALUES(?,?,?)',
+                                  (pending['full_name'], username, generate_password_hash(password)))
+                        session.pop('expert_registration', None)
+                        flash('تم إنشاء الحساب. يمكنك تسجيل الدخول الآن.', 'success')
+                        return redirect(url_for('expert_login'))
         else:
-            with conn() as c:
-                existing = c.execute('SELECT id FROM expert_accounts WHERE username=?', (username,)).fetchone()
-                if existing:
-                    flash('معرّف الخبير مستخدم بالفعل.', 'error')
-                else:
-                    c.execute('INSERT INTO expert_accounts(full_name, username, password_hash) VALUES(?,?,?)',
-                              (full_name, username, generate_password_hash(password)))
-                    flash('تم إنشاء حساب الخبير. يمكنك تسجيل الدخول الآن.', 'success')
-                    return redirect(url_for('expert_login'))
-    return render_template('expert_register.html', registration_enabled=registration_enabled)
+            flash('انتهت صلاحية التحقق. يرجى إعادة المحاولة.', 'error')
+    return render_template('expert_register.html', verified=verified, registration_enabled=bool(configured_code))
 
 @app.route('/expert/login', methods=['GET', 'POST'])
 def expert_login():
@@ -668,7 +694,7 @@ def wizard(case_id,step):
                 flash('حجم الفيديو يتجاوز 200 ميجابايت.','error')
                 return redirect(request.url)
             if f and f.filename and os.getenv('VERCEL'):
-                flash('رفع الفيديو غير متاح على Vercel حتى ربط تخزين دائم وآمن.','error')
+                flash('يرجى رفع الفيديو باستخدام خانة الرفع الظاهرة في الصفحة.','error')
                 return redirect(request.url)
             if f and f.filename:
                 ext=f.filename.rsplit('.',1)[-1].lower() if '.' in f.filename else ''
@@ -698,13 +724,75 @@ def wizard(case_id,step):
     with conn() as c:
         invited=c.execute("SELECT * FROM invitations WHERE case_id=? AND recipient_email IS NOT NULL ORDER BY id DESC LIMIT 1",(case_id,)).fetchone()
         other_party=c.execute("SELECT user_id FROM parties WHERE case_id=? AND position='B'",(case_id,)).fetchone()
-    return render_template('wizard.html',case=case,party=party,vehicle=vehicle,videos=videos,step=step,steps=STEPS,invite=invited,other_party=other_party)
+    return render_template('wizard.html',case=case,party=party,vehicle=vehicle,videos=videos,step=step,steps=STEPS,invite=invited,other_party=other_party,cloud_upload=bool(os.getenv('VERCEL')))
+@app.post('/api/cases/<int:case_id>/videos/presign')
+@login_required
+def video_presign(case_id):
+    case, party = case_access(case_id)
+    if not party: abort(403)
+    if not storage_ready():
+        return jsonify(error='خدمة رفع الفيديو غير متاحة حاليًا. يرجى المحاولة لاحقًا.'), 503
+    data = request.get_json(silent=True) or {}
+    original = str(data.get('filename', ''))
+    size = data.get('size')
+    ext = original.rsplit('.', 1)[-1].lower() if '.' in original else ''
+    if ext not in ALLOWED or type(size) is not int or not 0 < size <= VIDEO_MAX_BYTES:
+        return jsonify(error='يرجى اختيار فيديو بصيغة مدعومة وحجم لا يتجاوز 200 ميجابايت.'), 400
+    key = f'cases/{case_id}/parties/{party["id"]}/{uuid.uuid4().hex}.{ext}'
+    mime = VIDEO_MIME[ext]
+    try:
+        upload_url = storage_client().generate_presigned_url('put_object',
+            Params={'Bucket':os.environ['S3_BUCKET'], 'Key':key, 'ContentType':mime}, ExpiresIn=600)
+    except Exception:
+        app.logger.exception('Could not prepare video upload')
+        return jsonify(error='تعذر بدء رفع الفيديو. يرجى المحاولة لاحقًا.'), 503
+    session['pending_video'] = {'key':key,'case_id':case_id,'party_id':party['id'],
+                                'name':secure_filename(original) or 'video.'+ext,
+                                'size':size,'expires':time.time()+600}
+    return jsonify(upload_url=upload_url, content_type=mime)
+
+@app.post('/api/cases/<int:case_id>/videos/complete')
+@login_required
+def video_complete(case_id):
+    case, party = case_access(case_id)
+    if not party: abort(403)
+    pending = session.get('pending_video') or {}
+    if pending.get('case_id') != case_id or pending.get('party_id') != party['id'] or pending.get('expires',0) < time.time():
+        return jsonify(error='انتهت مهلة رفع الفيديو. يرجى إعادة المحاولة.'), 400
+    if not storage_ready():
+        return jsonify(error='خدمة رفع الفيديو غير متاحة حاليًا.'), 503
+    try:
+        meta = storage_client().head_object(Bucket=os.environ['S3_BUCKET'], Key=pending['key'])
+        if meta['ContentLength'] != pending['size']:
+            return jsonify(error='لم يكتمل رفع الفيديو. يرجى إعادة المحاولة.'), 400
+        with conn() as c:
+            video_id=insert_id(c,'INSERT INTO videos(case_id,party_id,original_name,stored_name) VALUES(?,?,?,?)',
+                (case_id,party['id'],pending['name'],'s3://'+pending['key']))
+            c.execute('INSERT INTO analysis_jobs(video_id) VALUES(?)',(video_id,))
+        session.pop('pending_video', None)
+    except Exception:
+        app.logger.exception('Could not finalize video upload')
+        return jsonify(error='تعذر حفظ الفيديو. يرجى المحاولة لاحقًا.'), 503
+    return jsonify(ok=True, next_url=url_for('wizard',case_id=case_id,step=6))
+
 @app.get('/videos/<int:video_id>/download')
 @login_required
 def download_video(video_id):
     with conn() as c: v=c.execute('SELECT * FROM videos WHERE id=?',(video_id,)).fetchone()
     if not v:abort(404)
     case_access(v['case_id'])
+    key = stored_s3_key(v['processed_name'] or v['stored_name'])
+    if key:
+        if not storage_ready(): abort(503)
+        try:
+            link=storage_client().generate_presigned_url('get_object', Params={
+                'Bucket':os.environ['S3_BUCKET'],'Key':key,
+                'ResponseContentDisposition':f'attachment; filename="{secure_filename(v["original_name"])}"'}, ExpiresIn=120)
+            return redirect(link)
+        except Exception:
+            app.logger.exception('Video download failed')
+            abort(503)
+    if os.getenv('VERCEL'): abort(404)
     return send_from_directory(UPLOAD,v['processed_name'] or v['stored_name'],as_attachment=True,download_name=v['original_name'])
 @app.post('/videos/<int:video_id>/process')
 @login_required
@@ -712,6 +800,9 @@ def process_video(video_id):
     with conn() as c: v=c.execute('SELECT * FROM videos WHERE id=?',(video_id,)).fetchone()
     if not v:abort(404)
     case_access(v['case_id'])
+    if stored_s3_key(v['stored_name']):
+        flash('معالجة الفيديو ستتوفر لاحقًا.','error')
+        return redirect(url_for('wizard',case_id=v['case_id'],step=5))
     from privacy import process_privacy
     result=process_privacy(UPLOAD/v['stored_name'],UPLOAD)
     with conn() as c:

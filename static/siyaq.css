@@ -190,3 +190,30 @@ body:has(.siyaq-auth) .siyaq-footer{display:block!important}
 .siyaq-auth-form input{width:100%;margin-top:8px}
 .siyaq-auth-form button[data-registration-unavailable]{pointer-events:none!important;background:#a5cbb6!important}
 @media(max-width:700px){.siyaq-footer .footer-inner{justify-content:center;text-align:center;flex-direction:column;padding:18px 10px}}
+
+/* Expert authorization layout */
+.expert-register-clean{min-height:calc(100dvh - 180px);display:grid;place-items:center;padding:70px 20px;background:#fff}
+.expert-register-panel{width:min(410px,100%);background:#fff;padding:34px 0 22px;text-align:right}
+.expert-register-panel h1{font-size:30px;color:#0b2419;margin:0 0 4px;font-weight:800}
+.expert-register-panel>.muted{font-size:13px;color:#8b9990;margin:0 0 24px}
+.expert-register-fields{display:grid;gap:18px}
+.expert-register-fields label{font-size:13px;font-weight:800;color:#1b3528}
+.expert-register-fields input{margin-top:8px!important;min-height:43px!important}
+.expert-verify-btn{display:block;width:100%;border:1px solid #b6d8c4;border-radius:7px;background:#fff;color:#006c35;padding:12px;margin-top:14px;font-weight:800;cursor:pointer}
+.expert-verify-btn:disabled{background:#f4f8f6!important;color:#9ab5a5!important;cursor:not-allowed}
+.expert-register-security{border-top:1px solid #e5eae7;padding:19px 0 0;margin-top:28px;text-align:center;font-size:11px;color:#829087}
+.expert-verified{background:#e9f5ed;border-radius:8px;padding:12px;color:#006c35;margin-bottom:20px;font-size:13px}
+.upload-progress{margin-top:14px;padding:13px 16px;background:#eef7f2;border-radius:10px;color:#006c35;font-size:13px}
+.upload-progress-track{height:7px;background:#d0e8da;border-radius:20px;overflow:hidden;margin-bottom:8px}
+#video-upload-progress{height:100%;width:0;background:#006c35;transition:width .2s}
+
+
+.accident-location-field{grid-column:1/-1;min-width:0}
+.accident-location-field>label{display:block;margin-bottom:8px}
+.accident-location-controls{display:flex;align-items:stretch;gap:10px;flex-wrap:wrap}
+.accident-location-controls input{flex:1 1 260px;min-width:0}
+.accident-location-controls .locate-me-btn{flex:0 0 auto;white-space:nowrap;min-height:46px}
+.accident-location-controls .locate-me-btn:disabled{opacity:.55;cursor:wait}
+.location-feedback{color:#667d72;font-size:12px;line-height:1.7;margin:9px 0 0}
+.location-map-link{display:inline-block;color:#006b38;font-weight:700;font-size:13px;margin-top:7px}
+@media(max-width:520px){.accident-location-controls{flex-direction:column}.accident-location-controls input,.accident-location-controls .locate-me-btn{width:100%;flex:auto}}
