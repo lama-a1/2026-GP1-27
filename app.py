@@ -142,7 +142,7 @@ def current_user():
     if not session.get('uid'): return None
     with conn() as c: return c.execute('SELECT * FROM users WHERE id=?',(session['uid'],)).fetchone()
 @app.context_processor
-def globals_ctx(): return {'user':current_user()}
+def globals_ctx(): return {'user':current_user(), 'expert_logged_in': bool(session.get('expert_authenticated'))}
 
 def case_access(case_id):
     with conn() as c:
@@ -437,6 +437,38 @@ def login():
             return redirect(nxt if nxt.startswith('/') and not nxt.startswith('//') else url_for('dashboard'))
         flash('رقم الهوية الوطنية أو كلمة المرور غير صحيحة.','error')
     return render_template('auth.html',mode='login')
+@app.route('/expert/login', methods=['GET', 'POST'])
+def expert_login():
+    if session.get('expert_authenticated'):
+        return redirect(url_for('expert_cases'))
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        expected_username = os.getenv('EXPERT_USERNAME', '').strip()
+        expected_hash = os.getenv('EXPERT_PASSWORD_HASH', '').strip()
+        valid_user = bool(expected_username) and hmac.compare_digest(username.encode(), expected_username.encode())
+        valid_password = bool(expected_hash) and check_password_hash(expected_hash, password)
+        if valid_user and valid_password:
+            session.clear()
+            session['expert_authenticated'] = True
+            csrf()
+            return redirect(url_for('expert_cases'))
+        flash('بيانات الدخول غير صحيحة أو لم يتم إعداد حساب الخبير.', 'error')
+    return render_template('expert_login.html')
+
+@app.get('/expert/cases')
+def expert_cases():
+    if not session.get('expert_authenticated'):
+        return redirect(url_for('expert_login'))
+    with conn() as c:
+        cases = c.execute('SELECT reference, accident_type, accident_date, accident_time, status, created_at FROM cases ORDER BY id DESC LIMIT 100').fetchall()
+    return render_template('expert_cases.html', cases=cases)
+
+@app.post('/expert/logout')
+def expert_logout():
+    session.clear()
+    return redirect(url_for('home'))
+
 @app.post('/logout')
 def logout(): session.clear(); return redirect(url_for('home'))
 @app.get('/dashboard')

@@ -11,6 +11,7 @@
     <div class="auth-journey"><h3>خطوات واضحة لمتابعة بلاغك</h3><div class="auth-benefits"><div><span>01</span> أنشئ بلاغًا وأدخل معلومات الحادث</div><div><span>02</span> ادعُ الطرف الثاني عبر البريد الإلكتروني</div><div><span>03</span> أكمل البيانات وتابع حالة البلاغ</div></div></div>
   </aside>
   <section class="siyaq-auth-card">
+    <a class="auth-back" href="{{url_for('home')}}">→ العودة إلى الرئيسية</a>
     <div class="auth-heading">
       <h1>{{ 'إنشاء حساب' if mode=='register' else 'مرحبًا بعودتك' }}</h1>
       <p>{{ 'أدخل بياناتك مرة واحدة لتستخدمها في بلاغاتك القادمة.' if mode=='register' else 'سجّل الدخول لمتابعة بلاغاتك أو بدء بلاغ جديد.' }}</p>

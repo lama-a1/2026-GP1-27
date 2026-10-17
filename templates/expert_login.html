@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}دخول الخبير | سياق{% endblock %}
+{% block content %}
+<div class="siyaq-auth expert-auth">
+  <aside class="siyaq-auth-side">
+    <div>
+      <span class="auth-chip">● مساحة الخبير المختص</span>
+      <h2>مراجعة منظمة<br>لبلاغات الحوادث.</h2>
+      <p>يمكن للخبير الاطلاع على قائمة الحالات في الإصدار الأول. ستتاح أدوات المراجعة واتخاذ القرار في الإصدار الثاني.</p>
+    </div>
+    <div class="auth-journey"><h3>الإصدار الأول</h3><div class="auth-benefits"><div><span>01</span> دخول الخبير المصرّح له</div><div><span>02</span> الاطلاع على قائمة الحالات</div><div><span>03</span> المراجعة والاعتماد في الإصدار الثاني</div></div></div>
+  </aside>
+  <section class="siyaq-auth-card">
+    <a href="{{url_for('home')}}" class="auth-back">→ العودة إلى الرئيسية</a>
+    <div class="auth-heading"><h1>دخول الخبير المختص</h1><p>تسجيل دخول خاص للمصرّح لهم. عرض الحالات فقط.</p></div>
+    {% with msgs=get_flashed_messages(with_categories=true) %}{% for category,message in msgs %}<div class="auth-inline-alert {{category}}" role="alert">{{message}}</div>{% endfor %}{% endwith %}
+    <form method="post" class="siyaq-auth-form siyaq-validated-form">
+      <input type="hidden" name="csrf_token" value="{{csrf_token()}}">
+      <div class="identity-stack">
+        <label>معرّف الخبير<input type="text" name="username" required autocomplete="username" placeholder="معرّف الخبير"></label>
+        <label>كلمة المرور<input type="password" name="password" required autocomplete="current-password" placeholder="كلمة المرور"></label>
+      </div>
+      <button class="siyaq-auth-submit guarded-submit" type="submit" disabled>الدخول إلى قائمة الحالات ←</button>
+    </form>
+    <p class="expert-info">هذه المساحة للعرض فقط. لا تتوفر أي إجراءات مراجعة أو اعتماد في هذا الإصدار.</p>
+    <div class="siyaq-auth-security">🔒 حساب الخبير يحدده مسؤول المشروع</div>
+  </section>
+</div>
+{% endblock %}
