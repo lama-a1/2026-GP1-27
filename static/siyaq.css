@@ -324,3 +324,12 @@ input[readonly]{background:#f3f6f4!important;color:#5d7266!important;cursor:not-
 .expert-group{margin-top:26px}
 .expert-group h2{font-size:16px;display:flex;align-items:center;gap:10px;margin:0 0 12px}
 .expert-group h2 small{color:#82958b;font-weight:400;font-size:12px}
+
+/* Expert rules page */
+.rules-principle{background:#fff;border:1px solid #dce5df;border-radius:12px;padding:18px 22px;margin-top:22px}
+.rules-principle h2{font-size:16px;display:flex;align-items:center;gap:8px;margin:0 0 10px}
+.rules-principle ul{margin:0;padding-inline-start:20px;line-height:2;font-size:14px}
+.rules-principle .fineprint{text-align:right;margin-top:8px}
+.rules-table td{vertical-align:top;line-height:1.8;font-size:13px}
+.rule-id{display:inline-block;background:#e6f4ec;color:#006c35;font-weight:800;border-radius:6px;padding:2px 8px}
+.rule-ratio{font-weight:800;white-space:normal!important;min-width:150px;line-height:1.9}
