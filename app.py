@@ -16,7 +16,14 @@ load_dotenv(BASE / ".env")
 app=Flask(__name__)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY', secrets.token_hex(32)), MAX_CONTENT_LENGTH=200*1024*1024, SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax', SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE')=='1')
 DB=Path(os.getenv('DATABASE_PATH',str(BASE/'siyaq.db')))
-UPLOAD=BASE/'uploads'; UPLOAD.mkdir(exist_ok=True)
+UPLOAD=BASE/'uploads'; import os
+
+if os.environ.get("VERCEL"):
+    UPLOAD_PATH = Path("/tmp/siyaq_uploads")
+else:
+    UPLOAD_PATH = BASE / "uploads"
+
+UPLOAD_PATH.mkdir(parents=True, exist_ok=True)
 ALLOWED={'mp4','mov','avi','webm','mkv'}
 
 def conn():
