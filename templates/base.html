@@ -18,6 +18,7 @@
     <nav id="main-nav" aria-label="التنقل الرئيسي">
       {% if expert_logged_in %}
         <a href="{{ url_for('expert_cases') }}">الحالات</a>
+      <a href="{{ url_for('expert_rules') }}">القواعد</a>
         <form method="post" action="{{ url_for('expert_logout') }}" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkbtn" type="submit">تسجيل الخروج</button></form>
       {% elif user %}
         <a href="{{ url_for('cases_page') }}">بلاغاتي</a>
@@ -53,6 +54,7 @@
       <h3>روابط سريعة</h3>
       {% if expert_logged_in %}
         <a href="{{url_for('expert_cases')}}">الحالات</a>
+      <a href="{{ url_for('expert_rules') }}">القواعد</a>
       {% elif user %}
         <a href="{{url_for('cases_page')}}">بلاغاتي</a>
         <a href="{{url_for('new_case')}}">بلاغ جديد</a>
