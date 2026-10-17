@@ -690,7 +690,11 @@ def expert_cases():
         cases = c.execute('SELECT reference, accident_type, accident_date, accident_time, status, created_at FROM cases ORDER BY id DESC LIMIT 100').fetchall()
     groups = {k: [x for x in cases if status_key(x['status']) == k] for k in ('pending', 'in_progress', 'completed')}
     return render_template('expert_cases.html', cases=cases, groups=groups)
-
+@app.get('/expert/rules')
+def expert_rules():
+    if not session.get('expert_authenticated'):
+        return redirect(url_for('expert_login'))
+    return render_template('expert_rules.html')
 @app.post('/expert/logout')
 def expert_logout():
     session.clear()
