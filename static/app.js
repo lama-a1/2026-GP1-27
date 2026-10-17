@@ -11,8 +11,8 @@ function showFilename(input){const el=document.getElementById('filename');if(el)
       if(el.type==='file')return !el.required||el.files.length>0;
       return el.checkValidity();
     });
-    button.disabled=!valid;
-    button.setAttribute('aria-disabled',String(!valid));
+    button.disabled=!valid || button.dataset.registrationUnavailable==='true';
+    button.setAttribute('aria-disabled',String(button.disabled));
   }
   function attach(form){
     const refresh=()=>updateForm(form);
@@ -28,3 +28,6 @@ function showFilename(input){const el=document.getElementById('filename');if(el)
   }
   document.querySelectorAll('form.siyaq-validated-form').forEach(attach);
 })();
+
+// Keep expert registration unavailable until a server-side authorization code is configured.
+document.querySelectorAll('[data-registration-unavailable="true"]').forEach(button => {button.disabled = true;});

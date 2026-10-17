@@ -96,6 +96,10 @@ def init_db():
                 id BIGSERIAL PRIMARY KEY, video_id BIGINT NOT NULL UNIQUE REFERENCES videos(id) ON DELETE CASCADE,
                 status TEXT NOT NULL DEFAULT 'not_started', details TEXT,
                 updated_at TEXT DEFAULT to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS'))''')
+            c.execute('''CREATE TABLE IF NOT EXISTS expert_accounts(
+                id BIGSERIAL PRIMARY KEY, full_name TEXT NOT NULL,
+                username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
+                created_at TEXT DEFAULT to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS'))''')
         return
     with conn() as c:
         c.executescript('''
@@ -107,6 +111,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS videos(id INTEGER PRIMARY KEY, case_id INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE, party_id INTEGER NOT NULL REFERENCES parties(id), original_name TEXT NOT NULL, stored_name TEXT NOT NULL, processed_name TEXT, privacy_status TEXT NOT NULL DEFAULT 'pending', uploaded_at TEXT DEFAULT CURRENT_TIMESTAMP, processing_note TEXT);
         CREATE TABLE IF NOT EXISTS garage_vehicles(id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, plate TEXT NOT NULL, manufacturer TEXT NOT NULL, model TEXT NOT NULL, year INTEGER NOT NULL, color TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS analysis_jobs(id INTEGER PRIMARY KEY, video_id INTEGER NOT NULL UNIQUE REFERENCES videos(id) ON DELETE CASCADE, status TEXT NOT NULL DEFAULT 'not_started', details TEXT, updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS expert_accounts(id INTEGER PRIMARY KEY, full_name TEXT NOT NULL, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
         ''')
         cols={r[1] for r in c.execute('PRAGMA table_info(users)').fetchall()}
         if 'national_id' not in cols: c.execute('ALTER TABLE users ADD COLUMN national_id TEXT')
@@ -158,7 +163,7 @@ def home():
         return redirect(url_for('expert_cases'))
     if current_user():
         return redirect(url_for('dashboard'))
-    return render_template('home.html')
+    return redirect(url_for('login'))
 def normalized_digits(value):
     return str(value).translate(str.maketrans('٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹','01234567890123456789')).strip()
 
@@ -442,23 +447,64 @@ def login():
             return redirect(nxt if nxt.startswith('/') and not nxt.startswith('//') else url_for('dashboard'))
         flash('رقم الهوية الوطنية أو كلمة المرور غير صحيحة.','error')
     return render_template('auth.html',mode='login')
+@app.route('/expert/register', methods=['GET', 'POST'])
+def expert_register():
+    if session.get('expert_authenticated'):
+        return redirect(url_for('expert_cases'))
+    registration_enabled = bool(os.getenv('EXPERT_REGISTRATION_CODE', '').strip())
+    if request.method == 'POST':
+        full_name = request.form.get('full_name', '').strip()
+        username = request.form.get('username', '').strip().lower()
+        password = request.form.get('password', '')
+        confirm_password = request.form.get('confirm_password', '')
+        authorization_code = request.form.get('authorization_code', '')
+        configured_code = os.getenv('EXPERT_REGISTRATION_CODE', '').strip()
+        valid_code = bool(configured_code) and hmac.compare_digest(authorization_code, configured_code)
+        if not valid_code:
+            flash('رمز تفويض الخبير غير صحيح أو التسجيل غير مفعّل.', 'error')
+        elif len(full_name) < 3 or len(full_name) > 100:
+            flash('أدخل الاسم الكامل للخبير (٣ إلى ١٠٠ حرف).', 'error')
+        elif not re.fullmatch(r'[a-z0-9][a-z0-9_.-]{3,31}', username):
+            flash('معرّف الخبير يجب أن يكون من ٤ إلى ٣٢ حرفًا إنجليزيًا أو رقمًا.', 'error')
+        elif len(password) < 12 or len(password) > 128:
+            flash('كلمة المرور يجب أن تحتوي على ١٢ حرفًا على الأقل.', 'error')
+        elif password != confirm_password:
+            flash('كلمتا المرور غير متطابقتين.', 'error')
+        else:
+            with conn() as c:
+                existing = c.execute('SELECT id FROM expert_accounts WHERE username=?', (username,)).fetchone()
+                if existing:
+                    flash('معرّف الخبير مستخدم بالفعل.', 'error')
+                else:
+                    c.execute('INSERT INTO expert_accounts(full_name, username, password_hash) VALUES(?,?,?)',
+                              (full_name, username, generate_password_hash(password)))
+                    flash('تم إنشاء حساب الخبير. يمكنك تسجيل الدخول الآن.', 'success')
+                    return redirect(url_for('expert_login'))
+    return render_template('expert_register.html', registration_enabled=registration_enabled)
+
 @app.route('/expert/login', methods=['GET', 'POST'])
 def expert_login():
     if session.get('expert_authenticated'):
         return redirect(url_for('expert_cases'))
     if request.method == 'POST':
-        username = request.form.get('username', '').strip()
+        username = request.form.get('username', '').strip().lower()
         password = request.form.get('password', '')
-        expected_username = os.getenv('EXPERT_USERNAME', '').strip()
+        with conn() as c:
+            expert = c.execute('SELECT id, password_hash FROM expert_accounts WHERE username=?', (username,)).fetchone()
+        valid_registered = bool(expert) and check_password_hash(expert['password_hash'], password)
+        expected_username = os.getenv('EXPERT_USERNAME', '').strip().lower()
         expected_hash = os.getenv('EXPERT_PASSWORD_HASH', '').strip()
-        valid_user = bool(expected_username) and hmac.compare_digest(username.encode(), expected_username.encode())
-        valid_password = bool(expected_hash) and check_password_hash(expected_hash, password)
-        if valid_user and valid_password:
+        valid_legacy = (bool(expected_username) and bool(expected_hash)
+                        and hmac.compare_digest(username, expected_username)
+                        and check_password_hash(expected_hash, password))
+        if valid_registered or valid_legacy:
             session.clear()
             session['expert_authenticated'] = True
+            if valid_registered:
+                session['expert_id'] = expert['id']
             csrf()
             return redirect(url_for('expert_cases'))
-        flash('بيانات الدخول غير صحيحة أو لم يتم إعداد حساب الخبير.', 'error')
+        flash('معرّف الخبير أو كلمة المرور غير صحيحة.', 'error')
     return render_template('expert_login.html')
 
 @app.get('/expert/cases')

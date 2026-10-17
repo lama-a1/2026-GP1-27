@@ -177,3 +177,16 @@ body:has(.siyaq-auth) .siyaq-auth{min-height:calc(100dvh - 72px)}
 .topbar nav .linkbtn{background:#edf5f0;border:0;color:#006c35;padding:11px 15px;border-radius:8px;font-weight:700}
 .siyaq-footer .footer-inner img{background:transparent;box-shadow:none;border:0;padding:0;border-radius:0;object-fit:contain}
 @media(max-width:760px){.navwrap{padding:12px 16px;gap:10px}.topbar nav{gap:5px}.topbar nav>a,.topbar nav .linkbtn{font-size:12px;padding:8px 9px}.topbar nav>a.nav-guest-login,.topbar nav>a.nav-guest-expert{padding:9px 12px}.siyaq-logo .siyaq-logo-img{width:90px}}
+
+/* Consistent footer branding and uncluttered guest navigation */
+body:has(.siyaq-auth) .siyaq-footer{display:block!important}
+.siyaq-footer{background:#0b2e1d var(--pattern)!important;margin-top:0}
+.siyaq-footer .footer-inner{min-height:90px;gap:18px}
+.siyaq-footer .footer-inner img{width:116px!important;height:auto!important;max-height:64px!important;filter:none!important}
+.siyaq-footer .footer-inner a{display:inline-flex;align-items:center;justify-content:center}
+.siyaq-auth{min-height:calc(100dvh - 164px)!important}
+.siyaq-auth-card{padding-top:45px;padding-bottom:45px}
+.siyaq-auth-form label{display:block;margin:12px 0;font-weight:700;font-size:13px}
+.siyaq-auth-form input{width:100%;margin-top:8px}
+.siyaq-auth-form button[data-registration-unavailable]{pointer-events:none!important;background:#a5cbb6!important}
+@media(max-width:700px){.siyaq-footer .footer-inner{justify-content:center;text-align:center;flex-direction:column;padding:18px 10px}}

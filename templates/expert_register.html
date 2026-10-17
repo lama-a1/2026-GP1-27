@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}تسجيل خبير مصرح | سياق{% endblock %}
+{% block content %}
+<div class="siyaq-auth expert-auth">
+  <aside class="siyaq-auth-side">
+    <div>
+      <span class="auth-chip">● الإصدار الأول</span>
+      <h2>مساحة الخبراء<br>المصرّح لهم.</h2>
+      <p>حساب الخبير يتيح الاطلاع على قائمة البلاغات فقط. ستضاف إجراءات المراجعة في الإصدار الثاني.</p>
+    </div>
+    <div class="auth-journey"><h3>التسجيل الآمن</h3><div class="auth-benefits"><div><span>01</span> الحصول على رمز تفويض من مسؤول المشروع</div><div><span>02</span> إنشاء حساب خبير مستقل</div><div><span>03</span> الدخول والاطلاع على الحالات</div></div></div>
+  </aside>
+  <section class="siyaq-auth-card">
+    <a href="{{url_for('expert_login')}}" class="auth-back">→ العودة لدخول الخبير</a>
+    <div class="auth-heading"><h1>تسجيل خبير مصرح</h1><p>إنشاء حساب للخبراء المخوّلين فقط.</p></div>
+    {% with msgs=get_flashed_messages(with_categories=true) %}{% for category,message in msgs %}<div class="auth-inline-alert {{category}}" role="alert">{{message}}</div>{% endfor %}{% endwith %}
+    {% if not registration_enabled %}<div class="auth-inline-alert error">تسجيل الخبراء غير مفعّل حاليًا. يجب أن يفعّله مسؤول المشروع أولًا.</div>{% endif %}
+    <form method="post" class="siyaq-auth-form siyaq-validated-form" autocomplete="on">
+      <input type="hidden" name="csrf_token" value="{{csrf_token()}}">
+      <div class="identity-stack">
+        <label>الاسم الكامل<input type="text" name="full_name" maxlength="100" minlength="3" required autocomplete="name" placeholder="الاسم كما هو مسجل لدى المسؤول"></label>
+        <label>معرّف الخبير<input type="text" name="username" minlength="4" maxlength="32" pattern="[a-zA-Z0-9][a-zA-Z0-9_.-]{3,31}" required autocomplete="username" dir="ltr" placeholder="expert_name"></label>
+        <label>كلمة المرور<input type="password" name="password" minlength="12" maxlength="128" required autocomplete="new-password" placeholder="١٢ حرفًا على الأقل"></label>
+        <label>تأكيد كلمة المرور<input type="password" name="confirm_password" minlength="12" maxlength="128" required autocomplete="new-password"></label>
+        <label>رمز التفويض<input type="password" name="authorization_code" required autocomplete="off" placeholder="الرمز المقدم من مسؤول المشروع"></label>
+      </div>
+      <button class="siyaq-auth-submit guarded-submit" type="submit" disabled {% if not registration_enabled %}data-registration-unavailable="true"{% endif %}>إنشاء حساب الخبير</button>
+    </form>
+    <p class="siyaq-auth-switch">لديك حساب خبير؟ <a href="{{url_for('expert_login')}}">تسجيل الدخول</a></p>
+    <div class="siyaq-auth-security">🔒 يتطلب التسجيل رمز تفويض. لا يتيح الحساب تعديل البلاغات.</div>
+  </section>
+</div>
+{% endblock %}
