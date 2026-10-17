@@ -74,7 +74,7 @@ def test_email_invitation_is_targeted_single_use_and_private(monkeypatch):
             db.execute("INSERT OR IGNORE INTO parties(case_id,position) VALUES(?,?)",(case_id,'B'))
         with creator.session_transaction() as sess: sess['uid']=uid
         page=creator.get('/cases/'+str(case_id))
-        assert b'recipient_email' in page.data
+        assert page.status_code == 302 and '/steps/1' in page.location
         target='second'+str(os.getpid())+'@example.com'
         response=creator.post('/cases/'+str(case_id)+'/invite',data={'csrf_token':csrf(creator),'recipient_email':target.upper()})
         assert response.status_code==302

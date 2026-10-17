@@ -544,17 +544,16 @@ def new_case():
                 cid=insert_id(c,'INSERT INTO cases(reference,creator_id,accident_type,accident_date,accident_time,location) VALUES(?,?,?,?,?,?)',(ref,session['uid'],typ,date,time,location))
                 c.execute('INSERT INTO parties(case_id,user_id,position,full_name) VALUES(?,?,?,?)',(cid,session['uid'],'A',current_user()['full_name']))
                 c.execute('INSERT INTO parties(case_id,position) VALUES(?,?)',(cid,'B'))
-            return redirect(url_for('case_detail',case_id=cid))
+            return redirect(url_for('wizard',case_id=cid,step=1))
     return render_template('new_case.html')
 @app.get('/cases/<int:case_id>')
 @login_required
 def case_detail(case_id):
-    case,party=case_access(case_id)
-    with conn() as c:
-        parties=c.execute('SELECT * FROM parties WHERE case_id=? ORDER BY position',(case_id,)).fetchall()
-        videos=c.execute('SELECT v.*,p.position FROM videos v JOIN parties p ON p.id=v.party_id WHERE v.case_id=? ORDER BY v.id DESC',(case_id,)).fetchall()
-        invite=c.execute('SELECT * FROM invitations WHERE case_id=? AND recipient_email IS NOT NULL ORDER BY id DESC LIMIT 1',(case_id,)).fetchone()
-    return render_template('case.html',case=case,party=party,parties=parties,videos=videos,invite=invite,now_iso=datetime.utcnow().isoformat())
+    case, party = case_access(case_id)
+    if not party:
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('wizard', case_id=case_id, step=7 if party['completed'] else 1))
+
 @app.post('/cases/<int:case_id>/invite')
 @login_required
 def invite(case_id):
@@ -719,7 +718,7 @@ def process_video(video_id):
         c.execute('UPDATE videos SET processed_name=?,privacy_status=?,processing_note=? WHERE id=?',(result.get('filename'),result['status'],result['note'],video_id))
         c.execute('UPDATE analysis_jobs SET status=?,details=?,updated_at=CAST(CURRENT_TIMESTAMP AS TEXT) WHERE video_id=?',('privacy_processed' if result.get('filename') else 'requires_review',result['note'],video_id))
     flash(result['note'],'success' if result.get('filename') else 'error')
-    return redirect(url_for('case_detail',case_id=v['case_id']))
+    return redirect(url_for('wizard',case_id=v['case_id'],step=5))
 
 @app.route('/profile',methods=['GET','POST'])
 @login_required
