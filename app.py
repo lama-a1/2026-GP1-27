@@ -552,14 +552,17 @@ def accept_invitation(token):
         if claimed.rowcount!=1: abort(403)
     return redirect(url_for('wizard',case_id=inv['case_id'],step=1))
 
-STEPS=['معلومات الحادث','بيانات الطرف','بيانات المركبة','وصف الحادث','رفع الفيديو','المراجعة']
+STEPS=['بيانات الحادث','بيانات الطرف','بيانات المركبة','وصف الحادث','رفع الفيديو','المراجعة','دعوة الطرف الثاني']
 @app.route('/cases/<int:case_id>/steps/<int:step>',methods=['GET','POST'])
 @login_required
 def wizard(case_id,step):
-    if step not in range(1,7): abort(404)
+    if step not in range(1,8): abort(404)
     case,party=case_access(case_id)
     if not party: abort(403)
+    if step==7 and not party['completed']:
+        return redirect(url_for('wizard',case_id=case_id,step=6))
     if request.method=='POST':
+        if step==7: abort(405)
         if step==2:
             full_name=request.form.get('full_name','').strip(); national=request.form.get('national_id','').strip(); phone=request.form.get('phone','').strip()
             if not full_name or not re.fullmatch(r'05\d{8}',normalized_digits(phone)): flash('الاسم ورقم الجوال الصحيح مطلوبان.','error');return redirect(request.url)
@@ -574,6 +577,14 @@ def wizard(case_id,step):
             with conn() as c:c.execute('UPDATE parties SET description=? WHERE id=?',(request.form.get('description','').strip(),party['id']))
         elif step==5:
             f=request.files.get('video')
+            with conn() as c:
+                existing_count=c.execute('SELECT COUNT(*) AS n FROM videos WHERE party_id=?',(party['id'],)).fetchone()['n']
+            if (not f or not f.filename) and not existing_count:
+                flash('يجب اختيار فيديو الحادث قبل المتابعة.','error')
+                return redirect(request.url)
+            if f and f.filename and request.content_length and request.content_length>200*1024*1024:
+                flash('حجم الفيديو يتجاوز 200 ميجابايت.','error')
+                return redirect(request.url)
             if f and f.filename and os.getenv('VERCEL'):
                 flash('رفع الفيديو غير متاح على Vercel حتى ربط تخزين دائم وآمن.','error')
                 return redirect(request.url)
@@ -586,18 +597,26 @@ def wizard(case_id,step):
                     video_id=insert_id(c,'INSERT INTO videos(case_id,party_id,original_name,stored_name) VALUES(?,?,?,?)',(case_id,party['id'],secure_filename(f.filename),filename))
                     c.execute('INSERT INTO analysis_jobs(video_id) VALUES(?)',(video_id,))
         elif step==6:
+            with conn() as c:
+                video_count=c.execute('SELECT COUNT(*) AS n FROM videos WHERE party_id=?',(party['id'],)).fetchone()['n']
+            if not video_count:
+                flash('يجب رفع فيديو الحادث أولًا قبل إرسال البيانات.','error')
+                return redirect(url_for('wizard',case_id=case_id,step=5))
             if request.form.get('consent')!='yes': flash('يجب الموافقة قبل الإرسال.','error');return redirect(request.url)
             with conn() as c:
                 c.execute('UPDATE parties SET completed=1 WHERE id=?',(party['id'],))
                 count_row=c.execute('SELECT COUNT(*) AS total FROM parties WHERE case_id=? AND completed=1',(case_id,)).fetchone()
                 count=count_row['total'] if DATABASE_URL else count_row[0]
                 c.execute('UPDATE cases SET status=? WHERE id=?',('submitted' if count==2 else 'awaiting_other_party',case_id))
-            flash('تم حفظ بياناتك بنجاح.','success');return redirect(url_for('case_detail',case_id=case_id))
+            flash('تم حفظ بياناتك بنجاح.','success');return redirect(url_for('wizard',case_id=case_id,step=7))
         return redirect(url_for('wizard',case_id=case_id,step=step+1))
     with conn() as c:
         vehicle=c.execute('SELECT * FROM vehicles WHERE party_id=?',(party['id'],)).fetchone()
         videos=c.execute('SELECT * FROM videos WHERE party_id=?',(party['id'],)).fetchall()
-    return render_template('wizard.html',case=case,party=party,vehicle=vehicle,videos=videos,step=step,steps=STEPS)
+    with conn() as c:
+        invited=c.execute("SELECT * FROM invitations WHERE case_id=? AND recipient_email IS NOT NULL ORDER BY id DESC LIMIT 1",(case_id,)).fetchone()
+        other_party=c.execute("SELECT user_id FROM parties WHERE case_id=? AND position='B'",(case_id,)).fetchone()
+    return render_template('wizard.html',case=case,party=party,vehicle=vehicle,videos=videos,step=step,steps=STEPS,invite=invited,other_party=other_party)
 @app.get('/videos/<int:video_id>/download')
 @login_required
 def download_video(video_id):

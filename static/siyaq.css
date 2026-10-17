@@ -99,3 +99,31 @@ body::before{display:none}
 .formpanel input[type=email]{direction:ltr;text-align:left;min-height:48px}
 @media(max-width:850px){.topbar .navwrap{flex-wrap:wrap;justify-content:center;padding:10px 16px}.topbar nav{justify-content:center}.dashboard-welcome{padding:25px 20px}.siyaq-auth-card{max-width:520px}}
 @media(max-width:600px){.dashboard-refined{margin-top:12px}.dashboard-welcome{align-items:stretch;flex-direction:column}.dashboard-welcome .btn{width:max-content}.dashboard-refined .case-grid{grid-template-columns:1fr}.dashboard-refined .attention-card{align-items:flex-start;gap:12px}.topbar nav>a,.topbar nav .linkbtn{font-size:12px;padding:7px!important}}
+
+/* Siyaq interface refinements */
+body{background:#f8faf9}
+.topbar{background:#fff!important;border-top:0!important;border-bottom:1px solid #e6ebe8!important}
+body::before{display:none!important}
+.topbar.auth-hidden-nav{display:none}
+body:has(.siyaq-auth) .siyaq-auth{min-height:100dvh}
+.wizardwrap{max-width:900px}
+.wizardhero{background-color:#fafffc;border:1px solid #cfe8da;min-height:92px;box-shadow:none}
+.wizardhero h1{font-size:27px}
+.wizardhero.pattern{background-image:var(--pattern-soft)}
+.stepper{gap:3px;margin:23px 0 27px}
+.step{font-weight:700}
+.step.passed>span{background:#006c35;color:white;border-color:#006c35}
+.step.passed>span::after{content:'✓';font-size:15px}
+.step.passed>span{font-size:0}
+.step.active>span{background:#f9fcfa;color:#006c35}
+.wizardcard{max-width:720px;margin:0 auto;border-radius:12px;box-shadow:0 7px 22px #0a2f1910}
+.wizardtitle{padding-top:28px}
+.wizardtitle h2{border-right:3px solid #006c35;padding-right:12px}
+.wizardbody{min-height:240px}
+.wizardbody input,.wizardbody textarea{background:#fff}
+.wizardbody .notice{background:#eaf5f7;color:#387d83}
+.wizardfooter{background:#fff}
+.guarded-submit:disabled,.btn:disabled,.siyaq-auth-submit:disabled{background:#8abca2!important;border-color:#8abca2!important;color:#fff!important;opacity:.78;cursor:not-allowed!important;box-shadow:none!important;transform:none!important}
+.invite-step{max-width:510px;margin:0 auto}
+#party-invite-form{padding:0 30px 28px;max-width:570px;margin:auto}
+@media(max-width:720px){.wizardwrap{padding:0 12px}.wizardtitle{padding:22px 17px}.wizardbody{padding:12px 17px 25px}.step small{font-size:9px}.stepper{overflow-x:auto}.step{min-width:67px}}
