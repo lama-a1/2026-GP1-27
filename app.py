@@ -15,26 +15,92 @@ from dotenv import load_dotenv
 load_dotenv(BASE / ".env")
 app=Flask(__name__)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY', secrets.token_hex(32)), MAX_CONTENT_LENGTH=200*1024*1024, SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax', SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE')=='1')
-DB=DB = Path(
-    os.getenv(
-        "DATABASE_PATH",
-        "/tmp/siyaq.db" if os.environ.get("VERCEL") else str(BASE / "siyaq.db")
-    )
-)
-UPLOAD=BASE/'uploads'; import os
-
-if os.environ.get("VERCEL"):
-    UPLOAD_PATH = Path("/tmp/siyaq_uploads")
-else:
-    UPLOAD_PATH = BASE / "uploads"
-
-UPLOAD_PATH.mkdir(parents=True, exist_ok=True)
+# Vercel functions do not share a durable local filesystem. Configure DATABASE_URL
+# with a managed PostgreSQL URL (e.g., Neon) for production persistence.
+DATABASE_URL=os.getenv('DATABASE_URL','').strip()
+DB=Path(os.getenv('DATABASE_PATH', '/tmp/siyaq.db' if os.getenv('VERCEL') else str(BASE/'siyaq.db')))
+UPLOAD=Path('/tmp/siyaq_uploads') if os.getenv('VERCEL') else BASE/'uploads'
+UPLOAD.mkdir(parents=True,exist_ok=True)
 ALLOWED={'mp4','mov','avi','webm','mkv'}
 
+if DATABASE_URL:
+    import psycopg
+    from psycopg.rows import dict_row
+
+    class PgConnection:
+        # Small compatibility layer for the existing SQLite-style query calls.
+        def __init__(self):
+            self.connection=psycopg.connect(DATABASE_URL, row_factory=dict_row)
+        def __enter__(self):
+            return self
+        def __exit__(self,typ,value,traceback):
+            try:
+                if typ is None: self.connection.commit()
+                else: self.connection.rollback()
+            finally:
+                self.connection.close()
+        def execute(self,sql,params=()):
+            return self.connection.execute(sql.replace('?', '%s'),params)
+else:
+    psycopg=None
+
 def conn():
-    c=sqlite3.connect(DB); c.row_factory=sqlite3.Row; c.execute('PRAGMA foreign_keys=ON'); return c
+    if DATABASE_URL:
+        return PgConnection()
+    c=sqlite3.connect(DB)
+    c.row_factory=sqlite3.Row
+    c.execute('PRAGMA foreign_keys=ON')
+    return c
+
+def insert_id(c, sql, params):
+    if DATABASE_URL:
+        return c.execute(sql+' RETURNING id',params).fetchone()['id']
+    return c.execute(sql,params).lastrowid
 
 def init_db():
+    if DATABASE_URL:
+        with conn() as c:
+            # Keep dates as TEXT to preserve the existing application comparisons.
+            c.execute('''CREATE TABLE IF NOT EXISTS users(
+                id BIGSERIAL PRIMARY KEY, full_name TEXT NOT NULL, email TEXT NOT NULL UNIQUE,
+                phone TEXT, password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'party',
+                created_at TEXT DEFAULT to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS'),
+                national_id TEXT UNIQUE, birth_date TEXT,
+                notification_status INTEGER DEFAULT 1, notification_result INTEGER DEFAULT 1)''')
+            c.execute('''CREATE TABLE IF NOT EXISTS cases(
+                id BIGSERIAL PRIMARY KEY, reference TEXT NOT NULL UNIQUE,
+                creator_id BIGINT NOT NULL REFERENCES users(id), accident_type TEXT NOT NULL,
+                accident_date TEXT NOT NULL, accident_time TEXT NOT NULL, location TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending_second_party',
+                created_at TEXT DEFAULT to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS'))''')
+            c.execute('''CREATE TABLE IF NOT EXISTS parties(
+                id BIGSERIAL PRIMARY KEY, case_id BIGINT NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+                user_id BIGINT REFERENCES users(id), position TEXT NOT NULL CHECK(position IN ('A','B')),
+                full_name TEXT, national_id TEXT, phone TEXT, description TEXT,
+                completed INTEGER NOT NULL DEFAULT 0, UNIQUE(case_id,position))''')
+            c.execute('''CREATE TABLE IF NOT EXISTS vehicles(
+                id BIGSERIAL PRIMARY KEY, party_id BIGINT NOT NULL UNIQUE REFERENCES parties(id) ON DELETE CASCADE,
+                plate TEXT, manufacturer TEXT, model TEXT, year INTEGER, color TEXT)''')
+            c.execute('''CREATE TABLE IF NOT EXISTS invitations(
+                id BIGSERIAL PRIMARY KEY, case_id BIGINT NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+                token TEXT NOT NULL UNIQUE, expires_at TEXT NOT NULL, claimed_by BIGINT REFERENCES users(id),
+                created_at TEXT DEFAULT to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS'),
+                recipient_email TEXT, recipient_phone TEXT, revoked_at TEXT)''')
+            c.execute('''CREATE TABLE IF NOT EXISTS videos(
+                id BIGSERIAL PRIMARY KEY, case_id BIGINT NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+                party_id BIGINT NOT NULL REFERENCES parties(id), original_name TEXT NOT NULL,
+                stored_name TEXT NOT NULL, processed_name TEXT, privacy_status TEXT NOT NULL DEFAULT 'pending',
+                uploaded_at TEXT DEFAULT to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS'),
+                processing_note TEXT)''')
+            c.execute('''CREATE TABLE IF NOT EXISTS garage_vehicles(
+                id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                plate TEXT NOT NULL, manufacturer TEXT NOT NULL, model TEXT NOT NULL,
+                year INTEGER NOT NULL, color TEXT NOT NULL)''')
+            c.execute('''CREATE TABLE IF NOT EXISTS analysis_jobs(
+                id BIGSERIAL PRIMARY KEY, video_id BIGINT NOT NULL UNIQUE REFERENCES videos(id) ON DELETE CASCADE,
+                status TEXT NOT NULL DEFAULT 'not_started', details TEXT,
+                updated_at TEXT DEFAULT to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS'))''')
+        return
     with conn() as c:
         c.executescript('''
         CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, full_name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, phone TEXT, password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'party', created_at TEXT DEFAULT CURRENT_TIMESTAMP);
@@ -69,8 +135,10 @@ def protect():
 def login_required(fn):
     @wraps(fn)
     def wrapped(*args,**kwargs):
-        if not session.get('uid'):
-            flash('يرجى تسجيل الدخول أولاً','error'); return redirect(url_for('login',next=request.path))
+        if not session.get('uid') or current_user() is None:
+            session.clear()
+            flash('انتهت الجلسة. يرجى تسجيل الدخول مرة أخرى.','error')
+            return redirect(url_for('login',next=request.path))
         return fn(*args,**kwargs)
     return wrapped
 
@@ -397,13 +465,13 @@ def verify_email():
                     if hmac.compare_digest(otp_digest(code,pending['email']),pending.get('otp_digest','')):
                         try:
                             with conn() as c:
-                                cur=c.execute('INSERT INTO users(full_name,email,phone,password_hash,national_id,birth_date) VALUES(?,?,?,?,?,?)',
+                                uid=insert_id(c,'INSERT INTO users(full_name,email,phone,password_hash,national_id,birth_date) VALUES(?,?,?,?,?,?)',
                                     (pending['full_name'],pending['email'],pending['phone'],pending['password_hash'],pending['national_id'],pending['birth_date']))
-                                uid=cur.lastrowid
+                                # uid returned by insert_id
                             destination=session.get('after_registration')
                             session.clear();session['uid']=uid;csrf()
                             return redirect(destination if safe_invitation_next(destination) else url_for('dashboard'))
-                        except sqlite3.IntegrityError: flash('رقم الهوية مسجل مسبقًا.','error')
+                        except (sqlite3.IntegrityError, psycopg.IntegrityError if psycopg else sqlite3.IntegrityError): flash('رقم الهوية مسجل مسبقًا.','error')
                     else: flash('رمز التحقق غير صحيح أو انتهت صلاحيته.','error')
                 except RuntimeError as e: flash(str(e),'error')
     return render_template('verify_email.html',email=pending['email'],demo_code=pending.get('demo_code') if os.getenv('OTP_MODE','api').lower()=='demo' else None)
@@ -441,7 +509,7 @@ def new_case():
         else:
             ref='SQ-'+datetime.now().strftime('%y%m')+'-'+secrets.token_hex(3).upper()
             with conn() as c:
-                cur=c.execute('INSERT INTO cases(reference,creator_id,accident_type,accident_date,accident_time,location) VALUES(?,?,?,?,?,?)',(ref,session['uid'],typ,date,time,location)); cid=cur.lastrowid
+                cid=insert_id(c,'INSERT INTO cases(reference,creator_id,accident_type,accident_date,accident_time,location) VALUES(?,?,?,?,?,?)',(ref,session['uid'],typ,date,time,location))
                 c.execute('INSERT INTO parties(case_id,user_id,position,full_name) VALUES(?,?,?,?)',(cid,session['uid'],'A',current_user()['full_name']))
                 c.execute('INSERT INTO parties(case_id,position) VALUES(?,?)',(cid,'B'))
             return redirect(url_for('case_detail',case_id=cid))
@@ -479,8 +547,7 @@ def invite(case_id):
     token=secrets.token_urlsafe(32)
     exp=(datetime.utcnow()+timedelta(days=7)).isoformat()
     with conn() as c:
-        cur=c.execute('INSERT INTO invitations(case_id,token,expires_at,recipient_phone) VALUES(?,?,?,?)',(case_id,hashlib.sha256(token.encode()).hexdigest(),exp,phone))
-        invitation_id=cur.lastrowid
+        invitation_id=insert_id(c,'INSERT INTO invitations(case_id,token,expires_at,recipient_phone) VALUES(?,?,?,?)',(case_id,hashlib.sha256(token.encode()).hexdigest(),exp,phone))
     # Commit first so the recipient can open the link immediately. Undo on send failure.
     public_base=os.getenv('PUBLIC_BASE_URL','').strip().rstrip('/')
     if public_base and not re.fullmatch(r'https://[^\s/]+(?:\:[0-9]{2,5})?',public_base):
@@ -559,19 +626,23 @@ def wizard(case_id,step):
             with conn() as c:c.execute('UPDATE parties SET description=? WHERE id=?',(request.form.get('description','').strip(),party['id']))
         elif step==5:
             f=request.files.get('video')
+            if f and f.filename and os.getenv('VERCEL'):
+                flash('رفع الفيديو غير متاح على Vercel حتى ربط تخزين دائم وآمن.','error')
+                return redirect(request.url)
             if f and f.filename:
                 ext=f.filename.rsplit('.',1)[-1].lower() if '.' in f.filename else ''
                 if ext not in ALLOWED: flash('صيغة الفيديو غير مدعومة.','error');return redirect(request.url)
                 filename=uuid.uuid4().hex+'.'+ext
                 f.save(UPLOAD/filename)
                 with conn() as c:
-                    cur=c.execute('INSERT INTO videos(case_id,party_id,original_name,stored_name) VALUES(?,?,?,?)',(case_id,party['id'],secure_filename(f.filename),filename))
-                    c.execute('INSERT INTO analysis_jobs(video_id) VALUES(?)',(cur.lastrowid,))
+                    video_id=insert_id(c,'INSERT INTO videos(case_id,party_id,original_name,stored_name) VALUES(?,?,?,?)',(case_id,party['id'],secure_filename(f.filename),filename))
+                    c.execute('INSERT INTO analysis_jobs(video_id) VALUES(?)',(video_id,))
         elif step==6:
             if request.form.get('consent')!='yes': flash('يجب الموافقة قبل الإرسال.','error');return redirect(request.url)
             with conn() as c:
                 c.execute('UPDATE parties SET completed=1 WHERE id=?',(party['id'],))
-                count=c.execute('SELECT COUNT(*) FROM parties WHERE case_id=? AND completed=1',(case_id,)).fetchone()[0]
+                count_row=c.execute('SELECT COUNT(*) AS total FROM parties WHERE case_id=? AND completed=1',(case_id,)).fetchone()
+                count=count_row['total'] if DATABASE_URL else count_row[0]
                 c.execute('UPDATE cases SET status=? WHERE id=?',('submitted' if count==2 else 'awaiting_other_party',case_id))
             flash('تم حفظ بياناتك بنجاح.','success');return redirect(url_for('case_detail',case_id=case_id))
         return redirect(url_for('wizard',case_id=case_id,step=step+1))
@@ -596,7 +667,7 @@ def process_video(video_id):
     result=process_privacy(UPLOAD/v['stored_name'],UPLOAD)
     with conn() as c:
         c.execute('UPDATE videos SET processed_name=?,privacy_status=?,processing_note=? WHERE id=?',(result.get('filename'),result['status'],result['note'],video_id))
-        c.execute('UPDATE analysis_jobs SET status=?,details=?,updated_at=CURRENT_TIMESTAMP WHERE video_id=?',('privacy_processed' if result.get('filename') else 'requires_review',result['note'],video_id))
+        c.execute('UPDATE analysis_jobs SET status=?,details=?,updated_at=CAST(CURRENT_TIMESTAMP AS TEXT) WHERE video_id=?',('privacy_processed' if result.get('filename') else 'requires_review',result['note'],video_id))
     flash(result['note'],'success' if result.get('filename') else 'error')
     return redirect(url_for('case_detail',case_id=v['case_id']))
 

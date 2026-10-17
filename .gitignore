@@ -1,13 +1,7 @@
 .env
-.env.*
-!.env.example
+.venv/
 __pycache__/
 *.pyc
-.venv/
-venv/
-*.db
-*.sqlite
-*.sqlite3
+siyaq.db
 uploads/
-instance/
-.vercel/
+.pytest_cache/
