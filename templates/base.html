@@ -19,14 +19,13 @@
         <a href="{{ url_for('expert_cases') }}">الحالات</a>
         <form method="post" action="{{ url_for('expert_logout') }}" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkbtn" type="submit">تسجيل الخروج</button></form>
       {% elif user %}
-        <a href="{{ url_for('dashboard') }}">الرئيسية</a>
         <a href="{{ url_for('cases_page') }}">بلاغاتي</a>
         <a href="{{ url_for('profile') }}">إعدادات الحساب</a>
         <a href="{{ url_for('new_case') }}">بلاغ جديد</a>
         <form method="post" action="{{ url_for('logout') }}" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkbtn" type="submit">تسجيل الخروج</button></form>
       {% else %}
-        <a class="nav-guest-login" href="{{ url_for('login') }}">تسجيل الدخول</a>
-        <a class="nav-guest-expert" href="{{ url_for('expert_login') }}">دخول الخبير المختص</a>
+        {% if request.endpoint != 'login' %}<a class="nav-guest-login" href="{{ url_for('login') }}">تسجيل الدخول</a>{% endif %}
+        {% if request.endpoint != 'expert_login' %}<a class="nav-guest-expert" href="{{ url_for('expert_login') }}">دخول الخبير المختص</a>{% endif %}
       {% endif %}
     </nav>
   </div>

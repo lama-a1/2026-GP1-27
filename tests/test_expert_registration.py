@@ -25,8 +25,8 @@ def test_expert_registration_requires_authorization(monkeypatch):
         assert client.get('/cases/new').status_code == 302
 
 
-def test_public_landing_removed():
+def test_public_landing_restored():
     with app.test_client() as client:
         response = client.get('/')
-        assert response.status_code == 302
-        assert '/login' in response.headers['Location']
+        assert response.status_code == 200
+        assert 'من فيديو الحادث' in response.get_data(as_text=True)

@@ -163,7 +163,7 @@ def home():
         return redirect(url_for('expert_cases'))
     if current_user():
         return redirect(url_for('dashboard'))
-    return redirect(url_for('login'))
+    return render_template('home.html')
 def normalized_digits(value):
     return str(value).translate(str.maketrans('٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹','01234567890123456789')).strip()
 
