@@ -8,17 +8,17 @@
   {% if valid %}
     {% if user %}
       {% if matched %}
-        <div class="notice">رقم جوال حسابك يطابق رقم الدعوة. يمكنك قبولها واستكمال بياناتك وفيديو الحادث.</div>
+        <div class="notice">بريد حسابك الإلكتروني يطابق البريد المدعو. يمكنك قبولها واستكمال بياناتك وفيديو الحادث.</div>
         <form method="post" action="{{url_for('accept_invitation',token=token)}}">
           <input type="hidden" name="csrf_token" value="{{csrf_token()}}">
           <button class="btn primary full">قبول الدعوة واستكمال بياناتي</button>
         </form>
       {% else %}
-        <div class="notice">هذا الرابط مخصص لرقم جوال مختلف عن رقم حسابك الحالي. سجّلي الخروج ثم ادخلي بحساب يحمل رقم الجوال الذي استقبل SMS.</div>
+        <div class="notice">هذا الرابط مخصص لبريد إلكتروني مختلف عن بريد حسابك الحالي. سجّل الخروج ثم ادخل بحساب يحمل البريد الذي استقبل الدعوة.</div>
         <form method="post" action="{{url_for('logout')}}"><input type="hidden" name="csrf_token" value="{{csrf_token()}}"><button class="btn secondary full">تسجيل الخروج</button></form>
       {% endif %}
     {% else %}
-      <div class="notice">يجب تسجيل الدخول أو إنشاء حساب بنفس رقم الجوال الذي استقبل SMS. عند التسجيل نتحقق من بريدك الإلكتروني بالـOTP.</div>
+      <div class="notice">يجب تسجيل الدخول أو إنشاء حساب بالبريد الإلكتروني الذي استقبل الدعوة. يتم التحقق من البريد عند إنشاء الحساب.</div>
       <a class="btn primary full" href="{{url_for('register',next=request.path)}}">إنشاء حساب جديد</a>
       <a class="btn secondary full" href="{{url_for('login',next=request.path)}}">لدي حساب — تسجيل الدخول</a>
     {% endif %}

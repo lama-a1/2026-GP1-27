@@ -52,13 +52,13 @@ def test_email_otp_uses_real_smtp_sender_when_configured(monkeypatch):
     assert 'demo_code' not in pending
     assert pending['otp_digest']==module.otp_digest(sent[0][1],'tester@example.com')
 
-def test_sms_invitation_is_targeted_single_use_and_private(monkeypatch):
+def test_email_invitation_is_targeted_single_use_and_private(monkeypatch):
     import app as module
     from urllib.parse import urlparse
     app.config['TESTING']=True
     monkeypatch.setenv('PUBLIC_BASE_URL','https://siyaq.example')
     delivered=[]
-    monkeypatch.setattr(module,'send_brevo_sms_invitation',lambda phone,link: delivered.append((phone,link)))
+    monkeypatch.setattr(module,'send_case_invitation',lambda email,link,reference: delivered.append((email,link,reference)))
     with app.test_client() as creator:
         creator.get('/login')
         with module.conn() as db:
@@ -73,11 +73,13 @@ def test_sms_invitation_is_targeted_single_use_and_private(monkeypatch):
             db.execute("INSERT OR IGNORE INTO parties(case_id,user_id,position,full_name) VALUES(?,?,?,?)",(case_id,uid,'A','Creator'))
             db.execute("INSERT OR IGNORE INTO parties(case_id,position) VALUES(?,?)",(case_id,'B'))
         with creator.session_transaction() as sess: sess['uid']=uid
-        creator.get('/cases/'+str(case_id))
-        target='0551234568'
-        response=creator.post('/cases/'+str(case_id)+'/invite',data={'csrf_token':csrf(creator),'recipient_phone':'+966551234568'})
+        page=creator.get('/cases/'+str(case_id))
+        assert b'recipient_email' in page.data
+        target='second'+str(os.getpid())+'@example.com'
+        response=creator.post('/cases/'+str(case_id)+'/invite',data={'csrf_token':csrf(creator),'recipient_email':target.upper()})
         assert response.status_code==302
         assert delivered and delivered[0][0]==target
+        assert delivered[0][2]==ref
         link=urlparse(delivered[0][1]).path
         assert creator.get(link).status_code==200
         assert b'Creator' not in creator.get(link).data
@@ -85,10 +87,9 @@ def test_sms_invitation_is_targeted_single_use_and_private(monkeypatch):
     with app.test_client() as other:
         other.get('/login')
         with module.conn() as db:
-            target_email='second'+str(os.getpid())+'@example.com'
             db.execute('INSERT OR IGNORE INTO users(full_name,email,phone,password_hash,national_id) VALUES(?,?,?,?,?)',
-                       ('Second',target_email,target,'hash','2'+str(os.getpid()).zfill(9)[-9:]))
-            second_id=db.execute('SELECT id FROM users WHERE email=?',(target_email,)).fetchone()['id']
+                       ('Second',target,'0551234568','hash','2'+str(os.getpid()).zfill(9)[-9:]))
+            second_id=db.execute('SELECT id FROM users WHERE email=?',(target,)).fetchone()['id']
         with other.session_transaction() as sess: sess['uid']=second_id
         other.get(link)
         result=other.post(link+'/accept',data={'csrf_token':csrf(other)})
@@ -96,27 +97,29 @@ def test_sms_invitation_is_targeted_single_use_and_private(monkeypatch):
         assert other.post(link+'/accept',data={'csrf_token':csrf(other)}).status_code==403
 
 
-def test_brevo_sms_endpoint(monkeypatch):
+def test_email_invitation_failure_does_not_leave_active_token(monkeypatch):
     import app as module
-    import json
-    sent=[]
-    class FakeResponse:
-        status=201
-        def __enter__(self): return self
-        def __exit__(self,*args): return False
-    def fake_urlopen(req,timeout):
-        assert req.full_url=='https://api.brevo.com/v3/transactionalSMS/send'
-        assert req.get_header('Api-key')=='test-key'
-        sent.append(json.loads(req.data.decode('utf-8')))
-        return FakeResponse()
-    monkeypatch.setenv('BREVO_API_KEY','test-key')
-    monkeypatch.setenv('BREVO_SMS_SENDER','SIYAQ')
-    monkeypatch.setattr(module,'urlopen',fake_urlopen)
-    module.send_brevo_sms_invitation('0551234568','https://siyaq.example/invite/secret')
-    assert sent[0]['recipient']=='966551234568'
-    assert sent[0]['sender']=='SIYAQ'
-    assert sent[0]['type']=='transactional'
-    assert 'https://siyaq.example/invite/secret' in sent[0]['content']
+    monkeypatch.setenv('PUBLIC_BASE_URL','https://siyaq.example')
+    def fail(*args): raise RuntimeError('Delivery failed')
+    monkeypatch.setattr(module,'send_case_invitation',fail)
+    with app.test_client() as client:
+        client.get('/login')
+        with module.conn() as db:
+            email='failcreator'+str(os.getpid())+'@example.com'
+            db.execute('INSERT OR IGNORE INTO users(full_name,email,phone,password_hash,national_id) VALUES(?,?,?,?,?)',('Creator',email,'0551234567','hash','3'+str(os.getpid()).zfill(9)[-9:]))
+            uid=db.execute('SELECT id FROM users WHERE email=?',(email,)).fetchone()['id']
+            ref='FAIL-'+str(os.getpid())
+            db.execute('INSERT OR IGNORE INTO cases(reference,creator_id,accident_type,accident_date,accident_time,location) VALUES(?,?,?,?,?,?)',(ref,uid,'REAR_END','2026-10-16','11:00','الرياض'))
+            cid=db.execute('SELECT id FROM cases WHERE reference=?',(ref,)).fetchone()['id']
+            db.execute("INSERT OR IGNORE INTO parties(case_id,user_id,position) VALUES(?,?,?)",(cid,uid,'A'))
+            db.execute("INSERT OR IGNORE INTO parties(case_id,position) VALUES(?,?)",(cid,'B'))
+        with client.session_transaction() as sess: sess['uid']=uid
+        client.get('/cases/'+str(cid))
+        response=client.post('/cases/'+str(cid)+'/invite',data={'csrf_token':csrf(client),'recipient_email':'failrecipient@example.com'},follow_redirects=True)
+        assert b'Delivery failed' in response.data
+        with module.conn() as db:
+            assert db.execute('SELECT COUNT(*) AS n FROM invitations WHERE case_id=?',(cid,)).fetchone()['n']==0
+
 
 def test_brevo_rest_api_sends_otp_and_invitation(monkeypatch):
     import app as module
