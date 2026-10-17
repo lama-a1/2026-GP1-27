@@ -53,6 +53,41 @@ function showFilename(input){const el=document.getElementById('filename');if(el)
       const response=await fetch(base+'presign',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({filename:file.name,size:file.size})});
       const ticket=await response.json();
       if(!response.ok)throw new Error(ticket.error||'تعذر بدء رفع الفيديو.');
+      if(ticket.provider==='cloudinary'){
+        const chunkSize=20*1024*1024;
+        const uploadId='siyaq-'+Date.now()+'-'+Math.random().toString(36).slice(2);
+        for(let offset=0;offset<file.size;offset+=chunkSize){
+          const end=Math.min(file.size,offset+chunkSize);
+          const part=file.slice(offset,end);
+          const payload=new FormData();
+          payload.append('file',part,file.name);
+          payload.append('api_key',ticket.api_key);
+          payload.append('timestamp',String(ticket.timestamp));
+          payload.append('signature',ticket.signature);
+          payload.append('public_id',ticket.public_id);
+          payload.append('type',ticket.delivery_type);
+          await new Promise((resolve,reject)=>{
+            const xhr=new XMLHttpRequest();
+            xhr.open('POST',ticket.upload_url);
+            xhr.setRequestHeader('X-Unique-Upload-Id',uploadId);
+            xhr.setRequestHeader('Content-Range','bytes '+offset+'-'+(end-1)+'/'+file.size);
+            xhr.upload.onprogress=(ev)=>{
+              if(ev.lengthComputable){
+                const pct=Math.round((offset+ev.loaded)/file.size*100);
+                if(bar)bar.style.width=pct+'%';
+                setMessage('جارٍ رفع الفيديو... '+pct+'٪');
+              }
+            };
+            xhr.onload=()=>{
+              let result={};try{result=JSON.parse(xhr.responseText);}catch(_){}
+              if(xhr.status>=200&&xhr.status<300 && !result.error)resolve(result);
+              else reject(new Error(result.error?.message||'تعذر رفع الفيديو. يرجى المحاولة مرة أخرى.'));
+            };
+            xhr.onerror=()=>reject(new Error('تعذر الاتصال بخدمة رفع الفيديو.'));
+            xhr.send(payload);
+          });
+        }
+      }else{
       await new Promise((resolve,reject)=>{
         const xhr=new XMLHttpRequest();
         xhr.open('PUT',ticket.upload_url);
@@ -62,6 +97,7 @@ function showFilename(input){const el=document.getElementById('filename');if(el)
         xhr.onerror=()=>reject(new Error('تعذر الاتصال بخدمة رفع الفيديو.'));
         xhr.send(file);
       });
+      }
       setMessage('جارٍ حفظ الفيديو...');
       const done=await fetch(base+'complete',{method:'POST',headers:{'X-CSRF-Token':csrf}});
       const result=await done.json();

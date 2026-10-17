@@ -1,5 +1,7 @@
 import os, re, sqlite3, secrets, uuid, json, time, hmac, hashlib, smtplib, ssl
 from urllib.request import Request, urlopen
+from urllib.parse import quote, urlencode
+import base64
 from urllib.error import HTTPError, URLError
 from email.message import EmailMessage
 from html import escape as html_escape
@@ -22,6 +24,24 @@ UPLOAD.mkdir(parents=True,exist_ok=True)
 ALLOWED={'mp4','mov','avi','webm','mkv'}
 VIDEO_MAX_BYTES = 200 * 1024 * 1024
 VIDEO_MIME = {'mp4':'video/mp4','mov':'video/quicktime','avi':'video/x-msvideo','webm':'video/webm','mkv':'video/x-matroska'}
+
+def cloudinary_ready():
+    return all(os.getenv(k, '').strip() for k in ('CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'))
+
+def cloudinary_sign(params):
+    values = '&'.join(f'{key}={params[key]}' for key in sorted(params))
+    return hashlib.sha1((values + os.environ['CLOUDINARY_API_SECRET']).encode('utf-8')).hexdigest()
+
+def cloudinary_metadata(public_id):
+    cloud = os.environ['CLOUDINARY_CLOUD_NAME']
+    auth = base64.b64encode((os.environ['CLOUDINARY_API_KEY'] + ':' + os.environ['CLOUDINARY_API_SECRET']).encode()).decode()
+    url = 'https://api.cloudinary.com/v1_1/' + quote(cloud, safe='') + '/resources/video/authenticated/' + quote(public_id, safe='')
+    req = Request(url, headers={'Authorization': 'Basic ' + auth, 'Accept': 'application/json'})
+    with urlopen(req, timeout=15) as response:
+        return json.loads(response.read().decode('utf-8'))
+
+def stored_cloudinary_id(value):
+    return value[len('cloudinary://'):] if value and value.startswith('cloudinary://') else None
 
 def storage_ready():
     return bool(os.getenv('S3_BUCKET', '').strip() and os.getenv('AWS_REGION', '').strip()
@@ -724,13 +744,13 @@ def wizard(case_id,step):
     with conn() as c:
         invited=c.execute("SELECT * FROM invitations WHERE case_id=? AND recipient_email IS NOT NULL ORDER BY id DESC LIMIT 1",(case_id,)).fetchone()
         other_party=c.execute("SELECT user_id FROM parties WHERE case_id=? AND position='B'",(case_id,)).fetchone()
-    return render_template('wizard.html',case=case,party=party,vehicle=vehicle,videos=videos,step=step,steps=STEPS,invite=invited,other_party=other_party,cloud_upload=bool(os.getenv('VERCEL')))
+    return render_template('wizard.html',case=case,party=party,vehicle=vehicle,videos=videos,step=step,steps=STEPS,invite=invited,other_party=other_party,cloud_upload=bool(os.getenv('VERCEL') or storage_ready() or cloudinary_ready()))
 @app.post('/api/cases/<int:case_id>/videos/presign')
 @login_required
 def video_presign(case_id):
     case, party = case_access(case_id)
     if not party: abort(403)
-    if not storage_ready():
+    if not (cloudinary_ready() or storage_ready()):
         return jsonify(error='خدمة رفع الفيديو غير متاحة حاليًا. يرجى المحاولة لاحقًا.'), 503
     data = request.get_json(silent=True) or {}
     original = str(data.get('filename', ''))
@@ -738,6 +758,19 @@ def video_presign(case_id):
     ext = original.rsplit('.', 1)[-1].lower() if '.' in original else ''
     if ext not in ALLOWED or type(size) is not int or not 0 < size <= VIDEO_MAX_BYTES:
         return jsonify(error='يرجى اختيار فيديو بصيغة مدعومة وحجم لا يتجاوز 200 ميجابايت.'), 400
+    if cloudinary_ready():
+        public_id = f'siyaq/cases/{case_id}/parties/{party["id"]}/{uuid.uuid4().hex}'
+        timestamp = int(time.time())
+        params = {'public_id': public_id, 'timestamp': timestamp, 'type': 'authenticated'}
+        session['pending_video'] = {'provider': 'cloudinary', 'public_id': public_id,
+                                    'case_id': case_id, 'party_id': party['id'],
+                                    'name': secure_filename(original) or 'video.'+ext,
+                                    'size': size, 'expires': time.time()+3600}
+        return jsonify(provider='cloudinary', upload_url='https://api.cloudinary.com/v1_1/' +
+                       quote(os.environ['CLOUDINARY_CLOUD_NAME'], safe='') + '/video/upload',
+                       api_key=os.environ['CLOUDINARY_API_KEY'], timestamp=timestamp,
+                       signature=cloudinary_sign(params), public_id=public_id,
+                       delivery_type='authenticated', content_type=VIDEO_MIME[ext])
     key = f'cases/{case_id}/parties/{party["id"]}/{uuid.uuid4().hex}.{ext}'
     mime = VIDEO_MIME[ext]
     try:
@@ -759,6 +792,27 @@ def video_complete(case_id):
     pending = session.get('pending_video') or {}
     if pending.get('case_id') != case_id or pending.get('party_id') != party['id'] or pending.get('expires',0) < time.time():
         return jsonify(error='انتهت مهلة رفع الفيديو. يرجى إعادة المحاولة.'), 400
+    if pending.get('provider') == 'cloudinary':
+        if not cloudinary_ready():
+            return jsonify(error='خدمة رفع الفيديو غير متاحة حاليًا.'), 503
+        try:
+            meta = cloudinary_metadata(pending['public_id'])
+            if (meta.get('public_id') != pending['public_id'] or
+                meta.get('resource_type') != 'video' or meta.get('type') != 'authenticated' or
+                meta.get('bytes') != pending['size']):
+                return jsonify(error='لم يكتمل رفع الفيديو. يرجى إعادة المحاولة.'), 400
+            with conn() as c:
+                existing = c.execute('SELECT id FROM videos WHERE stored_name=?',
+                                     ('cloudinary://' + pending['public_id'],)).fetchone()
+                if not existing:
+                    video_id=insert_id(c,'INSERT INTO videos(case_id,party_id,original_name,stored_name) VALUES(?,?,?,?)',
+                                       (case_id,party['id'],pending['name'],'cloudinary://' + pending['public_id']))
+                    c.execute('INSERT INTO analysis_jobs(video_id) VALUES(?)',(video_id,))
+            session.pop('pending_video', None)
+        except Exception:
+            app.logger.exception('Could not verify video upload')
+            return jsonify(error='تعذر تأكيد رفع الفيديو. يرجى المحاولة لاحقًا.'), 503
+        return jsonify(ok=True, next_url=url_for('wizard',case_id=case_id,step=6))
     if not storage_ready():
         return jsonify(error='خدمة رفع الفيديو غير متاحة حاليًا.'), 503
     try:
@@ -781,6 +835,17 @@ def download_video(video_id):
     with conn() as c: v=c.execute('SELECT * FROM videos WHERE id=?',(video_id,)).fetchone()
     if not v:abort(404)
     case_access(v['case_id'])
+    public_id = stored_cloudinary_id(v['processed_name'] or v['stored_name'])
+    if public_id:
+        if not cloudinary_ready(): abort(503)
+        # Cloudinary private download API issues an expiring, signed link.
+        expires = int(time.time()) + 120
+        fmt = v['original_name'].rsplit('.', 1)[-1].lower() if '.' in v['original_name'] else 'mp4'
+        params = {'public_id': public_id, 'format': fmt, 'type': 'authenticated', 'expires_at': expires}
+        params.update({'api_key': os.environ['CLOUDINARY_API_KEY'], 'signature': cloudinary_sign(params)})
+        url = ('https://api.cloudinary.com/v1_1/' + quote(os.environ['CLOUDINARY_CLOUD_NAME'],safe='') +
+               '/video/download?' + urlencode(params))
+        return redirect(url)
     key = stored_s3_key(v['processed_name'] or v['stored_name'])
     if key:
         if not storage_ready(): abort(503)
@@ -800,7 +865,7 @@ def process_video(video_id):
     with conn() as c: v=c.execute('SELECT * FROM videos WHERE id=?',(video_id,)).fetchone()
     if not v:abort(404)
     case_access(v['case_id'])
-    if stored_s3_key(v['stored_name']):
+    if stored_s3_key(v['stored_name']) or stored_cloudinary_id(v['stored_name']):
         flash('معالجة الفيديو ستتوفر لاحقًا.','error')
         return redirect(url_for('wizard',case_id=v['case_id'],step=5))
     from privacy import process_privacy
