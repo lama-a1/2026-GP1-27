@@ -36,11 +36,12 @@
         <label>رقم الهوية الوطنية<input name="national_id" inputmode="numeric" dir="ltr" minlength="10" maxlength="10" pattern="[0-9٠-٩]{10}" required placeholder="١٠ أرقام" autocomplete="username"></label>
         <label>كلمة المرور<input name="password" type="password" required autocomplete="current-password"></label>
       </div>
+      <a class="forgot-link" href="{{url_for('forgot_password')}}">نسيت كلمة المرور؟</a>
       <button class="siyaq-auth-submit guarded-submit" type="submit" disabled>تسجيل الدخول ←</button>
       {% endif %}
     </form>
     <div class="siyaq-auth-switch">{% if mode=='register' %}لديك حساب؟ <a href="{{url_for('login',next=request.args.get('next',''))}}">تسجيل الدخول</a>{% else %}ليس لديك حساب؟ <a href="{{url_for('register',next=request.args.get('next',''))}}">إنشاء حساب</a>{% endif %}</div>
-    <div class="siyaq-auth-security">🔒 يتم حفظ بيانات حسابك وتتاح وفق صلاحيات الوصول</div>
+    <div class="siyaq-auth-security"><i data-lucide="lock"></i> يتم حفظ بيانات حسابك وتتاح وفق صلاحيات الوصول</div>
   </section>
 </div>
 {% endblock %}

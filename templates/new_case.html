@@ -1,1 +1,180 @@
-{% extends 'base.html' %}{% block content %}<div class="wizardwrap"><div class="wizardhero pattern"><a href="{{url_for('dashboard')}}">→ العودة للرئيسية</a><h1>إبلاغ عن حادث</h1><p>أكمل متطلبات الأهلية ثم بيانات الحادث لبدء الحالة.</p></div><div class="stepper"><div class="step active"><span>١</span><small>الأهلية</small></div><div class="step"><span>٢</span><small>بيانات الحادث</small></div><div class="step"><span>٣</span><small>بيانات الطرف</small></div><div class="step"><span>٤</span><small>المركبة</small></div><div class="step"><span>٥</span><small>الفيديو</small></div><div class="step"><span>٦</span><small>المراجعة</small></div></div><form method="post" class="wizardcard panel"><input type="hidden" name="csrf_token" value="{{csrf_token()}}"><div class="wizardtitle"><h2>هل الحادث ضمن نطاق سياق؟</h2></div><div class="wizardbody"><p class="muted">سياق مخصص لحوادث المركبتين البسيطة دون إصابات، نهارًا وفي طقس واضح.</p><div class="eligibility-checks">{% for key,title in [('no_injuries','لا توجد إصابات بشرية'),('daylight','وقع الحادث في النهار'),('clear_weather','الطقس واضح والرؤية جيدة'),('two_vehicles','الحادث بين مركبتين فقط')] %}<label class="eligibility-item"><input type="checkbox" data-eligibility="{{key}}" required><span>✓</span>{{title}}</label><input type="hidden" name="{{key}}" value="no" id="value-{{key}}">{% endfor %}</div><h2>معلومات الحادث</h2><div class="identity-grid"><label>نوع الحادث<select name="accident_type" required><option value="">اختر نوع الحادث</option><option value="REAR_END">تصادم خلفي</option><option value="LANE_CHANGE">تغيير مسار</option></select></label><label>تاريخ الحادث<input type="date" name="accident_date" required></label><label>وقت الحادث<input type="time" name="accident_time" required></label><div class="accident-location-field"><label for="accident-location">موقع الحادث</label><div class="accident-location-controls"><input id="accident-location" name="location" placeholder="اكتبي العنوان أو حددي موقعك الحالي" autocomplete="street-address" required><button type="button" class="btn secondary locate-me-btn" id="locate-me-btn" aria-describedby="location-feedback"><span aria-hidden="true">⌖</span> تحديد موقعي الحالي</button></div><p id="location-feedback" class="location-feedback" role="status" aria-live="polite">يمكنك كتابة موقع الحادث يدويًا أو استخدام موقعك الحالي إذا كنتِ في مكان الحادث.</p><a id="location-map-link" class="location-map-link" target="_blank" rel="noopener noreferrer" hidden>عرض الموقع على الخريطة ↗</a></div></div></div><div class="wizardfooter"><a class="btn secondary" href="{{url_for('dashboard')}}">إلغاء</a><button class="btn primary">متابعة ←</button></div></form></div><script>document.querySelectorAll('[data-eligibility]').forEach(el=>el.addEventListener('change',()=>document.getElementById('value-'+el.dataset.eligibility).value=el.checked?'yes':'no'))</script>{% endblock %}
+{% extends 'base.html' %}
+{% block content %}
+<div class="wizardwrap">
+
+  <!-- العنوان -->
+  <div class="wizardhero pattern">
+    <a href="{{url_for('dashboard')}}">→ العودة للرئيسية</a>
+    <h1>إبلاغ عن حادث</h1>
+    <p>أكمل متطلبات الأهلية ثم بيانات الحادث لبدء الحالة.</p>
+  </div>
+
+  <!-- شريط الخطوات -->
+  <div class="stepper">
+    <div class="step active"><span>١</span><small>الأهلية</small></div>
+    <div class="step"><span>٢</span><small>بيانات الحادث</small></div>
+    <div class="step"><span>٣</span><small>بيانات الطرف</small></div>
+    <div class="step"><span>٤</span><small>المركبة</small></div>
+    <div class="step"><span>٥</span><small>الفيديو</small></div>
+    <div class="step"><span>٦</span><small>المراجعة</small></div>
+  </div>
+
+  <form method="post" class="wizardcard panel">
+    <input type="hidden" name="csrf_token" value="{{csrf_token()}}">
+
+    <div class="wizardtitle">
+      <h2>هل الحادث ضمن نطاق سياق؟</h2>
+    </div>
+
+    <div class="wizardbody">
+      <p class="muted">سياق مخصص لحوادث المركبتين البسيطة دون إصابات، في ظروف رؤية واضحة.</p>
+
+      <!-- شروط الأهلية -->
+      <div class="eligibility-checks">
+        {% for key,title in [('no_injuries','لا توجد إصابات بشرية'),('clear_weather','الطقس والرؤية واضحان'),('two_vehicles','الحادث بين مركبتين فقط')] %}
+        <label class="eligibility-item">
+          <input type="checkbox" data-eligibility="{{key}}" required>
+          {{title}}
+        </label>
+        <input type="hidden" name="{{key}}" value="no" id="value-{{key}}">
+        {% endfor %}
+      </div>
+
+      <!-- معلومات الحادث -->
+      <h2>معلومات الحادث</h2>
+      <div class="identity-grid">
+
+        <label>نوع الحادث
+          <select name="accident_type" id="accident-type" required>
+            <option value="">اختر نوع الحادث</option>
+            <option value="REAR_END">تصادم خلفي</option>
+            <option value="LANE_CHANGE">تغيير مسار</option>
+          </select>
+        </label>
+
+        <!-- التصادم الخلفي: موقع مركبة المُبلِّغ -->
+        <div class="vehicle-role-field" id="vehicle-role-field" hidden>
+          <span class="field-label">موقع مركبتك في الحادث</span>
+          <div class="vehicle-role-options">
+            <label class="vehicle-role-option">
+              <input type="radio" name="vehicle_role" value="REAR">
+              <svg class="role-art" viewBox="0 0 260 118" aria-hidden="true" dir="ltr"><rect x="0" y="6" width="260" height="84" rx="8" fill="#3e424b"/><line x1="6" y1="14" x2="254" y2="14" stroke="#dcdddc" stroke-width="2"/><line x1="6" y1="82" x2="254" y2="82" stroke="#dcdddc" stroke-width="2"/><path d="M34 48H12M12 48l7-6M12 48l7 6" stroke="#f4f4f2" stroke-width="2.5" fill="none" stroke-linecap="round"/><g transform="translate(85,48) rotate(-90) scale(0.7)"><rect x="-30" y="-14" width="7" height="11" rx="3" fill="#d2583c"/><rect x="23" y="-14" width="7" height="11" rx="3" fill="#d2583c"/><path d="M -25 -30 Q -25 -46 -10 -46 L 10 -46 Q 25 -46 25 -30 L 25 38 Q 25 46 17 46 L -17 46 Q -25 46 -25 38 Z" fill="#d2583c"/><rect x="-17" y="-48" width="11" height="6" rx="3" fill="#f3ead2"/><rect x="6" y="-48" width="11" height="6" rx="3" fill="#f3ead2"/><rect x="-17" y="43" width="11" height="5" rx="2.5" fill="#9b2d1e"/><rect x="6" y="43" width="11" height="5" rx="2.5" fill="#9b2d1e"/><path d="M -17 -24 Q -17 -32 -9 -32 L 9 -32 Q 17 -32 17 -24 L 17 -16 L -17 -16 Z" fill="#4a2622"/><rect x="-16" y="-11" width="32" height="26" rx="4" fill="#c3634e"/><path d="M -16 22 L 16 22 L 16 30 Q 16 36 10 36 L -10 36 Q -16 36 -16 30 Z" fill="#4a2622"/></g><g transform="translate(172,48) rotate(-90) scale(0.7)"><rect x="-30" y="-14" width="7" height="11" rx="3" fill="#297751"/><rect x="23" y="-14" width="7" height="11" rx="3" fill="#297751"/><path d="M -25 -30 Q -25 -46 -10 -46 L 10 -46 Q 25 -46 25 -30 L 25 38 Q 25 46 17 46 L -17 46 Q -25 46 -25 38 Z" fill="#297751"/><rect x="-17" y="-48" width="11" height="6" rx="3" fill="#f3ead2"/><rect x="6" y="-48" width="11" height="6" rx="3" fill="#f3ead2"/><rect x="-17" y="43" width="11" height="5" rx="2.5" fill="#e8423f"/><rect x="6" y="43" width="11" height="5" rx="2.5" fill="#e8423f"/><path d="M -17 -24 Q -17 -32 -9 -32 L 9 -32 Q 17 -32 17 -24 L 17 -16 L -17 -16 Z" fill="#173a2b"/><rect x="-16" y="-11" width="32" height="26" rx="4" fill="#22684a"/><path d="M -16 22 L 16 22 L 16 30 Q 16 36 10 36 L -10 36 Q -16 36 -16 30 Z" fill="#173a2b"/></g><polygon transform="translate(128,48) scale(0.75)" points="0,-22 6,-8 20,-13 10,-1 21,11 6,8 1,22 -5,9 -19,13 -10,1 -20,-11 -6,-7" fill="#fec53d" stroke="#f08a2c" stroke-width="1.5" stroke-linejoin="round"/><rect x="152" y="96" width="40" height="20" rx="10" fill="#e9f4ed"/><text x="172" y="110.5" font-size="12" font-weight="700" text-anchor="middle" fill="#006c35" font-family="Tajawal, sans-serif">أنت</text></svg><span><b>المركبة الخلفية</b><small>اصطدمتُ بالمركبة التي أمامي، وسأرفع فيديو الكاميرا الأمامية.</small></span>
+            </label>
+            <label class="vehicle-role-option">
+              <input type="radio" name="vehicle_role" value="FRONT">
+              <svg class="role-art" viewBox="0 0 260 118" aria-hidden="true" dir="ltr"><rect x="0" y="6" width="260" height="84" rx="8" fill="#3e424b"/><line x1="6" y1="14" x2="254" y2="14" stroke="#dcdddc" stroke-width="2"/><line x1="6" y1="82" x2="254" y2="82" stroke="#dcdddc" stroke-width="2"/><path d="M34 48H12M12 48l7-6M12 48l7 6" stroke="#f4f4f2" stroke-width="2.5" fill="none" stroke-linecap="round"/><g transform="translate(85,48) rotate(-90) scale(0.7)"><rect x="-30" y="-14" width="7" height="11" rx="3" fill="#297751"/><rect x="23" y="-14" width="7" height="11" rx="3" fill="#297751"/><path d="M -25 -30 Q -25 -46 -10 -46 L 10 -46 Q 25 -46 25 -30 L 25 38 Q 25 46 17 46 L -17 46 Q -25 46 -25 38 Z" fill="#297751"/><rect x="-17" y="-48" width="11" height="6" rx="3" fill="#f3ead2"/><rect x="6" y="-48" width="11" height="6" rx="3" fill="#f3ead2"/><rect x="-17" y="43" width="11" height="5" rx="2.5" fill="#e8423f"/><rect x="6" y="43" width="11" height="5" rx="2.5" fill="#e8423f"/><path d="M -17 -24 Q -17 -32 -9 -32 L 9 -32 Q 17 -32 17 -24 L 17 -16 L -17 -16 Z" fill="#173a2b"/><rect x="-16" y="-11" width="32" height="26" rx="4" fill="#22684a"/><path d="M -16 22 L 16 22 L 16 30 Q 16 36 10 36 L -10 36 Q -16 36 -16 30 Z" fill="#173a2b"/></g><g transform="translate(172,48) rotate(-90) scale(0.7)"><rect x="-30" y="-14" width="7" height="11" rx="3" fill="#d2583c"/><rect x="23" y="-14" width="7" height="11" rx="3" fill="#d2583c"/><path d="M -25 -30 Q -25 -46 -10 -46 L 10 -46 Q 25 -46 25 -30 L 25 38 Q 25 46 17 46 L -17 46 Q -25 46 -25 38 Z" fill="#d2583c"/><rect x="-17" y="-48" width="11" height="6" rx="3" fill="#f3ead2"/><rect x="6" y="-48" width="11" height="6" rx="3" fill="#f3ead2"/><rect x="-17" y="43" width="11" height="5" rx="2.5" fill="#9b2d1e"/><rect x="6" y="43" width="11" height="5" rx="2.5" fill="#9b2d1e"/><path d="M -17 -24 Q -17 -32 -9 -32 L 9 -32 Q 17 -32 17 -24 L 17 -16 L -17 -16 Z" fill="#4a2622"/><rect x="-16" y="-11" width="32" height="26" rx="4" fill="#c3634e"/><path d="M -16 22 L 16 22 L 16 30 Q 16 36 10 36 L -10 36 Q -16 36 -16 30 Z" fill="#4a2622"/></g><polygon transform="translate(128,48) scale(0.75)" points="0,-22 6,-8 20,-13 10,-1 21,11 6,8 1,22 -5,9 -19,13 -10,1 -20,-11 -6,-7" fill="#fec53d" stroke="#f08a2c" stroke-width="1.5" stroke-linejoin="round"/><rect x="65" y="96" width="40" height="20" rx="10" fill="#e9f4ed"/><text x="85" y="110.5" font-size="12" font-weight="700" text-anchor="middle" fill="#006c35" font-family="Tajawal, sans-serif">أنت</text></svg><span><b>المركبة الأمامية</b><small>اصطدمت بي مركبة من الخلف، وسأرفع فيديو الكاميرا الخلفية.</small></span>
+            </label>
+          </div>
+        </div>
+
+        <label>تاريخ الحادث
+          <input type="date" name="accident_date" id="accident-date" required>
+        </label>
+
+        <label>وقت الحادث
+          <input type="time" name="accident_time" id="accident-time" required>
+        </label>
+
+        <!-- موقع الحادث -->
+        <div class="accident-location-field">
+          <label for="accident-location">موقع الحادث</label>
+          <div class="accident-location-controls">
+            <input id="accident-location" name="location" placeholder="اكتبي العنوان أو حددي موقعك الحالي" autocomplete="street-address" required>
+            <button type="button" class="btn secondary locate-me-btn" id="locate-me-btn" aria-describedby="location-feedback">
+              <i data-lucide="locate-fixed"></i> تحديد موقعي الحالي
+            </button>
+          </div>
+          <p id="location-feedback" class="location-feedback" role="status" aria-live="polite">يمكنك كتابة موقع الحادث يدويًا أو استخدام موقعك الحالي إذا كنتِ في مكان الحادث.</p>
+          <a id="location-map-link" class="location-map-link" target="_blank" rel="noopener noreferrer" hidden>
+            عرض الموقع على الخريطة <i data-lucide="external-link"></i>
+          </a>
+
+          <!-- خريطة تحديد الموقع -->
+          <div id="location-picker" class="location-picker" dir="ltr"></div>
+          <p class="location-picker-hint"><i data-lucide="mouse-pointer-click"></i> اضغطي على الخريطة لتحديد مكان الحادث، أو اسحبي الدبوس لتعديله.</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- الأزرار -->
+    <div class="wizardfooter">
+      <a class="btn secondary" href="{{url_for('dashboard')}}">إلغاء</a>
+      <button class="btn primary">متابعة ←</button>
+    </div>
+  </form>
+</div>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// التاريخ والوقت الحاليين كقيمة افتراضية (قابلة للتعديل)، ولا يُسمح بتاريخ مستقبلي
+(function () {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const today = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
+  const date = document.getElementById('accident-date');
+  const time = document.getElementById('accident-time');
+  date.max = today;
+  if (!date.value) date.value = today;
+  if (!time.value) time.value = pad(now.getHours()) + ':' + pad(now.getMinutes());
+})();
+
+// إظهار خيار موقع المركبة عند اختيار "تصادم خلفي"
+(function () {
+  const type = document.getElementById('accident-type');
+  const box = document.getElementById('vehicle-role-field');
+  const radios = box.querySelectorAll('input[type=radio]');
+  function sync() {
+    const rear = type.value === 'REAR_END';
+    box.hidden = !rear;
+    radios.forEach(r => { r.required = rear; if (!rear) r.checked = false; });
+  }
+  type.addEventListener('change', sync);
+  sync();
+})();
+
+(function () {
+  const field = document.getElementById('accident-location');
+  const mapLink = document.getElementById('location-map-link');
+  const map = L.map('location-picker').setView([24.7136, 46.6753], 11); // الرياض
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '&copy; OpenStreetMap'
+  }).addTo(map);
+  let marker = null;
+
+  async function pick(lat, lng) {
+    if (!marker) {
+      marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+      marker.on('dragend', () => { const p = marker.getLatLng(); pick(p.lat, p.lng); });
+    } else {
+      marker.setLatLng([lat, lng]);
+    }
+    const coords = lat.toFixed(6) + ', ' + lng.toFixed(6);
+    field.value = coords;
+    try {
+      const r = await fetch('https://nominatim.openstreetmap.org/reverse?format=json&accept-language=ar&lat=' + lat + '&lon=' + lng);
+      const d = await r.json();
+      if (d.display_name) field.value = d.display_name;
+    } catch (e) { /* يبقى الحقل بالإحداثيات */ }
+    mapLink.href = 'https://www.google.com/maps?q=' + encodeURIComponent(lat + ',' + lng);
+    mapLink.dataset.coords = field.value;
+    mapLink.hidden = false;
+  }
+
+  map.on('click', e => pick(e.latlng.lat, e.latlng.lng));
+
+  // لما يضغط "تحديد موقعي الحالي" ينتقل الدبوس لموقعه
+  field.addEventListener('change', () => {
+    const m = field.value.match(/^\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)\s*$/);
+    if (m) { const lat = +m[1], lng = +m[2]; map.setView([lat, lng], 17); pick(lat, lng); }
+  });
+})();
+
+document.querySelectorAll('[data-eligibility]').forEach(el =>
+  el.addEventListener('change', () =>
+    document.getElementById('value-' + el.dataset.eligibility).value = el.checked ? 'yes' : 'no'
+  )
+);
+</script>
+{% endblock %}

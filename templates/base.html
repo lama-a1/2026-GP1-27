@@ -14,7 +14,8 @@
     <a class="siyaq-logo" href="{{ url_for('dashboard') if user else url_for('expert_cases') if expert_logged_in else url_for('home') }}" aria-label="العودة إلى الرئيسية">
       <img class="siyaq-logo-img" src="{{ url_for('static',filename='siyaq-logo.png') }}" alt="شعار سياق" width="116" height="52">
     </a>
-    <nav aria-label="التنقل الرئيسي">
+    <button class="nav-toggle" type="button" aria-label="القائمة" aria-expanded="false" aria-controls="main-nav"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    <nav id="main-nav" aria-label="التنقل الرئيسي">
       {% if expert_logged_in %}
         <a href="{{ url_for('expert_cases') }}">الحالات</a>
         <form method="post" action="{{ url_for('expert_logout') }}" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkbtn" type="submit">تسجيل الخروج</button></form>
@@ -31,7 +32,7 @@
   </div>
 </header>
 <main>
-  {% if request.endpoint not in ('register','login','verify_email','expert_login','expert_register') %}
+  {% if request.endpoint not in ('register','login','verify_email','expert_login','expert_register','forgot_password','reset_password') %}
     {% with msgs=get_flashed_messages(with_categories=true) %}
       {% for category,message in msgs %}<div class="flash {{category}}" role="alert">{{message}}</div>{% endfor %}
     {% endwith %}
@@ -39,11 +40,56 @@
   {% block content %}{% endblock %}
 </main>
 <footer class="siyaq-footer">
-  <div class="footer-inner">
-    <a href="{{url_for('dashboard') if user else url_for('expert_cases') if expert_logged_in else url_for('home')}}" aria-label="الرئيسية"><img class="siyaq-logo-img" src="{{url_for('static',filename='siyaq-logo-white.png')}}" alt="سياق" width="116" height="52"></a>
-    <span>© ٢٠٢٦ سياق — مشروع أكاديمي · الإصدار الأول</span>
+  <div class="footer-grid">
+
+    <!-- الهوية -->
+    <div class="footer-brand">
+      <a href="{{url_for('dashboard') if user else url_for('expert_cases') if expert_logged_in else url_for('home')}}" aria-label="الرئيسية"><img class="siyaq-logo-img" src="{{url_for('static',filename='siyaq-logo-white.png')}}" alt="سياق" width="116" height="52"></a>
+      <p>منصة لتوثيق الحوادث المرورية البسيطة وجمع الأدلة وإفادات الأطراف.</p>
+    </div>
+
+    <!-- روابط سريعة -->
+    <nav class="footer-col" aria-label="روابط سريعة">
+      <h3>روابط سريعة</h3>
+      {% if expert_logged_in %}
+        <a href="{{url_for('expert_cases')}}">الحالات</a>
+      {% elif user %}
+        <a href="{{url_for('cases_page')}}">بلاغاتي</a>
+        <a href="{{url_for('new_case')}}">بلاغ جديد</a>
+        <a href="{{url_for('profile')}}">إعدادات الحساب</a>
+      {% else %}
+        <a href="{{url_for('home')}}">الرئيسية</a>
+        <a href="{{url_for('login')}}">تسجيل الدخول</a>
+        <a href="{{url_for('register')}}">إنشاء حساب</a>
+        <a href="{{url_for('expert_login')}}">دخول الخبير المختص</a>
+      {% endif %}
+    </nav>
+
+    <!-- السياسات -->
+    <nav class="footer-col" aria-label="السياسات">
+      <h3>السياسات</h3>
+      <a href="{{url_for('privacy_page')}}">سياسة الخصوصية</a>
+      <a href="{{url_for('terms_page')}}">الشروط والأحكام</a>
+    </nav>
+
+    <!-- التواصل -->
+    <div class="footer-col">
+      <h3>تواصل معنا</h3>
+      <a href="mailto:siyaqProject@hotmail.com" dir="ltr">siyaqProject@hotmail.com</a>
+    </div>
+
   </div>
+  <div class="footer-bottom">© سياق ٢٠٢٦</div>
 </footer>
 <script src="{{url_for('static',filename='app.js')}}"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script>
+if (window.lucide) lucide.createIcons();
+document.querySelector('.nav-toggle')?.addEventListener('click', function () {
+  const bar = document.querySelector('.topbar');
+  bar.classList.toggle('nav-open');
+  this.setAttribute('aria-expanded', bar.classList.contains('nav-open'));
+});
+</script>
 </body>
 </html>

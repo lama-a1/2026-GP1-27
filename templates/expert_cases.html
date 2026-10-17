@@ -3,18 +3,23 @@
 {% block content %}
 <div class="container expert-cases-page">
   <section class="expert-page-hero">
-    <div><span class="eyebrow">مساحة الخبير · الإصدار الأول</span><h1>الحالات</h1><p>قائمة البلاغات المسجلة للاطلاع فقط. ستتاح إجراءات المراجعة والاعتماد في الإصدار الثاني.</p></div>
+    <div><span class="eyebrow">مساحة الخبير</span><h1>الحالات</h1><p>البلاغات المسجلة مرتبة حسب حالتها، الأحدث أولًا.</p></div>
     <span class="expert-readonly">عرض فقط · {{ cases|length }} حالة</span>
   </section>
-  <div class="expert-table-wrap">
-    <table class="expert-table">
-      <thead><tr><th>رقم الحالة</th><th>نوع الحادث</th><th>تاريخ الحادث</th><th>وقت الحادث</th><th>حالة البلاغ</th></tr></thead>
-      <tbody>
-        {% for c in cases %}
-        <tr><td dir="ltr">{{c.reference}}</td><td>{{'حادث تغيير مسار' if c.accident_type=='LANE_CHANGE' else 'تصادم خلفي' if c.accident_type=='REAR_END' else c.accident_type}}</td><td>{{c.accident_date}}</td><td>{{c.accident_time}}</td><td><span class="expert-status">{{'مكتمل الإدخال' if c.status=='submitted' else 'قيد الاستكمال'}}</span></td></tr>
-        {% else %}<tr><td colspan="5" class="expert-empty">لا توجد حالات مسجلة حاليًا.</td></tr>{% endfor %}
-      </tbody>
-    </table>
-  </div>
+  {% for key,title,hint in [('pending','قيد الانتظار','بانتظار اكتمال بيانات الطرفين'),('in_progress','قيد المراجعة','جاهزة لمراجعة الخبير'),('completed','مكتملة','تم اعتمادها')] %}
+  <section class="expert-group">
+    <h2><span class="pill pill-{{key|replace('_','-')}}">{{title}}</span> <small>{{hint}} · {{groups[key]|length}}</small></h2>
+    <div class="expert-table-wrap">
+      <table class="expert-table">
+        <thead><tr><th>رقم الحالة</th><th>نوع الحادث</th><th>تاريخ الحادث</th><th>وقت الحادث</th></tr></thead>
+        <tbody>
+          {% for c in groups[key] %}
+          <tr><td dir="ltr">{{c.reference}}</td><td>{{'حادث تغيير مسار' if c.accident_type=='LANE_CHANGE' else 'تصادم خلفي' if c.accident_type=='REAR_END' else c.accident_type}}</td><td>{{c.accident_date}}</td><td>{{c.accident_time}}</td></tr>
+          {% else %}<tr><td colspan="4" class="expert-empty">لا توجد حالات في هذا القسم.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endfor %}
 </div>
 {% endblock %}

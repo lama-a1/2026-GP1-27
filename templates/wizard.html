@@ -1,1 +1,277 @@
-{% extends 'base.html' %}{% block content %}<div class="wizardwrap"><div class="wizardhero pattern"><a href="{{url_for('dashboard')}}">→ رجوع</a><div><h1>إبلاغ عن حادث</h1><p>الطرف {{'الأول' if party.position=='A' else 'الثاني'}} · سنحفظ تقدمك عند إكمال الخطوات.</p></div><span>✓ تم الحفظ</span></div><div class="stepper">{% for name in steps %}<a class="step {{'active' if step==loop.index else ''}} {{'passed' if step>loop.index else ''}}" href="{{url_for('wizard',case_id=case.id,step=loop.index)}}"><span>{{loop.index}}</span><small>{{name}}</small></a>{% endfor %}</div><div class="wizardcard panel"><div class="wizardtitle"><div class="roundicon mini">♧</div><div><h2>{{steps[step-1]}}</h2><p class="muted">{% if step==1 %}أدخل الطرف الأول هذه المعلومات، ويمكنك مراجعتها دون إعادة إدخالها.{% elif step==5 %}فيديو كاميرا السيارة مطلوب لإكمال البلاغ.{% elif step==7 %}أرسلي دعوة واحدة إلى البريد الإلكتروني للطرف الثاني.{% else %}أكملي الحقول التالية ثم اضغطي متابعة.{% endif %}</p></div>{% if step==1 %}<span class="pill">معلومات مشتركة</span>{% elif step==5 %}<span class="pill">مطلوب</span>{% endif %}</div><form method="post" enctype="multipart/form-data" class="siyaq-validated-form" data-case-id="{{case.id}}" data-cloud-upload="{{'1' if cloud_upload else '0'}}" data-step="{{step}}" {% if step==7 %}id="finished-step"{% endif %}><input type="hidden" name="csrf_token" value="{{csrf_token()}}"><div class="wizardbody">{% if step==1 %}<div class="readonlygrid"><div><span>رقم الحالة</span><b>{{case.reference}}</b></div><div><span>نوع الحادث</span><b>{{'حادث تغيير مسار' if case.accident_type=='LANE_CHANGE' else 'حادث اصطدام خلفي'}}</b></div><div><span>تاريخ الحادث</span><b>{{case.accident_date}}</b></div><div><span>وقت الحادث</span><b>{{case.accident_time}}</b></div><div class="wide"><span>موقع الحادث</span><b>{{case.location}}</b></div></div>{% elif step==2 %}<div class="stack"><label>الاسم الكامل<input name="full_name" value="{{party.full_name or ''}}" required></label><div class="two"><label>رقم الهوية (اختياري)<input name="national_id" value="{{party.national_id or ''}}" dir="ltr" maxlength="10"></label><label>رقم الجوال<input name="phone" value="{{party.phone or ''}}" required dir="ltr" placeholder="05xxxxxxxx"></label></div></div>{% elif step==3 %}<div class="stack"><div class="two"><label>رقم اللوحة<input name="plate" required value="{{vehicle.plate if vehicle else ''}}"></label><label>الشركة المصنعة<input name="manufacturer" required value="{{vehicle.manufacturer if vehicle else ''}}" placeholder="تويوتا"></label></div><div class="two"><label>الطراز<input name="model" required value="{{vehicle.model if vehicle else ''}}"></label><label>سنة الصنع<input name="year" required type="number" min="1950" max="2030" value="{{vehicle.year if vehicle and vehicle.year else ''}}"></label></div><label>اللون<input name="color" required value="{{vehicle.color if vehicle else ''}}"></label></div>{% elif step==4 %}<label>صفي ما حدث من وجهة نظرك<textarea name="description" rows="7" required placeholder="اذكري اتجاه السير، تسلسل الأحداث، وأي ملاحظات مهمة...">{{party.description or ''}}</textarea></label><p class="fineprint">تُحفظ إفادتك كما كتبتها ولا تمثل حكماً على المسؤولية.</p>{% elif step==5 %}<label class="uploadbox">◉<strong>اختاري فيديو من جهازك</strong><span>MP4, MOV, AVI, WEBM, MKV — بحد أقصى 200MB</span><input type="file" name="video" {% if not videos %}required{% endif %} accept="video/mp4,video/quicktime,video/x-msvideo,video/webm,video/x-matroska" onchange="showFilename(this)"><b id="filename"></b></label><div id="video-selection-controls" class="video-selection-controls" hidden><button type="button" id="clear-selected-video" class="btn secondary">إزالة الفيديو المختار ✕</button><span class="muted">يمكنك تغييره قبل الرفع.</span></div>{% if videos %}<p class="muted">الفيديوهات المرفوعة — يمكنك حذف أي فيديو خاطئ قبل إرسال البيانات:</p>{% for v in videos %}<div class="partyrow video-saved-row"><span class="video-saved-name">{{v.original_name}}</span><div class="video-saved-actions"><span class="pill">تم الرفع</span>{% if not party.completed %}<button type="submit" form="delete-video-{{v.id}}" class="btn secondary video-delete-btn" onclick="return confirm('هل تريدين حذف هذا الفيديو نهائيًا؟')">حذف الفيديو ✕</button>{% endif %}</div></div>{% endfor %}{% endif %}<div id="video-upload-status" class="upload-progress" role="status" aria-live="polite" hidden><div class="upload-progress-track"><div id="video-upload-progress"></div></div><span id="video-upload-message">جارٍ رفع الفيديو...</span></div>{% elif step==6 %}<div class="review"><h3>ملخص البيانات</h3><p><b>الاسم:</b> {{party.full_name or 'غير مدخل'}}</p><p><b>الجوال:</b> {{party.phone or 'غير مدخل'}}</p><p><b>المركبة:</b> {{(vehicle.manufacturer or '') ~ ' ' ~ (vehicle.model or '') if vehicle else 'غير مدخلة'}}</p><p><b>الإفادة:</b> {{party.description or 'لا توجد إفادة'}}</p><p><b>عدد الفيديوهات:</b> {{videos|length}}</p></div><label class="check"><input type="checkbox" name="consent" value="yes" required> أؤكد صحة البيانات التي أدخلتها حسب علمي، وأوافق على استخدامها لأغراض هذا المشروع الأكاديمي.</label>{% elif step==7 %}<div class="invite-step">{% if party.position=='A' %}{% if other_party and other_party.user_id %}<div class="notice">✓ انضم الطرف الثاني بالفعل إلى البلاغ.</div>{% else %}<p class="muted">أكملت بياناتك بنجاح. أرسل الآن دعوة آمنة للطرف الثاني لإكمال بياناته.</p><label>البريد الإلكتروني للطرف الثاني<input form="party-invite-form" type="email" name="recipient_email" dir="ltr" required autocomplete="email" maxlength="254" placeholder="name@example.com" value="{{invite.recipient_email if invite and invite.recipient_email else ''}}"></label><p class="fineprint">الرابط صالح لمدة 7 أيام، ويُستخدم مرة واحدة فقط. لا ترسل الدعوة إلا بعد موافقة الطرف الثاني.</p>{% if invite %}<div class="notice">آخر دعوة إلى: {{invite.recipient_email}}</div>{% endif %}{% endif %}{% else %}<div class="notice">✓ تم استلام بياناتك. يمكنك العودة إلى بلاغاتي لمتابعة الحالة.</div>{% endif %}</div>{% endif %}</div><div class="wizardfooter"><a class="btn secondary" href="{{url_for('wizard',case_id=case.id,step=step-1) if step>1 else url_for('dashboard')}}">{{'إلغاء' if step==1 else 'السابق'}}</a>{% if step==7 %}<a class="btn primary" href="{{url_for('dashboard')}}">العودة إلى بلاغاتي ←</a>{% else %}<button type="submit" class="btn primary guarded-submit" {% if step==5 and not videos %}disabled{% elif step==6 %}disabled{% endif %}>{{'إرسال البيانات ✓' if step==6 else ('رفع الفيديو' if step==5 and not videos else 'متابعة ←')}}</button>{% endif %}</div></form>{% if step==5 and not party.completed %}{% for v in videos %}<form id="delete-video-{{v.id}}" method="post" action="{{url_for('delete_video',video_id=v.id)}}"><input type="hidden" name="csrf_token" value="{{csrf_token()}}"></form>{% endfor %}{% endif %}{% if step==7 and party.position=='A' and not (other_party and other_party.user_id) %}<form id="party-invite-form" method="post" action="{{url_for('invite',case_id=case.id)}}" class="siyaq-invite-form"><input type="hidden" name="csrf_token" value="{{csrf_token()}}"><button class="btn primary full" id="send-party-invite" type="submit" disabled>✉ إرسال الدعوة عبر البريد الإلكتروني</button></form>{% endif %}</div></div>{% endblock %}
+{% extends 'base.html' %}
+{% block content %}
+{% set is_a = party.position=='A' %}
+{% set joined = other_party and other_party.user_id %}
+{% set invite_sent = invite and not invite.revoked_at and not invite.claimed_by %}
+{% set editing_invite = request.args.get('edit') %}
+{% set other_joined = other and other.user_id %}
+{% set other_done = other and other.completed %}
+{% set show_invite_form = is_a and not other_joined and (not invite_sent or editing_invite) %}
+<div class="wizardwrap">
+
+  <!-- العنوان -->
+  <div class="wizardhero pattern">
+    <a href="{{url_for('dashboard')}}">→ رجوع</a>
+    <div>
+      <h1>{{'إبلاغ عن حادث' if is_a else 'المشاركة في بلاغ'}}</h1>
+      <p>الطرف {{'الأول' if is_a else 'الثاني'}} · سنحفظ تقدمك عند إكمال الخطوات.</p>
+    </div>
+    <span><i data-lucide="check"></i> تم الحفظ</span>
+  </div>
+
+  <!-- شريط الخطوات -->
+  <div class="stepper">
+    {% for name in steps %}
+    <a class="step {{'active' if step==loop.index else ''}} {{'passed' if step>loop.index else ''}}" href="{{url_for('wizard',case_id=case.id,step=loop.index)}}">
+      <span>{{loop.index}}</span><small>{{name}}</small>
+    </a>
+    {% endfor %}
+  </div>
+
+  <div class="wizardcard panel">
+
+    <!-- عنوان الخطوة -->
+    <div class="wizardtitle">
+      <div class="roundicon mini"><i data-lucide="{{['file-text','user','car','message-square-text','video','clipboard-check','send' if is_a else 'circle-check'][step-1]}}"></i></div>
+      <div>
+        <h2>{{'حالة البلاغ' if step==7 and not show_invite_form else steps[step-1]}}</h2>
+        <p class="muted">
+          {% if step==2 %}بياناتك من حسابك الموثّق. تأكد منها ثم اضغط متابعة.
+          {% elif step==1 %}{{'راجع بيانات الحادث التي أدخلتها.' if is_a else 'هذه بيانات الحادث التي أدخلها الطرف الأول، راجعها قبل المتابعة.'}}
+          {% elif step==5 %}{{'فيديو كاميرا السيارة مطلوب لإكمال البلاغ.' if is_a else 'رفع فيديو كاميرا سيارتك اختياري، ويساعد في دقة التحليل.'}}
+          {% elif step==7 %}{{'أرسلي دعوة واحدة إلى البريد الإلكتروني للطرف الثاني.' if is_a and not (other and other.user_id) and (not invite_sent or editing_invite) else 'تابع حالة بلاغك من هنا.'}}
+          {% else %}أكملي الحقول التالية ثم اضغطي متابعة.{% endif %}
+        </p>
+      </div>
+      {% if step==1 %}<span class="pill">معلومات مشتركة</span>
+      {% elif step==5 %}<span class="pill">{{'مطلوب' if is_a else 'اختياري'}}</span>{% endif %}
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="siyaq-validated-form" data-case-id="{{case.id}}" data-cloud-upload="{{'1' if cloud_upload else '0'}}" data-step="{{step}}" {% if step==7 %}id="finished-step"{% endif %}>
+      <input type="hidden" name="csrf_token" value="{{csrf_token()}}">
+      <div class="wizardbody">
+
+        {% if step==1 %}
+        <!-- 1: بيانات الحادث -->
+        <div class="readonlygrid">
+          <div><span>رقم الحالة</span><b>{{case.reference}}</b></div>
+          <div><span>نوع الحادث</span><b>{{'حادث تغيير مسار' if case.accident_type=='LANE_CHANGE' else 'حادث اصطدام خلفي'}}</b></div>
+          <div><span>تاريخ الحادث</span><b>{{case.accident_date}}</b></div>
+          <div><span>وقت الحادث</span><b>{{case.accident_time}}</b></div>
+          {% if case.accident_type=='REAR_END' and party.vehicle_role %}
+          <div class="wide"><span>موقع مركبتك</span><b>{{'المركبة الأمامية (اصطُدم بها من الخلف)' if party.vehicle_role=='FRONT' else 'المركبة الخلفية (اصطدمت بالمركبة الأمامية)'}}</b></div>
+          {% endif %}
+          {% if first_vehicle %}
+          <div class="wide"><span>مركبة الطرف الأول</span><b>{{first_vehicle.manufacturer}} {{first_vehicle.model}} — <span dir="ltr">{{first_vehicle.plate}}</span></b></div>
+          {% endif %}
+          <div class="wide"><span>موقع الحادث</span><b>{{case.location}}</b></div>
+        </div>
+
+        {% elif step==2 %}
+        <!-- 2: بيانات الطرف -->
+        <div class="stack">
+          <label>الاسم الكامل <span class="from-account">من حسابك</span><input value="{{user.full_name or ''}}" readonly></label>
+          <div class="two">
+            <label>رقم الهوية <span class="from-account">من حسابك</span><input value="{{user.national_id or ''}}" dir="ltr" readonly></label>
+            <label>رقم الجوال <span class="from-account">من حسابك</span><input value="{{user.phone or ''}}" dir="ltr" readonly></label>
+          </div>
+          <div class="two">
+            <label>تاريخ الميلاد <span class="from-account">من حسابك</span><input value="{{user.birth_date or ''}}" dir="ltr" readonly></label>
+            <label>البريد الإلكتروني <span class="from-account">من حسابك</span><input value="{{user.email or ''}}" dir="ltr" readonly></label>
+          </div>
+        </div>
+
+        {% elif step==3 %}
+        <!-- 3: بيانات المركبة -->
+        {% set pre = vehicle if vehicle else (garage[0] if garage|length==1 else None) %}
+        {% if garage %}
+        <div class="garage-pick">
+          <label>اختر من مركباتي
+            <select id="garage-select">
+              <option value="">إدخال يدوي</option>
+              {% for g in garage %}
+              <option value="{{g.id}}" data-plate="{{g.plate}}" data-manufacturer="{{g.manufacturer}}" data-model="{{g.model}}" data-year="{{g.year}}" data-color="{{g.color}}"
+                {% if pre and not vehicle and pre.id==g.id %}selected{% elif vehicle and vehicle.plate==g.plate %}selected{% endif %}>{{g.manufacturer}} {{g.model}} {{g.year}} — {{g.plate}}</option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
+        {% endif %}
+        <div class="stack" id="vehicle-fields">
+          <div class="two">
+            <label>رقم اللوحة<input name="plate" required value="{{pre['plate'] if pre else ''}}"></label>
+            <label>الشركة المصنعة<input name="manufacturer" required value="{{pre['manufacturer'] if pre else ''}}" placeholder="تويوتا"></label>
+          </div>
+          <div class="two">
+            <label>الطراز<input name="model" required value="{{pre['model'] if pre else ''}}"></label>
+            <label>سنة الصنع<input name="year" required type="number" min="1950" max="2030" value="{{pre['year'] if pre and pre['year'] else ''}}"></label>
+          </div>
+          <label>اللون<input name="color" required value="{{pre['color'] if pre else ''}}"></label>
+        </div>
+
+        {% if garage %}
+        <script>
+        document.getElementById('garage-select').addEventListener('change', function () {
+          const o = this.selectedOptions[0];
+          const box = document.getElementById('vehicle-fields');
+          ['plate','manufacturer','model','year','color'].forEach(k => {
+            const el = box.querySelector('[name=' + k + ']');
+            el.value = this.value ? o.dataset[k] : '';
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+          });
+        });
+        </script>
+        {% endif %}
+
+        {% elif step==4 %}
+        <!-- 4: وصف الحادث -->
+        <label>صفي ما حدث من وجهة نظرك<textarea name="description" rows="7" required placeholder="اذكري اتجاه السير، تسلسل الأحداث، وأي ملاحظات مهمة...">{{party.description or ''}}</textarea></label>
+        <p class="fineprint">تُحفظ إفادتك كما كتبتها ولا تمثل حكماً على المسؤولية.</p>
+
+        {% elif step==5 %}
+        <!-- 5: رفع الفيديو -->
+        {% if case.accident_type=='REAR_END' and party.vehicle_role %}
+        <div class="notice camera-hint"><i data-lucide="camera"></i> مركبتك هي {{'الأمامية، لذا ارفع فيديو <b>الكاميرا الخلفية</b>.'|safe if party.vehicle_role=='FRONT' else 'الخلفية، لذا ارفع فيديو <b>الكاميرا الأمامية</b>.'|safe}}</div>
+        {% endif %}
+        <label class="uploadbox">
+          <i data-lucide="upload"></i>
+          <strong>اختاري فيديو من جهازك</strong>
+          <span>MP4, MOV, AVI, WEBM, MKV — بحد أقصى 200MB</span>
+          <input type="file" name="video" {% if not videos and is_a %}required{% endif %} accept="video/mp4,video/quicktime,video/x-msvideo,video/webm,video/x-matroska" onchange="showFilename(this)">
+          <b id="filename"></b>
+        </label>
+        <div id="video-selection-controls" class="video-selection-controls" hidden>
+          <button type="button" id="clear-selected-video" class="btn secondary">إزالة الفيديو المختار <i data-lucide="x"></i></button>
+          <span class="muted">يمكنك تغييره قبل الرفع.</span>
+        </div>
+        {% if videos %}
+        <p class="muted">الفيديوهات المرفوعة — يمكنك حذف أي فيديو خاطئ قبل إرسال البيانات:</p>
+        {% for v in videos %}
+        <div class="partyrow video-saved-row">
+          <span class="video-saved-name">{{v.original_name}}</span>
+          <div class="video-saved-actions">
+            <span class="pill">تم الرفع</span>
+            {% if not party.completed %}
+            <button type="submit" form="delete-video-{{v.id}}" class="btn secondary video-delete-btn" onclick="return confirm('هل تريدين حذف هذا الفيديو نهائيًا؟')">حذف الفيديو <i data-lucide="trash-2"></i></button>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+        <div id="video-upload-status" class="upload-progress" role="status" aria-live="polite" hidden>
+          <div class="upload-progress-track"><div id="video-upload-progress"></div></div>
+          <span id="video-upload-message">جارٍ رفع الفيديو...</span>
+        </div>
+
+        {% elif step==6 %}
+        <!-- 6: المراجعة -->
+        <div class="review">
+          <h3>ملخص البيانات</h3>
+          <p><b>الاسم:</b> {{party.full_name or 'غير مدخل'}}</p>
+          <p><b>الجوال:</b> {{party.phone or 'غير مدخل'}}</p>
+          <p><b>المركبة:</b> {{(vehicle.manufacturer or '') ~ ' ' ~ (vehicle.model or '') if vehicle else 'غير مدخلة'}}</p>
+          <p><b>الإفادة:</b> {{party.description or 'لا توجد إفادة'}}</p>
+          <p><b>عدد الفيديوهات:</b> {{videos|length}}</p>
+        </div>
+        <label class="check"><input type="checkbox" name="consent" value="yes" required> أؤكد صحة البيانات التي أدخلتها حسب علمي، وأوافق على استخدامها لأغراض هذا المشروع الأكاديمي.</label>
+
+        {% elif step==7 %}
+        <!-- 7: الدعوة (الطرف الأول) / حالة البلاغ (الطرفين) -->
+        <div class="invite-step">
+          {% if show_invite_form %}
+            <!-- نموذج الدعوة -->
+            <div class="alert-info"><i data-lucide="circle-check"></i><span><b>تم حفظ بياناتك بنجاح.</b> لن يُطلب من الطرف الثاني إعادة إدخال نوع الحادث أو التاريخ أو الوقت أو الموقع.</span></div>
+            <label>البريد الإلكتروني للطرف الثاني<input form="party-invite-form" type="email" name="recipient_email" dir="ltr" required autocomplete="email" maxlength="254" placeholder="name@example.com" value="{{invite.recipient_email if editing_invite and invite else ''}}"></label>
+            <p class="fineprint">سنرسل رابطًا آمنًا للانضمام إلى البلاغ {{case.reference}}. الرابط صالح لمدة 7 أيام ويُستخدم مرة واحدة فقط.</p>
+            <div class="privacy-note"><i data-lucide="lock"></i><span>سيشاهد الطرف الثاني معلومات الحادث المشتركة فقط، دون بياناتك الشخصية.</span></div>
+            <div class="invite-actions">
+              <button class="btn primary" id="send-party-invite" form="party-invite-form" type="submit" disabled><i data-lucide="mail"></i> إرسال الدعوة</button>
+              {% if editing_invite %}<a class="btn secondary" href="{{url_for('wizard',case_id=case.id,step=7)}}">إلغاء</a>{% endif %}
+            </div>
+          {% else %}
+            <!-- حالة البلاغ: نفس الشاشة للطرفين، والمحتوى حسب المرحلة -->
+            <div class="status-hero">
+              {% if other_done %}
+                <span class="pill pill-progress">{{case.status|status_label}}</span>
+                <h3>تم استلام بيانات الطرفين</h3>
+                <p>بلاغك الآن في مرحلة التحليل ثم المراجعة من الخبير المختص. ستظهر النتيجة هنا بعد اعتمادها.</p>
+              {% elif other_joined %}
+                <span class="pill pill-pending">{{case.status|status_label}}</span>
+                <h3>تم حفظ بياناتك بنجاح</h3>
+                <p>انضم الطرف الثاني إلى البلاغ، وسيبدأ التحليل بعد إكماله لبياناته.</p>
+              {% else %}
+                <span class="pill pill-pending">{{case.status|status_label}}</span>
+                <h3>تم إرسال الدعوة</h3>
+                <p>أرسلنا رابط الانضمام إلى <b dir="ltr">{{invite.recipient_email}}</b>. سيبدأ التحليل بعد إكمال الطرف الثاني لبياناته.</p>
+              {% endif %}
+              <div class="case-ref-box">
+                <span>رقم البلاغ</span>
+                <b dir="ltr">{{case.reference}}</b>
+                <button type="button" class="btn secondary" onclick="navigator.clipboard.writeText('{{case.reference}}').then(()=>{this.textContent='تم النسخ ✓'})"><i data-lucide="copy"></i> نسخ</button>
+              </div>
+            </div>
+
+            <h4 class="timeline-title">حالة البلاغ</h4>
+            <ol class="timeline">
+              <li class="done"><span class="dot"><i data-lucide="check"></i></span><div><b>تم إرسال بياناتك</b><small>اكتملت بياناتك في البلاغ</small></div></li>
+              {% if other_done %}
+              <li class="done"><span class="dot"><i data-lucide="check"></i></span><div><b>{{'اكتملت بيانات الطرف الثاني' if is_a else 'اكتملت بيانات الطرف الأول'}}</b><small>تم استلام بيانات الطرفين</small></div></li>
+              <li class="current"><span class="dot"><i data-lucide="clock"></i></span><div><b>تحليل الحالة</b><small>في قائمة الانتظار</small></div></li>
+              {% else %}
+              <li class="current"><span class="dot"><i data-lucide="clock"></i></span><div><b>بانتظار الطرف الثاني</b><small>{{'انضم إلى البلاغ ولم يُكمل بياناته بعد' if other_joined else 'أُرسل رابط الدعوة إلى ' ~ invite.recipient_email}}</small></div></li>
+              <li><span class="dot">3</span><div><b>تحليل الحالة</b><small>يبدأ بعد اكتمال بيانات الطرفين</small></div></li>
+              {% endif %}
+              <li><span class="dot">4</span><div><b>مراجعة الخبير</b><small>يعتمد الخبير المختص النتيجة النهائية</small></div></li>
+              <li><span class="dot">5</span><div><b>النتيجة النهائية</b><small>تظهر هنا بعد اعتمادها</small></div></li>
+            </ol>
+
+            {% if is_a and invite_sent and not other_joined %}
+            <div class="status-actions">
+              <button type="submit" form="party-resend-form" class="btn secondary"><i data-lucide="rotate-cw"></i> إعادة إرسال الدعوة</button>
+              <a class="btn secondary" href="{{url_for('wizard',case_id=case.id,step=7,edit=1)}}"><i data-lucide="pencil"></i> إرسال إلى بريد آخر</a>
+            </div>
+            {% endif %}
+          {% endif %}
+        </div>
+        {% endif %}
+
+      </div>
+
+      <!-- الأزرار -->
+      <div class="wizardfooter">
+        <a class="btn secondary" href="{{url_for('wizard',case_id=case.id,step=step-1) if step>1 else url_for('dashboard')}}">{{'إلغاء' if step==1 else 'السابق'}}</a>
+        {% if step==7 %}
+        <a class="btn primary" href="{{url_for('dashboard')}}">العودة إلى بلاغاتي ←</a>
+        {% else %}
+        <button type="submit" class="btn primary guarded-submit" {% if step==5 and not videos and is_a %}disabled{% elif step==6 %}disabled{% endif %}>
+          {% if step==6 %}إرسال البيانات <i data-lucide="check"></i>
+          {% elif step==5 and not videos and is_a %}رفع الفيديو
+          {% else %}متابعة ←{% endif %}
+        </button>
+        {% endif %}
+      </div>
+    </form>
+
+    <!-- نماذج حذف الفيديو -->
+    {% if step==5 and not party.completed %}
+    {% for v in videos %}
+    <form id="delete-video-{{v.id}}" method="post" action="{{url_for('delete_video',video_id=v.id)}}"><input type="hidden" name="csrf_token" value="{{csrf_token()}}"></form>
+    {% endfor %}
+    {% endif %}
+
+    <!-- نموذج إرسال الدعوة -->
+    {% if step==7 and is_a and invite_sent and not editing_invite and not joined %}
+    <form id="party-resend-form" method="post" action="{{url_for('invite',case_id=case.id)}}">
+      <input type="hidden" name="csrf_token" value="{{csrf_token()}}">
+      <input type="hidden" name="recipient_email" value="{{invite.recipient_email}}">
+    </form>
+    {% endif %}
+    {% if step==7 and is_a and not joined and (not invite_sent or editing_invite) %}
+    <form id="party-invite-form" method="post" action="{{url_for('invite',case_id=case.id)}}" class="siyaq-invite-form">
+      <input type="hidden" name="csrf_token" value="{{csrf_token()}}">
+    </form>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

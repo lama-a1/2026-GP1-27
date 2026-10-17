@@ -3,16 +3,16 @@
 <section class="siyaq-hero"><div class="siyaq-hero-inner">
 <div class="siyaq-badge"><i></i> نظام سعودي لدعم قرار الحوادث البسيطة</div>
 <h1>من فيديو الحادث<br><em>إلى قرار واضح.</em></h1>
-<p>يساعد سياق في توثيق الحادث وجمع الأدلة وإفادات الأطراف. التحليل ومراجعة الخبير ضمن الإصدارات القادمة.</p>
+<p>يساعد سياق في توثيق الحادث وجمع الأدلة وإفادات الأطراف، ثم تحليلها ومراجعتها من الخبير المختص.</p>
 <div class="siyaq-actions"><a class="siyaq-btn green" href="{{url_for('new_case') if user else url_for('login')}}">ابدأ باستخدام سياق <span>←</span></a><a class="siyaq-btn white" href="{{url_for('dashboard') if user else url_for('register')}}">{{'عرض بلاغاتي' if user else 'إنشاء حساب'}}</a></div>
 <div class="siyaq-trust"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 5 6v5c0 4.6 2.8 8 7 10 4.2-2 7-5.4 7-10V6l-7-3Zm-3 9 2 2 4-5"/></svg> النتيجة لا تصبح نهائية إلا بعد مراجعة واعتماد الخبير المختص</div>
 </div></section>
 <section class="siyaq-scope" id="workflow"><div class="siyaq-scope-header"><span>كيف يعمل سياق؟</span><h2>تحليل مفهوم، خطوة بخطوة</h2></div>
 <div class="siyaq-steps">
-{% for item, icon in [('التقديم','✓'),('الأدلة','✓'),('التحليل','✧'),('نسبة مقترحة','▤'),('مراجعة الخبير','♙'),('قرار معتمد','♢')] %}
-<div class="siyaq-step"><div class="siyaq-circle {% if loop.index<=2 %}done{% endif %}">{{icon}}</div><b>{{item}}</b></div>{% if not loop.last %}<div class="siyaq-connector"></div>{% endif %}
+{% for item, icon in [('التقديم','file-check'),('الأدلة','video'),('التحليل','scan-search'),('نسبة مقترحة','percent'),('مراجعة الخبير','user-check'),('قرار معتمد','badge-check')] %}
+<div class="siyaq-step"><div class="siyaq-circle {% if loop.index<=2 %}done{% endif %}"><i data-lucide="{{icon}}"></i></div><b>{{item}}</b></div>{% if not loop.last %}<div class="siyaq-connector"></div>{% endif %}
 {% endfor %}</div>
-<div class="siyaq-eligibility"><div>✓ &nbsp; حوادث بسيطة بدون إصابات</div><div>✓ &nbsp; أضرار مادية فقط</div><div>✓ &nbsp; تصادم خلفي أو تغيير مسار</div><div>✓ &nbsp; نهار وطقس واضح</div></div>
-<p class="siyaq-scope-note">⚠ &nbsp; سياق أداة مساندة ولا يحل محل إجراءات الإبلاغ الرسمية أو قرار المختص.</p>
+<div class="siyaq-eligibility"><div><i data-lucide="circle-check"></i> &nbsp; حوادث بسيطة بدون إصابات</div><div><i data-lucide="circle-check"></i> &nbsp; أضرار مادية فقط</div><div><i data-lucide="circle-check"></i> &nbsp; تصادم خلفي أو تغيير مسار</div><div><i data-lucide="circle-check"></i> &nbsp; ظروف رؤية واضحة</div></div>
+<p class="siyaq-scope-note"><i data-lucide="triangle-alert"></i> &nbsp; سياق أداة مساندة ولا يحل محل إجراءات الإبلاغ الرسمية أو قرار المختص.</p>
 </section></div>
 {% endblock %}

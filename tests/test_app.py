@@ -33,7 +33,7 @@ def test_registration_profile_vehicle_and_case():
         assert c.get('/profile?tab=vehicles').status_code==200
         r=c.post('/profile/vehicles',data={'csrf_token':csrf(c),'manufacturer':'تويوتا','model':'كامري','plate':'أ ب ج 1234','year':'2023','color':'أبيض'},follow_redirects=True)
         assert 'كامري'.encode() in r.data
-        r=c.post('/cases/new',data={'csrf_token':csrf(c),'no_injuries':'yes','daylight':'yes','clear_weather':'yes','two_vehicles':'yes','accident_type':'REAR_END','accident_date':'2026-10-16','accident_time':'10:28','location':'الرياض'},follow_redirects=True)
+        r=c.post('/cases/new',data={'csrf_token':csrf(c),'no_injuries':'yes','daylight':'yes','clear_weather':'yes','two_vehicles':'yes','accident_type':'REAR_END','vehicle_role':'REAR','accident_date':'2026-10-16','accident_time':'10:28','location':'الرياض'},follow_redirects=True)
         assert r.status_code==200 and b'SQ-' in r.data
 
 def test_csrf_rejection():

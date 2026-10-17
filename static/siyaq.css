@@ -226,3 +226,101 @@ body:has(.siyaq-auth) .siyaq-footer{display:block!important}
 .video-saved-name{overflow-wrap:anywhere}
 .video-saved-actions{display:flex;align-items:center;gap:10px}
 .video-delete-btn{font-size:12px!important;padding:7px 12px!important;color:#a52e2e!important;border-color:#edc8c8!important}
+.lucide{width:1em;height:1em;vertical-align:-0.15em}
+.location-map-link[hidden]{display:none!important}
+.location-picker{height:300px;border:1px solid #d6e7db;border-radius:10px;margin-top:12px;z-index:0}
+.location-picker-hint{font-size:12px;color:#82958b;margin:8px 0 0}
+
+/* Header: logo on the right, navigation on the left; hamburger menu on mobile */
+.topbar .navwrap{flex-direction:row!important;align-items:center!important;flex-wrap:nowrap!important;justify-content:space-between!important;padding:0 24px!important;min-height:68px}
+.topbar nav{flex-wrap:nowrap!important;justify-content:flex-end!important}
+.nav-toggle{display:none;align-items:center;justify-content:center;background:none;border:0;font-size:24px;color:#123d2b;padding:8px;border-radius:8px}
+.nav-toggle:hover{background:#eaf5ed}
+@media(max-width:760px){
+.nav-toggle{display:inline-flex}
+.topbar .navwrap{flex-wrap:wrap!important;padding:8px 16px!important;gap:0!important}
+.topbar nav{display:none!important;width:100%;flex-direction:column;align-items:stretch!important;gap:2px!important;padding:8px 0;border-top:1px solid #e6ebe8;margin-top:8px}
+.topbar.nav-open nav{display:flex!important}
+.topbar nav>a,.topbar nav .linkbtn{padding:12px!important;font-size:14px!important;text-align:right;width:100%}
+.topbar nav form{width:100%}
+}
+
+/* Footer: brand + link columns + bottom bar */
+.siyaq-footer{padding:44px 24px 0!important;color:#c7e0d0}
+.footer-grid{max-width:1180px;margin:auto;display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:32px;text-align:right}
+.footer-brand img{width:116px;height:auto}
+.footer-brand p{font-size:13px;line-height:1.9;color:#a9c9b6;margin:12px 0 0;max-width:300px}
+.footer-col{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.footer-col h3{font-size:14px;color:#fff;margin:0 0 4px}
+.footer-col a{color:#c7e0d0!important;font-size:13px}
+.footer-col a:hover{color:#fff!important;text-decoration:underline}
+.footer-bottom{max-width:1180px;margin:32px auto 0;padding:18px 0;border-top:1px solid #ffffff1f;font-size:12px;color:#a9c9b6;text-align:center}
+@media(max-width:760px){.footer-grid{grid-template-columns:1fr 1fr;gap:26px}.footer-brand{grid-column:1/-1}}
+
+/* iPhone: prevent auto-zoom on input focus (Safari zooms when font-size < 16px) */
+@media(max-width:760px){input,select,textarea{font-size:16px!important}}
+
+/* Rear-end: which vehicle was I */
+.vehicle-role-field{grid-column:1/-1}
+.vehicle-role-field[hidden]{display:none!important}
+.field-label{display:block;font-weight:700;font-size:13px;margin-bottom:9px}
+.vehicle-role-options{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.vehicle-role-option{display:flex;gap:10px;align-items:flex-start;border:1px solid #d6e7db;border-radius:10px;padding:14px;background:#f8fbf9;cursor:pointer}
+.vehicle-role-option:has(input:checked){border-color:#006c35;background:#eef7f1;box-shadow:0 0 0 1px #006c35}
+.vehicle-role-option input{accent-color:#006c35;width:18px;height:18px;margin-top:2px}
+.vehicle-role-option b{display:block;font-size:14px}
+.vehicle-role-option small{display:block;color:#6d8175;font-weight:400;line-height:1.7;margin-top:4px}
+/* Read-only fields pulled from the account */
+.from-account{font-size:11px;font-weight:700;color:#006c35;background:#e9f4ed;border-radius:20px;padding:2px 8px;margin-inline-start:6px}
+input[readonly]{background:#f3f6f4!important;color:#5d7266!important;cursor:not-allowed}
+.camera-hint{margin:0 0 16px;display:flex;align-items:center;gap:8px;font-size:13px}
+@media(max-width:530px){.vehicle-role-options{grid-template-columns:1fr}}
+
+/* Rear-end options: card layout fix (generic input styles were applied to the radio) */
+.vehicle-role-option{display:grid!important;grid-template-columns:auto 1fr;grid-template-rows:auto auto;gap:10px 12px;text-align:right}
+.vehicle-role-option .role-art{grid-column:1/-1;width:100%;height:auto;max-height:130px;display:block}
+.vehicle-role-option input[type=radio]{display:block!important;width:18px!important;height:18px!important;padding:0!important;margin:3px 0 0!important;border:0!important;box-shadow:none!important;background:none!important}
+.vehicle-role-option{grid-template-areas:"art art" "radio text"}
+.vehicle-role-option .role-art{grid-area:art}
+.vehicle-role-option input[type=radio]{grid-area:radio}
+.vehicle-role-option>span{grid-area:text}
+
+.garage-pick{background:#f4f9f6;border:1px solid #d6e7db;border-radius:10px;padding:14px 16px;margin-bottom:20px}
+.garage-pick .fineprint{text-align:right;margin:8px 0 0;display:flex;align-items:center;gap:6px}
+
+/* Step 7: invitation status */
+.status-hero{text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;padding:8px 0}
+.status-icon{width:64px;height:64px;border-radius:50%;background:#e8f4ec;color:#006c35;display:grid;place-items:center;font-size:30px}
+.status-hero h3{font-size:22px;margin:4px 0 0}
+.status-hero p{color:#5d7266;line-height:1.9;max-width:520px;margin:0}
+.case-ref-box{display:flex;align-items:center;gap:12px;background:#f4f9f6;border:1px solid #d6e7db;border-radius:10px;padding:10px 14px;margin-top:6px}
+.case-ref-box span{color:#82958b;font-size:12px}
+.case-ref-box .btn{min-height:34px;padding:6px 12px;font-size:12px}
+.status-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+.alert-info{display:flex;gap:10px;align-items:flex-start;background:#eaf5ef;border:1px solid #cfe6d8;color:#1f5a3b;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.8;margin-bottom:18px}
+.privacy-note{display:flex;gap:10px;align-items:center;background:#f6f8f7;border-radius:10px;padding:10px 14px;font-size:12px;color:#5d7266;margin-top:6px}
+.pill-pending{background:#fff4e0!important;color:#9a6200!important}
+.invite-actions{display:flex;gap:10px;margin-top:18px}
+
+/* Step 7: case status timeline (both parties) */
+.status-hero .pill{margin-bottom:2px}
+.timeline-title{font-size:15px;margin:26px 0 12px}
+.timeline{list-style:none;margin:0;padding:0}
+.timeline li{display:flex;gap:14px;position:relative;padding-bottom:20px}
+.timeline li:not(:last-child)::before{content:"";position:absolute;right:17px;top:36px;bottom:0;width:2px;background:#dfe8e2}
+.timeline .dot{width:36px;height:36px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;border:1.5px solid #d6e2da;background:#fff;color:#9aaba1;font-size:13px;font-weight:700}
+.timeline li.done .dot{background:#006c35;border-color:#006c35;color:#fff}
+.timeline li.current .dot{background:#fff4e0;border-color:#e3b25c;color:#9a6200}
+.timeline b{display:block;font-size:14px;margin-top:6px}
+.timeline li.current b{color:#9a6200}
+.timeline small{display:block;color:#82958b;font-size:12px;margin-top:4px}
+
+/* Unified case status pills: Pending / In Progress / Completed */
+.pill-pending{background:#fff4e0!important;color:#9a6200!important}
+.pill-in-progress,.pill-progress{background:#e7f0fb!important;color:#1f5c99!important}
+.pill-completed{background:#e6f4ec!important;color:#006c35!important}
+
+.forgot-link{display:block;text-align:left;font-size:13px;font-weight:700;margin:-4px 0 14px}
+.expert-group{margin-top:26px}
+.expert-group h2{font-size:16px;display:flex;align-items:center;gap:10px;margin:0 0 12px}
+.expert-group h2 small{color:#82958b;font-weight:400;font-size:12px}
