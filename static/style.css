@@ -63,3 +63,7 @@ body{background:#f6f8f7}
 input:focus,textarea:focus,select:focus{box-shadow:0 0 0 3px #006b3814}
 @media(max-width:720px){.landing-hero{padding:44px 15px 0;min-height:0}.landing h1{letter-spacing:-1px}.landing-lead{font-size:14px}.journey-card{margin-top:42px;padding:31px 12px 28px}.journey-card h2{font-size:23px}.journey-step{min-width:45px;gap:8px}.journey-step strong{font-size:8px}.journey-icon{width:29px;height:29px;font-size:14px}.journey-line{min-width:3px;margin-top:14px}.journey-highlights{grid-template-columns:repeat(2,1fr);margin-top:27px}.journey-highlights span{font-size:9px}.bottom-features{grid-template-columns:1fr}.hero-orb{display:none}.landing-bottom{padding:55px 20px}.topbar nav>a,.topbar nav .linkbtn{padding:8px 10px}}
 @media(prefers-reduced-motion:reduce){.hero-orb{animation:none}*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
+
+/* Guest actions: primary login, outlined expert access */
+.topbar nav>a.nav-guest-expert{background:#fff!important;color:#006c35!important;border:1px solid #b9d8c5!important;box-shadow:none!important}
+.topbar nav>a.nav-guest-login{background:#006c35!important;color:#fff!important;border:1px solid #006c35!important}

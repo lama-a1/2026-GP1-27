@@ -153,7 +153,12 @@ def case_access(case_id):
         return case,party
 
 @app.get('/')
-def home(): return render_template('home.html')
+def home():
+    if session.get('expert_authenticated'):
+        return redirect(url_for('expert_cases'))
+    if current_user():
+        return redirect(url_for('dashboard'))
+    return render_template('home.html')
 def normalized_digits(value):
     return str(value).translate(str.maketrans('٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹','01234567890123456789')).strip()
 

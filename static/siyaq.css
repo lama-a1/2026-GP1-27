@@ -161,3 +161,19 @@ body:has(.siyaq-auth) .siyaq-auth{min-height:calc(100dvh - 72px)}
 .expert-table td{font-size:14px;color:#1c3528}
 .expert-empty{text-align:center;padding:42px!important;color:#6d8374!important}
 @media(max-width:850px){.topbar .navwrap{gap:10px}.topbar nav{gap:2px}.topbar nav>a,.topbar nav .linkbtn{padding:7px!important;font-size:12px}.expert-page-hero{flex-wrap:wrap}.siyaq-auth-card{padding:40px 0}}
+
+
+/* Header navigation */
+.topbar{height:auto;min-height:66px;background:#fff;border-bottom:1px solid #e4ebe6}
+.navwrap{max-width:1200px;min-height:66px;gap:24px}
+.siyaq-logo{flex-shrink:0;background:transparent;box-shadow:none;padding:0}
+.siyaq-logo .siyaq-logo-img{display:block;width:112px;height:auto;max-height:62px;object-fit:contain;background:transparent;border:0;border-radius:0;box-shadow:none;padding:0}
+.topbar nav{display:flex;align-items:center;flex-wrap:wrap;gap:7px}
+.topbar nav>a{background:transparent;color:#123d2b;box-shadow:none;font-size:13px}
+.topbar nav>a.nav-guest-login{background:#006c35;color:#fff;border:1px solid #006c35;box-shadow:0 4px 12px #006c3522;padding:10px 17px}
+.topbar nav>a.nav-guest-expert{background:#fff;color:#006c35;border:1px solid #b9d8c5;box-shadow:none;padding:10px 17px}
+.topbar nav>a.nav-guest-expert:hover{background:#eff7f2}
+.topbar nav>a.nav-guest-login:hover{background:#00532b;color:#fff}
+.topbar nav .linkbtn{background:#edf5f0;border:0;color:#006c35;padding:11px 15px;border-radius:8px;font-weight:700}
+.siyaq-footer .footer-inner img{background:transparent;box-shadow:none;border:0;padding:0;border-radius:0;object-fit:contain}
+@media(max-width:760px){.navwrap{padding:12px 16px;gap:10px}.topbar nav{gap:5px}.topbar nav>a,.topbar nav .linkbtn{font-size:12px;padding:8px 9px}.topbar nav>a.nav-guest-login,.topbar nav>a.nav-guest-expert{padding:9px 12px}.siyaq-logo .siyaq-logo-img{width:90px}}

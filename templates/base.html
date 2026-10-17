@@ -11,28 +11,24 @@
 <body class="{% if request.endpoint=='home' %}is-home{% endif %}">
 <header class="topbar">
   <div class="navwrap">
-    <a class="siyaq-logo" href="{{ url_for('home') }}" aria-label="العودة إلى الرئيسية">
+    <a class="siyaq-logo" href="{{ url_for('dashboard') if user else url_for('expert_cases') if expert_logged_in else url_for('home') }}" aria-label="العودة إلى الرئيسية">
       <img class="siyaq-logo-img" src="{{ url_for('static',filename='siyaq-logo.png') }}" alt="شعار سياق" width="116" height="52">
     </a>
     <nav aria-label="التنقل الرئيسي">
       {% if expert_logged_in %}
-        <a href="{{ url_for('home') }}">الرئيسية</a>
+        <a href="{{ url_for('expert_cases') }}">الرئيسية</a>
         <a href="{{ url_for('expert_cases') }}">الحالات</a>
-        <span class="navname">مساحة الخبير · عرض فقط</span>
         <form method="post" action="{{ url_for('expert_logout') }}" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkbtn" type="submit">تسجيل الخروج</button></form>
       {% elif user %}
-        <a href="{{ url_for('home') }}">الرئيسية</a>
-        <a href="{{ url_for('dashboard') }}">لوحة التحكم</a>
+        <a href="{{ url_for('dashboard') }}">الرئيسية</a>
         <a href="{{ url_for('cases_page') }}">بلاغاتي</a>
         <a href="{{ url_for('profile') }}">إعدادات الحساب</a>
         <a href="{{ url_for('new_case') }}">بلاغ جديد</a>
-        <span class="navname">{{ user.full_name }}</span>
         <form method="post" action="{{ url_for('logout') }}" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkbtn" type="submit">تسجيل الخروج</button></form>
       {% else %}
         <a href="{{ url_for('home') }}">الرئيسية</a>
-        <a href="{{ url_for('expert_login') }}">دخول الخبير</a>
-        <a href="{{ url_for('login') }}">تسجيل الدخول</a>
-        <a class="nav-login" href="{{ url_for('register') }}">إنشاء حساب</a>
+        <a class="nav-guest-login" href="{{ url_for('login') }}">تسجيل الدخول</a>
+        <a class="nav-guest-expert" href="{{ url_for('expert_login') }}">دخول الخبير المختص</a>
       {% endif %}
     </nav>
   </div>
@@ -47,7 +43,7 @@
 </main>
 <footer class="siyaq-footer">
   <div class="footer-inner">
-    <a href="{{url_for('home')}}" aria-label="الرئيسية"><img class="siyaq-logo-img" src="{{url_for('static',filename='siyaq-logo.png')}}" alt="سياق" width="100" height="46"></a>
+    <a href="{{url_for('dashboard') if user else url_for('expert_cases') if expert_logged_in else url_for('home')}}" aria-label="الرئيسية"><img class="siyaq-logo-img" src="{{url_for('static',filename='siyaq-logo.png')}}" alt="سياق" width="100" height="46"></a>
     <span>© ٢٠٢٦ سياق — مشروع أكاديمي · الإصدار الأول</span>
   </div>
 </footer>
