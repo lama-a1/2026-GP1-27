@@ -829,6 +829,56 @@ def video_complete(case_id):
         return jsonify(error='تعذر حفظ الفيديو. يرجى المحاولة لاحقًا.'), 503
     return jsonify(ok=True, next_url=url_for('wizard',case_id=case_id,step=6))
 
+@app.post('/videos/<int:video_id>/delete')
+@login_required
+def delete_video(video_id):
+    """Remove an uploaded video and its analysis record before final submission."""
+    with conn() as c:
+        video = c.execute('SELECT * FROM videos WHERE id=?', (video_id,)).fetchone()
+    if not video:
+        abort(404)
+    case, party = case_access(video['case_id'])
+    if not party or video['party_id'] != party['id']:
+        abort(403)
+    if party['completed']:
+        flash('لا يمكن حذف الفيديو بعد إرسال البيانات النهائية.', 'error')
+        return redirect(url_for('wizard', case_id=video['case_id'], step=5))
+    paths = [video['stored_name']]
+    if video['processed_name'] and video['processed_name'] != video['stored_name']:
+        paths.append(video['processed_name'])
+    try:
+        for path in paths:
+            public_id = stored_cloudinary_id(path)
+            key = stored_s3_key(path)
+            if public_id:
+                if not cloudinary_ready():
+                    raise RuntimeError('Cloudinary credentials are missing')
+                timestamp = int(time.time())
+                params = {'public_id': public_id, 'timestamp': timestamp, 'type': 'authenticated'}
+                payload = urlencode({**params, 'api_key': os.environ['CLOUDINARY_API_KEY'],
+                                     'signature': cloudinary_sign(params)}).encode()
+                url = 'https://api.cloudinary.com/v1_1/' + quote(os.environ['CLOUDINARY_CLOUD_NAME'], safe='') + '/video/destroy'
+                with urlopen(Request(url, data=payload, method='POST'), timeout=25) as response:
+                    result = json.loads(response.read().decode())
+                if result.get('result') not in ('ok', 'not found'):
+                    raise RuntimeError('Cloudinary deletion failed')
+            elif key:
+                if not storage_ready():
+                    raise RuntimeError('Storage credentials are missing')
+                storage_client().delete_object(Bucket=os.environ['S3_BUCKET'], Key=key)
+            else:
+                if not os.getenv('VERCEL'):
+                    (UPLOAD / Path(path).name).unlink(missing_ok=True)
+    except Exception:
+        app.logger.exception('Video deletion failed')
+        flash('تعذر حذف الفيديو حاليًا. يرجى المحاولة مرة أخرى.', 'error')
+        return redirect(url_for('wizard', case_id=video['case_id'], step=5))
+    with conn() as c:
+        c.execute('DELETE FROM analysis_jobs WHERE video_id=?', (video_id,))
+        c.execute('DELETE FROM videos WHERE id=? AND party_id=?', (video_id, party['id']))
+    flash('تم حذف الفيديو. يمكنك اختيار فيديو آخر.', 'success')
+    return redirect(url_for('wizard', case_id=video['case_id'], step=5))
+
 @app.get('/videos/<int:video_id>/download')
 @login_required
 def download_video(video_id):

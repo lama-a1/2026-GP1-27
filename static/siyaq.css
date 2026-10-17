@@ -217,3 +217,12 @@ body:has(.siyaq-auth) .siyaq-footer{display:block!important}
 .location-feedback{color:#667d72;font-size:12px;line-height:1.7;margin:9px 0 0}
 .location-map-link{display:inline-block;color:#006b38;font-weight:700;font-size:13px;margin-top:7px}
 @media(max-width:520px){.accident-location-controls{flex-direction:column}.accident-location-controls input,.accident-location-controls .locate-me-btn{width:100%;flex:auto}}
+
+/* Video replacement controls */
+.video-selection-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}
+.video-selection-controls[hidden]{display:none!important}
+.video-selection-controls .btn{font-size:13px;padding:9px 16px}
+.video-saved-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.video-saved-name{overflow-wrap:anywhere}
+.video-saved-actions{display:flex;align-items:center;gap:10px}
+.video-delete-btn{font-size:12px!important;padding:7px 12px!important;color:#a52e2e!important;border-color:#edc8c8!important}

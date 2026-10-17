@@ -1,5 +1,31 @@
 function copyInvite(){const el=document.getElementById('inviteLink');if(!el)return;navigator.clipboard.writeText(el.value).then(()=>alert('تم نسخ رابط الدعوة')).catch(()=>{el.select();document.execCommand('copy');alert('تم نسخ الرابط')})}
-function showFilename(input){const el=document.getElementById('filename');if(el)el.textContent=input.files.length?input.files[0].name:''}
+function showFilename(input){
+  const el=document.getElementById('filename');
+  if(el)el.textContent=input.files.length?input.files[0].name:'';
+  const controls=document.getElementById('video-selection-controls');
+  if(controls)controls.hidden=!input.files.length;
+  const form=input.closest('form');
+  if(form)form.dispatchEvent(new Event('change',{bubbles:true}));
+}
+(function(){
+  const clear=document.getElementById('clear-selected-video');
+  const file=document.querySelector('input[name="video"]');
+  if(clear&&file)clear.addEventListener('click',()=>{file.value='';showFilename(file);});
+})();
+(function(){
+  const form=document.getElementById('party-invite-form');
+  const field=document.querySelector('input[name="recipient_email"][form="party-invite-form"]');
+  const button=document.getElementById('send-party-invite');
+  if(!form||!field||!button)return;
+  function update(){button.disabled=!(field.value.trim()&&field.checkValidity());}
+  field.addEventListener('input',update);
+  field.addEventListener('change',update);
+  form.addEventListener('submit',function(event){
+    update();
+    if(button.disabled){event.preventDefault();field.reportValidity();}
+  });
+  update();
+})();
 
 (function(){
   function updateForm(form){
@@ -102,7 +128,8 @@ function showFilename(input){const el=document.getElementById('filename');if(el)
       const done=await fetch(base+'complete',{method:'POST',headers:{'X-CSRF-Token':csrf}});
       const result=await done.json();
       if(!done.ok)throw new Error(result.error||'تعذر حفظ الفيديو.');
-      window.location.assign(result.next_url);
+      // Stay on the upload step so the user can inspect or delete the video.
+      window.location.assign('/cases/'+encodeURIComponent(caseId)+'/steps/5');
     }catch(error){setMessage(error.message||'حدث خطأ أثناء رفع الفيديو.');if(button)button.disabled=false;}
   });
 })();
