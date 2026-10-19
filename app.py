@@ -1110,6 +1110,7 @@ def profile():
         elif action=='password':
             u=current_user(); old=request.form.get('current',''); new=request.form.get('next','')
             if not check_password_hash(u['password_hash'],old):flash('كلمة المرور الحالية غير صحيحة.','error')
+            elif check_password_hash(u['password_hash'],new):flash('لا يمكن استخدام كلمة المرور الحالية. يرجى اختيار كلمة مرور جديدة.','error')    
             elif len(new)<8 or not re.search(r'[A-Za-z\u0600-\u06FF]',new) or not re.search(r'\d',new):flash('كلمة المرور الجديدة تتطلب ٨ أحرف وحرفًا ورقمًا.','error')
             elif new!=request.form.get('confirm',''):flash('كلمتا المرور غير متطابقتين.','error')
             else:
