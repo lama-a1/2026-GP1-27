@@ -10,9 +10,9 @@ from app import app
 def csrf(c):
     with c.session_transaction() as s:return s['csrf']
 
-def register(c,nid='1023456789'):
+def register(c,nid='1023456789',phone='0551234567'):
     c.get('/register')
-    r=c.post('/register',data={'csrf_token':csrf(c),'full_name':'Test User','national_id':nid,'birth_date':'2000-01-01','phone':'0551234567','email':'test'+nid+'@example.com','password':'password123','confirm_password':'password123'},follow_redirects=True)
+    r=c.post('/register',data={'csrf_token':csrf(c),'full_name':'Test User','national_id':nid,'birth_date':'2000-01-01','phone':phone,'email':'test'+nid+'@example.com','password':'password123','confirm_password':'password123'},follow_redirects=True)
     assert r.status_code==200
     with c.session_transaction() as sess: code=sess['pending_registration']['demo_code']
     assert c.post('/verify-email',data={'csrf_token':csrf(c),'code':'000000' if code!='000000' else '999999','action':'verify'}).status_code==200
