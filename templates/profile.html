@@ -1,4 +1,4 @@
-{% extends 'base.html' %}{% block title %}إعدادات الحساب | سياق{% endblock %}{% block content %}
+{% extends 'base.html' %}{% from '_vehicle_fields.html' import plate_fields, color_field %}{% block title %}إعدادات الحساب | سياق{% endblock %}{% block content %}
 <div class="siyaq-profile shell"><div class="pagehead"><h1>إعدادات الحساب</h1><p>إدارة بياناتك ومركباتك وإعدادات الوصول.</p></div>
 <div class="siyaq-profile-layout"><aside class="siyaq-profile-tabs"><a class="{{'active' if tab=='personal'}}" href="{{url_for('profile',tab='personal')}}"><i data-lucide="user"></i> &nbsp; البيانات الشخصية</a><a class="{{'active' if tab=='vehicles'}}" href="{{url_for('profile',tab='vehicles')}}"><i data-lucide="car"></i> &nbsp; مركباتي</a><a class="{{'active' if tab=='settings'}}" href="{{url_for('profile',tab='settings')}}"><i data-lucide="settings"></i> &nbsp; إعدادات الحساب</a></aside>
 <section class="siyaq-profile-panel">
@@ -6,24 +6,27 @@
 <h2>البيانات الشخصية</h2>
 <p>تظهر هذه البيانات تلقائيًا عند إنشاء حالة جديدة.</p>
 <div class="identity-grid profile-form">
-  <label>الاسم الكامل<input value="{{user.full_name}}" readonly></label>
-  <label>رقم الهوية الوطنية<input value="{{user.national_id or ''}}" readonly dir="ltr"></label>
+  <label>الاسم الثلاثي<input value="{{user.full_name}}" readonly></label>
+  <label>رقم الهوية / الإقامة<input value="{{user.national_id or ''}}" readonly dir="ltr"></label>
   <label>تاريخ الميلاد<input value="{{user.birth_date or ''}}" readonly></label>
   <label>رقم الجوال<input value="{{user.phone or ''}}" readonly dir="ltr"></label>
 </div>
 
-<!-- تغيير البريد الإلكتروني برمز تحقق -->
+<!-- Change email using a verification code -->
 <h2 id="email">البريد الإلكتروني</h2>
 {% if pending_email %}
 <form method="post" class="profile-form">
   <input type="hidden" name="csrf_token" value="{{csrf_token()}}">
   <input type="hidden" name="action" value="email_verify">
-  <p>أدخل رمز التحقق المرسل إلى <b dir="ltr">{{pending_email.email}}</b></p>
+  <p>رمز التحقق المرسل إلى <b dir="ltr">{{pending_email.email}}</b></p>
   {% if demo_code %}<div class="notice">وضع التجربة — الرمز: <b dir="ltr">{{demo_code}}</b></div>{% endif %}
   <label>رمز التحقق<input name="code" inputmode="numeric" maxlength="6" dir="ltr" required autocomplete="one-time-code"></label>
-  <button class="btn primary">تأكيد البريد الجديد</button>
-  <button class="btn secondary" name="action" value="email_cancel" formnovalidate>إلغاء</button>
+  <div class="email-verify-actions">
+    <button class="btn primary" type="submit">تأكيد البريد الجديد</button>
+    <button class="btn secondary" type="submit" form="email-cancel-form" formnovalidate>إلغاء</button>
+  </div>
 </form>
+<form method="post" id="email-cancel-form"><input type="hidden" name="csrf_token" value="{{csrf_token()}}"><input type="hidden" name="action" value="email_cancel"></form>
 {% else %}
 <form method="post" class="profile-form">
   <input type="hidden" name="csrf_token" value="{{csrf_token()}}">
@@ -33,9 +36,9 @@
   <button class="btn primary">تغيير البريد</button>
 </form>
 {% endif %}
-{% elif tab=='vehicles' %}<div class="between"><h2>مركباتي</h2><button class="btn primary" type="button" onclick="openGarage()">+ إضافة مركبة</button></div><p>المركبات المسجلة في حسابك، ويمكنك إضافتها أو تعديلها أو حذفها.</p><div class="garage-grid">{% for car in cars %}<article class="garage-card"><div class="garage-symbol"><i data-lucide="car"></i></div><h3>{{car.manufacturer}} {{car.model}}</h3><p>{{car.plate}} · {{car.year}} · {{car.color}}</p><div class="garage-actions"><button type="button" class="btn secondary" onclick='openGarage({{ {'id':car.id,'manufacturer':car.manufacturer,'model':car.model,'year':car.year,'plate':car.plate,'color':car.color}|tojson }})'>تعديل</button><form method="post" action="{{url_for('delete_vehicle',vehicle_id=car.id)}}" onsubmit="return confirm('حذف هذه المركبة؟')"><input type="hidden" name="csrf_token" value="{{csrf_token()}}"><button class="btn secondary">حذف</button></form></div></article>{% else %}<div class="empty-state"><h3>لم تضف مركبات بعد</h3><p>أضف مركبتك لتسهيل تسجيل الحوادث.</p></div>{% endfor %}</div>
-<dialog id="garageModal" class="garage-dialog"><form method="post" action="{{url_for('save_vehicle')}}" class="profile-form"><input type="hidden" name="csrf_token" value="{{csrf_token()}}"><input type="hidden" name="vehicle_id" id="garageId"><h2 id="garageTitle">إضافة مركبة</h2><div class="identity-grid"><label>الشركة المصنعة<input name="manufacturer" required></label><label>الموديل<input name="model" required></label><label>سنة الصنع<input name="year" required pattern="[0-9٠-٩]{4}"></label><label>رقم اللوحة<input name="plate" required></label><label>اللون<input name="color" required></label></div><div class="garage-actions"><button type="button" class="btn secondary" onclick="document.getElementById('garageModal').close()">إلغاء</button><button class="btn primary">حفظ المركبة</button></div></form></dialog>
-{% else %}<h2>إعدادات الحساب</h2><p>إدارة كلمة المرور وتفضيلات الإشعارات.</p><h3>تغيير كلمة المرور</h3><form method="post" class="profile-form"><input type="hidden" name="csrf_token" value="{{csrf_token()}}"><input type="hidden" name="action" value="password"><div class="identity-grid"><label>كلمة المرور الحالية<input name="current" type="password" required></label><label>كلمة المرور الجديدة<input name="next" type="password" minlength="8" required></label><label>تأكيد كلمة المرور<input name="confirm" type="password" minlength="8" required></label></div><button class="btn primary">تغيير كلمة المرور</button></form><hr><h3>تفضيلات الإشعارات</h3><form method="post" class="profile-form"><input type="hidden" name="csrf_token" value="{{csrf_token()}}"><input type="hidden" name="action" value="notifications"><label class="check"><input type="checkbox" name="status" {{'checked' if user.notification_status}}> تحديثات حالة البلاغ</label><label class="check"><input type="checkbox" name="result" {{'checked' if user.notification_result}}> إشعار النتيجة</label><button class="btn primary">حفظ الإعدادات</button></form>{% endif %}
+{% elif tab=='vehicles' %}<div class="between"><h2>مركباتي</h2><button class="btn primary" type="button" onclick="openGarage()">+ إضافة مركبة</button></div><p>المركبات المسجلة في حسابك، مع إمكانية الإضافة والتعديل والحذف.</p><div class="garage-grid">{% for car in cars %}<article class="garage-card"><div class="garage-symbol"><i data-lucide="car"></i></div><h3>{{car.manufacturer}} {{car.model}}</h3><p><span dir="rtl">{{car.plate}}</span> · {{car.year}} · {{car.color}}</p><div class="garage-actions"><button type="button" class="btn secondary" onclick='openGarage({{ {'id':car.id,'manufacturer':car.manufacturer,'model':car.model,'year':car.year,'plate':car.plate,'color':car.color}|tojson }})'>تعديل</button><form method="post" action="{{url_for('delete_vehicle',vehicle_id=car.id)}}" onsubmit="return confirm('حذف هذه المركبة؟')"><input type="hidden" name="csrf_token" value="{{csrf_token()}}"><button class="btn secondary">حذف</button></form></div></article>{% else %}<div class="empty-state"><h3>لا توجد مركبات بعد</h3><p>إضافة المركبة تسهّل تسجيل الحوادث.</p></div>{% endfor %}</div>
+<dialog id="garageModal" class="garage-dialog"><form method="post" action="{{url_for('save_vehicle')}}" class="profile-form"><input type="hidden" name="csrf_token" value="{{csrf_token()}}"><input type="hidden" name="vehicle_id" id="garageId"><h2 id="garageTitle">إضافة مركبة</h2><div class="identity-grid"><label>الشركة المصنعة<input name="manufacturer" required></label><label>الطراز<input name="model" required></label><label>سنة الصنع<input name="year" required inputmode="numeric" maxlength="4" pattern="[0-9٠-٩]{4}" dir="ltr"></label>{{ plate_fields() }}<div style="grid-column:1/-1">{{ color_field() }}</div></div><div class="garage-actions"><button type="button" class="btn secondary" onclick="document.getElementById('garageModal').close()">إلغاء</button><button class="btn primary">حفظ المركبة</button></div></form></dialog>
+{% else %}<h2>إعدادات الحساب</h2><p>إدارة كلمة المرور وتفضيلات الإشعارات.</p><h3>تغيير كلمة المرور</h3><form method="post" class="profile-form"><input type="hidden" name="csrf_token" value="{{csrf_token()}}"><input type="hidden" name="action" value="password"><div class="identity-grid"><label>كلمة المرور الحالية<input name="current" type="password" required></label><label>كلمة المرور الجديدة<input name="next" type="password" minlength="8" required></label><label>تأكيد كلمة المرور<input name="confirm" type="password" minlength="8" required></label></div><button class="btn primary">تغيير كلمة المرور</button></form><hr><h3>تفضيلات الإشعارات</h3><form method="post" class="profile-form"><input type="hidden" name="csrf_token" value="{{csrf_token()}}"><input type="hidden" name="action" value="notifications"><label class="check"><input type="checkbox" name="status" {{'checked' if user.notification_status}}> <span>إرسال تحديثات حالة البلاغ إلى بريدي الإلكتروني</span></label><label class="check is-disabled" title="ستتوفر لاحقًا"><input type="checkbox" name="result" disabled> <span>إشعار النتيجة <small>ستتوفر هذه الميزة لاحقًا</small></span></label><button class="btn primary">حفظ الإعدادات</button></form>{% endif %}
 </section></div></div>
-<script>function openGarage(car){const modal=document.getElementById('garageModal');const form=modal.querySelector('form');form.reset();document.getElementById('garageId').value=car?car.id:'';document.getElementById('garageTitle').textContent=car?'تعديل المركبة':'إضافة مركبة';if(car){for(const k of ['manufacturer','model','year','plate','color'])form.elements[k].value=car[k]||''}modal.showModal()}</script>
+<script>function openGarage(car){const modal=document.getElementById('garageModal');const form=modal.querySelector('form');form.reset();document.getElementById('garageId').value=car?car.id:'';document.getElementById('garageTitle').textContent=car?'تعديل المركبة':'إضافة مركبة';if(car){for(const k of ['manufacturer','model','year','color'])form.elements[k].value=car[k]||'';const parts=String(car.plate||'').trim().split(/\s+/);const num=/^\d+$/.test(parts[parts.length-1]||'')?parts.pop():'';form.elements.plate_letters.value=parts.join(' ');form.elements.plate_numbers.value=num;}form.querySelectorAll('[data-plate-field],[data-color-field]').forEach(b=>{delete b.dataset.tried;b._repaint&&b._repaint();});modal.showModal()}</script>
 {% endblock %}

@@ -1,0 +1,26 @@
+{# Vehicle fields used in more than one page: Saudi plate (letters + numbers with a live preview) and car color #}
+{% macro plate_fields(plate='') %}
+{% set pl = split_plate(plate) %}
+<div class="plate-field" data-plate-field>
+  <span class="field-label"><b>رقم اللوحة</b></span>
+  <div class="plate-inputs">
+    <label>حروف اللوحة
+      <input name="plate_letters" required maxlength="8" placeholder="مثال: ب ح د" value="{{pl[0]}}" autocomplete="off">
+      <span class="field-hint">حتى 3 حروف بينها مسافة</span>
+    </label>
+    <label>أرقام اللوحة
+      <input name="plate_numbers" required inputmode="numeric" maxlength="4" dir="ltr" placeholder="1234" value="{{pl[1]}}" autocomplete="off">
+      <span class="field-hint">حتى 4 أرقام</span>
+    </label>
+  </div>
+  <div class="plate-preview" aria-hidden="true">
+    <div data-pv="num-ar">—</div><div class="ar" data-pv="let-ar">—</div><div class="ksa">KSA ●</div>
+    <div data-pv="num-en">—</div><div data-pv="let-en">—</div>
+  </div>
+  <span class="field-error" data-plate-error hidden></span>
+</div>
+{% endmacro %}
+
+{% macro color_field(color='') %}
+<label class="color-field">اللون<input name="color" required maxlength="30" placeholder="مثال: أبيض" value="{{color}}"></label>
+{% endmacro %}
