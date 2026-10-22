@@ -1,10 +1,10 @@
-{% extends 'base.html' %}{% block content %}
+{% extends 'base.html' %}{% block content %}{# public home page and service details #}
 <div class="siyaq-landing">
 <section class="siyaq-hero"><div class="siyaq-hero-inner">
 <div class="siyaq-badge"><i></i> نظام سعودي لدعم قرار الحوادث البسيطة</div>
 <h1>من فيديو الحادث<br><em>إلى قرار واضح.</em></h1>
 <p>يساعد سياق في توثيق الحادث وجمع الأدلة وإفادات الأطراف، ثم تحليلها ومراجعتها من الخبير المختص.</p>
-<div class="siyaq-actions"><a class="siyaq-btn green" href="{{url_for('new_case') if user else url_for('login')}}">ابدأ باستخدام سياق <span>←</span></a><a class="siyaq-btn white" href="{{url_for('dashboard') if user else url_for('register')}}">{{'عرض بلاغاتي' if user else 'إنشاء حساب'}}</a></div>
+<div class="siyaq-actions"><a class="siyaq-btn green" href="{{url_for('new_case') if user else url_for('login')}}">البدء باستخدام سياق <span>←</span></a><a class="siyaq-btn white" href="{{url_for('dashboard') if user else url_for('register')}}">{{'عرض بلاغاتي' if user else 'إنشاء حساب'}}</a></div>
 <div class="siyaq-trust"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 5 6v5c0 4.6 2.8 8 7 10 4.2-2 7-5.4 7-10V6l-7-3Zm-3 9 2 2 4-5"/></svg> النتيجة لا تصبح نهائية إلا بعد مراجعة واعتماد الخبير المختص</div>
 </div></section>
 <section class="siyaq-scope" id="workflow"><div class="siyaq-scope-header"><span>كيف يعمل سياق؟</span><h2>تحليل مفهوم، خطوة بخطوة</h2></div>

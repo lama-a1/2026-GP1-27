@@ -1,3 +1,4 @@
+# check the available templates and the public home page
 from app import app
 
 def test_case_detail_template_removed():

@@ -1,3 +1,4 @@
+# check the authorization code and expert account registration
 import uuid
 from app import app
 
@@ -13,9 +14,12 @@ def test_expert_registration_requires_authorization(monkeypatch):
             token = sess['csrf']
         fields = {'csrf_token': token, 'full_name': 'Test Expert', 'username': username,
                   'password': 'strong-test-password-123', 'confirm_password': 'strong-test-password-123'}
+        # try the wrong code first, then register with the correct code
         response = client.post('/expert/register', data={**fields, 'authorization_code': 'wrong-code'})
         assert response.status_code == 200
         response = client.post('/expert/register', data={**fields, 'authorization_code': 'test-only-authorized-registration-code-12345'})
+        assert response.status_code == 302
+        response = client.post('/expert/register', data={**fields, 'action': 'create'})
         assert response.status_code == 302
         assert '/expert/login' in response.headers['Location']
         response = client.post('/expert/login', data={'csrf_token': token, 'username': username, 'password': 'strong-test-password-123'})

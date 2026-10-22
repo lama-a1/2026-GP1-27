@@ -100,7 +100,7 @@ body::before{display:none}
 @media(max-width:850px){.topbar .navwrap{flex-wrap:wrap;justify-content:center;padding:10px 16px}.topbar nav{justify-content:center}.dashboard-welcome{padding:25px 20px}.siyaq-auth-card{max-width:520px}}
 @media(max-width:600px){.dashboard-refined{margin-top:12px}.dashboard-welcome{align-items:stretch;flex-direction:column}.dashboard-welcome .btn{width:max-content}.dashboard-refined .case-grid{grid-template-columns:1fr}.dashboard-refined .attention-card{align-items:flex-start;gap:12px}.topbar nav>a,.topbar nav .linkbtn{font-size:12px;padding:7px!important}}
 
-/* Siyaq interface refinements */
+/* shared styles for the pages */
 body{background:#f8faf9}
 .topbar{background:#fff!important;border-top:0!important;border-bottom:1px solid #e6ebe8!important}
 body::before{display:none!important}
@@ -129,7 +129,7 @@ body:has(.siyaq-auth) .siyaq-auth{min-height:100dvh}
 @media(max-width:720px){.wizardwrap{padding:0 12px}.wizardtitle{padding:22px 17px}.wizardbody{padding:12px 17px 25px}.step small{font-size:9px}.stepper{overflow-x:auto}.step{min-width:67px}}
 
 
-/* Navigation and expert workspace */
+/* navigation and expert pages */
 .topbar,.topbar.auth-hidden-nav{display:block!important;background:#fff!important;border-bottom:1px solid #e2e9e5!important;box-shadow:0 2px 12px #123d2610!important;min-height:72px}
 .topbar .navwrap{min-height:72px;max-width:1250px}
 .topbar .siyaq-logo{background:transparent!important;border-radius:0;padding:0!important;box-shadow:none!important;flex-shrink:0}
@@ -163,7 +163,7 @@ body:has(.siyaq-auth) .siyaq-auth{min-height:calc(100dvh - 72px)}
 @media(max-width:850px){.topbar .navwrap{gap:10px}.topbar nav{gap:2px}.topbar nav>a,.topbar nav .linkbtn{padding:7px!important;font-size:12px}.expert-page-hero{flex-wrap:wrap}.siyaq-auth-card{padding:40px 0}}
 
 
-/* Header navigation */
+/* header links */
 .topbar{height:auto;min-height:66px;background:#fff;border-bottom:1px solid #e4ebe6}
 .navwrap{max-width:1200px;min-height:66px;gap:24px}
 .siyaq-logo{flex-shrink:0;background:transparent;box-shadow:none;padding:0}
@@ -178,7 +178,7 @@ body:has(.siyaq-auth) .siyaq-auth{min-height:calc(100dvh - 72px)}
 .siyaq-footer .footer-inner img{background:transparent;box-shadow:none;border:0;padding:0;border-radius:0;object-fit:contain}
 @media(max-width:760px){.navwrap{padding:12px 16px;gap:10px}.topbar nav{gap:5px}.topbar nav>a,.topbar nav .linkbtn{font-size:12px;padding:8px 9px}.topbar nav>a.nav-guest-login,.topbar nav>a.nav-guest-expert{padding:9px 12px}.siyaq-logo .siyaq-logo-img{width:90px}}
 
-/* Consistent footer branding and uncluttered guest navigation */
+/* footer logo and guest links */
 body:has(.siyaq-auth) .siyaq-footer{display:block!important}
 .siyaq-footer{background:#0b2e1d var(--pattern)!important;margin-top:0}
 .siyaq-footer .footer-inner{min-height:90px;gap:18px}
@@ -191,7 +191,7 @@ body:has(.siyaq-auth) .siyaq-footer{display:block!important}
 .siyaq-auth-form button[data-registration-unavailable]{pointer-events:none!important;background:#a5cbb6!important}
 @media(max-width:700px){.siyaq-footer .footer-inner{justify-content:center;text-align:center;flex-direction:column;padding:18px 10px}}
 
-/* Expert authorization layout */
+/* expert registration form */
 .expert-register-clean{min-height:calc(100dvh - 180px);display:grid;place-items:center;padding:70px 20px;background:#fff}
 .expert-register-panel{width:min(410px,100%);background:#fff;padding:34px 0 22px;text-align:right}
 .expert-register-panel h1{font-size:30px;color:#0b2419;margin:0 0 4px;font-weight:800}
@@ -218,7 +218,7 @@ body:has(.siyaq-auth) .siyaq-footer{display:block!important}
 .location-map-link{display:inline-block;color:#006b38;font-weight:700;font-size:13px;margin-top:7px}
 @media(max-width:520px){.accident-location-controls{flex-direction:column}.accident-location-controls input,.accident-location-controls .locate-me-btn{width:100%;flex:auto}}
 
-/* Video replacement controls */
+/* buttons for changing the selected video */
 .video-selection-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}
 .video-selection-controls[hidden]{display:none!important}
 .video-selection-controls .btn{font-size:13px;padding:9px 16px}
@@ -231,7 +231,7 @@ body:has(.siyaq-auth) .siyaq-footer{display:block!important}
 .location-picker{height:300px;border:1px solid #d6e7db;border-radius:10px;margin-top:12px;z-index:0}
 .location-picker-hint{font-size:12px;color:#82958b;margin:8px 0 0}
 
-/* Header: logo on the right, navigation on the left; hamburger menu on mobile */
+/* logo on the right and links on the left (menu button on small screens) */
 .topbar .navwrap{flex-direction:row!important;align-items:center!important;flex-wrap:nowrap!important;justify-content:space-between!important;padding:0 24px!important;min-height:68px}
 .topbar nav{flex-wrap:nowrap!important;justify-content:flex-end!important}
 .nav-toggle{display:none;align-items:center;justify-content:center;background:none;border:0;font-size:24px;color:#123d2b;padding:8px;border-radius:8px}
@@ -245,7 +245,7 @@ body:has(.siyaq-auth) .siyaq-footer{display:block!important}
 .topbar nav form{width:100%}
 }
 
-/* Footer: brand + link columns + bottom bar */
+/* footer logo, links and bottom row */
 .siyaq-footer{padding:44px 24px 0!important;color:#c7e0d0}
 .footer-grid{max-width:1180px;margin:auto;display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:32px;text-align:right}
 .footer-brand img{width:116px;height:auto}
@@ -257,10 +257,10 @@ body:has(.siyaq-auth) .siyaq-footer{display:block!important}
 .footer-bottom{max-width:1180px;margin:32px auto 0;padding:18px 0;border-top:1px solid #ffffff1f;font-size:12px;color:#a9c9b6;text-align:center}
 @media(max-width:760px){.footer-grid{grid-template-columns:1fr 1fr;gap:26px}.footer-brand{grid-column:1/-1}}
 
-/* iPhone: prevent auto-zoom on input focus (Safari zooms when font-size < 16px) */
+/* keep the input text at 16px so Safari does not zoom in */
 @media(max-width:760px){input,select,textarea{font-size:16px!important}}
 
-/* Rear-end: which vehicle was I */
+/* choose the front or rear car */
 .vehicle-role-field{grid-column:1/-1}
 .vehicle-role-field[hidden]{display:none!important}
 .field-label{display:block;font-weight:700;font-size:13px;margin-bottom:9px}
@@ -270,13 +270,13 @@ body:has(.siyaq-auth) .siyaq-footer{display:block!important}
 .vehicle-role-option input{accent-color:#006c35;width:18px;height:18px;margin-top:2px}
 .vehicle-role-option b{display:block;font-size:14px}
 .vehicle-role-option small{display:block;color:#6d8175;font-weight:400;line-height:1.7;margin-top:4px}
-/* Read-only fields pulled from the account */
+/* show the account details without allowing edits here */
 .from-account{font-size:11px;font-weight:700;color:#006c35;background:#e9f4ed;border-radius:20px;padding:2px 8px;margin-inline-start:6px}
 input[readonly]{background:#f3f6f4!important;color:#5d7266!important;cursor:not-allowed}
 .camera-hint{margin:0 0 16px;display:flex;align-items:center;gap:8px;font-size:13px}
 @media(max-width:530px){.vehicle-role-options{grid-template-columns:1fr}}
 
-/* Rear-end options: card layout fix (generic input styles were applied to the radio) */
+/* keep the radio buttons inside the rear-end choice cards */
 .vehicle-role-option{display:grid!important;grid-template-columns:auto 1fr;grid-template-rows:auto auto;gap:10px 12px;text-align:right}
 .vehicle-role-option .role-art{grid-column:1/-1;width:100%;height:auto;max-height:130px;display:block}
 .vehicle-role-option input[type=radio]{display:block!important;width:18px!important;height:18px!important;padding:0!important;margin:3px 0 0!important;border:0!important;box-shadow:none!important;background:none!important}
@@ -288,7 +288,7 @@ input[readonly]{background:#f3f6f4!important;color:#5d7266!important;cursor:not-
 .garage-pick{background:#f4f9f6;border:1px solid #d6e7db;border-radius:10px;padding:14px 16px;margin-bottom:20px}
 .garage-pick .fineprint{text-align:right;margin:8px 0 0;display:flex;align-items:center;gap:6px}
 
-/* Step 7: invitation status */
+/* show whether the invitation was sent */
 .status-hero{text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;padding:8px 0}
 .status-icon{width:64px;height:64px;border-radius:50%;background:#e8f4ec;color:#006c35;display:grid;place-items:center;font-size:30px}
 .status-hero h3{font-size:22px;margin:4px 0 0}
@@ -302,7 +302,7 @@ input[readonly]{background:#f3f6f4!important;color:#5d7266!important;cursor:not-
 .pill-pending{background:#fff4e0!important;color:#9a6200!important}
 .invite-actions{display:flex;gap:10px;margin-top:18px}
 
-/* Step 7: case status timeline (both parties) */
+/* show the case status to both parties */
 .status-hero .pill{margin-bottom:2px}
 .timeline-title{font-size:15px;margin:26px 0 12px}
 .timeline{list-style:none;margin:0;padding:0}
@@ -315,7 +315,7 @@ input[readonly]{background:#f3f6f4!important;color:#5d7266!important;cursor:not-
 .timeline li.current b{color:#9a6200}
 .timeline small{display:block;color:#82958b;font-size:12px;margin-top:4px}
 
-/* Unified case status pills: Pending / In Progress / Completed */
+/* colors for pending, in progress and completed cases */
 .pill-pending{background:#fff4e0!important;color:#9a6200!important}
 .pill-in-progress,.pill-progress{background:#e7f0fb!important;color:#1f5c99!important}
 .pill-completed{background:#e6f4ec!important;color:#006c35!important}
@@ -325,7 +325,7 @@ input[readonly]{background:#f3f6f4!important;color:#5d7266!important;cursor:not-
 .expert-group h2{font-size:16px;display:flex;align-items:center;gap:10px;margin:0 0 12px}
 .expert-group h2 small{color:#82958b;font-weight:400;font-size:12px}
 
-/* Expert rules page */
+/* expert rules page */
 .rules-principle{background:#fff;border:1px solid #dce5df;border-radius:12px;padding:18px 22px;margin-top:22px}
 .rules-principle h2{font-size:16px;display:flex;align-items:center;gap:8px;margin:0 0 10px}
 .rules-principle ul{margin:0;padding-inline-start:20px;line-height:2;font-size:14px}
@@ -333,3 +333,115 @@ input[readonly]{background:#f3f6f4!important;color:#5d7266!important;cursor:not-
 .rules-table td{vertical-align:top;line-height:1.8;font-size:13px}
 .rule-id{display:inline-block;background:#e6f4ec;color:#006c35;font-weight:800;border-radius:6px;padding:2px 8px}
 .rule-ratio{font-weight:800;white-space:normal!important;min-width:150px;line-height:1.9}
+
+/* page layout and form fields */
+/* keep the footer at the bottom on short pages */
+html{height:100%}
+body{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
+body>main{flex:1 0 auto}
+body>.siyaq-footer{flex-shrink:0}
+.siyaq-auth{min-height:0!important}
+
+/* error messages under the fields */
+.field-error{display:block;color:#b3261e;font-size:12px;font-weight:600;margin-top:6px;line-height:1.6}
+.field-error[hidden]{display:none}
+.field-hint{display:block;color:#7a8b80;font-size:11.5px;font-weight:400;margin-top:6px}
+input.is-invalid,select.is-invalid,textarea.is-invalid{border-color:#d4483b!important;background:#fffafa!important}
+.pw-meter{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px}
+.pw-meter i{height:5px;border-radius:4px;background:#e3e9e5}
+.pw-meter[data-level="1"] i:nth-child(-n+1){background:#d4483b}
+.pw-meter[data-level="2"] i:nth-child(-n+2){background:#e59a2f}
+.pw-meter[data-level="3"] i:nth-child(-n+3){background:#7fb446}
+.pw-meter[data-level="4"] i{background:#006c35}
+.siyaq-auth-side:not(:has(.auth-journey)){justify-content:flex-start}
+
+/* lines between the steps and steps that cannot be opened yet */
+.stepper{position:relative}
+.stepper .step{position:relative}
+.stepper .step::before{content:"";position:absolute;top:15px;left:calc(50% + 19px);right:calc(-50% + 19px);height:2px;background:#dbe5de;z-index:0}
+.stepper .step:first-child::before{display:none}
+.stepper .step.passed::before,.stepper .step.active::before{background:#006c35}
+.stepper .step>span{position:relative;z-index:1}
+.stepper span.step,.stepper .step.locked{cursor:default}
+.stepper .step.locked{opacity:.75}
+
+/* back link above the form */
+.wizardhero>a.hero-back{font-size:15px!important;padding:9px 14px;border:1px solid #b8d9c5;border-radius:9px;background:#fff}
+.wizardfooter .footer-start{display:flex;gap:10px;flex-wrap:wrap}
+.btn.danger{background:#fff;color:#b3261e;border-color:#efc2bd}
+.btn.danger:hover{background:#fff4f2}
+
+/* space between the verification code and the profile buttons */
+.email-verify-actions{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+.profile-form .check input:disabled+span,.profile-form .check.is-disabled{color:#9aa8a0}
+.profile-form .check small{display:block;font-weight:400;color:#8a998f;font-size:11px}
+
+/* Saudi plate fields */
+.plate-field{grid-column:1/-1}
+.plate-inputs{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.plate-preview{display:grid;grid-template-columns:1fr 1fr 34px;direction:ltr;width:min(330px,100%);margin-top:12px;border:2px solid #2b2f33;border-radius:8px;overflow:hidden;background:#2f3338;font-family:Arial,sans-serif}
+.plate-preview>div{display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;letter-spacing:4px;min-height:34px;font-size:18px;border-bottom:1px solid #6b7177}
+.plate-preview>div:nth-child(1),.plate-preview>div:nth-child(4){border-right:1px solid #6b7177}
+.plate-preview>div:nth-child(4),.plate-preview>div:nth-child(5){border-bottom:0}
+.plate-preview .ksa{grid-row:1/3;grid-column:3;background:#f4f6f5;color:#2b2f33;font-size:8px;letter-spacing:1px;writing-mode:vertical-rl;border:0}
+.plate-preview .ar{font-family:Tajawal,Tahoma,sans-serif;letter-spacing:6px;direction:rtl}
+.plate-letters-picker{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.plate-letters-picker button{min-width:38px;height:34px;border:1px solid #d8e4db;border-radius:7px;background:#fff;font-weight:700;cursor:pointer;font-size:14px}
+.plate-letters-picker button:hover{border-color:#006c35;color:#006c35}
+.plate-letters-picker button small{font-size:9px;color:#8a998f;margin-inline-start:3px}
+
+/* car color choices */
+.color-swatches{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.color-swatches button{display:inline-flex;align-items:center;gap:6px;border:1px solid #d8e4db;border-radius:99px;background:#fff;padding:5px 11px 5px 9px;font-size:12px;font-weight:700;cursor:pointer}
+.color-swatches button i{width:14px;height:14px;border-radius:50%;border:1px solid #0002;display:inline-block}
+.color-swatches button[aria-pressed="true"]{border-color:#006c35;background:#eef7f1;box-shadow:0 0 0 1px #006c35}
+
+/* front and rear camera choices */
+.camera-options{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:6px 0 18px}
+.camera-option{display:flex;gap:12px;align-items:center;border:1.5px solid #d6e7db;border-radius:12px;padding:14px;background:#f8fbf9;cursor:pointer}
+.camera-option:has(input:checked){border-color:#006c35;background:#eef7f1;box-shadow:0 0 0 1px #006c35}
+.camera-option:has(input:disabled){opacity:.5;cursor:not-allowed;background:#f3f4f4}
+.camera-option input{accent-color:#006c35;width:18px;height:18px}
+.camera-option b{display:block;font-size:14px}
+.camera-option small{display:block;color:#6d8175;font-weight:400;font-size:12px}
+@media(max-width:560px){.camera-options,.plate-inputs{grid-template-columns:1fr}}
+
+/* accident requirements on the dashboard */
+.help-strip button.help-toggle{background:none;border:0;color:#006c35;font-weight:700;font-size:14px;cursor:pointer;padding:0}
+.eligibility-details{margin:-22px 0 30px;background:#fff;border:1px solid #d8eadd;border-top:0;border-radius:0 0 14px 14px;padding:16px 24px}
+.eligibility-details ul{margin:0;padding-inline-start:18px;line-height:2;color:#2c4a3a}
+
+/* fixed prefix before the expert username */
+.username-prefix{display:flex;direction:ltr;margin-top:8px;border:1px solid #dce4df;border-radius:8px;overflow:hidden;background:#fff}
+.username-prefix span{display:flex;align-items:center;padding:0 12px;background:#eef5f0;color:#006c35;font-weight:700;font-size:14px;border-right:1px solid #dce4df}
+.username-prefix input{border:0!important;margin:0!important;border-radius:0!important;flex:1;min-width:0}
+
+/* picture choices for the accident description */
+.desc-step{display:grid;gap:26px}
+.desc-q{display:grid;gap:12px}
+.desc-q h3{font-size:16px;margin:0;display:flex;gap:10px;align-items:center}
+.desc-q h3 i{font-style:normal;width:26px;height:26px;border-radius:50%;background:#e9f4ed;color:#006c35;display:grid;place-items:center;font-size:13px;flex:none}
+.desc-q>p{margin:0;color:#7a8b80;font-size:13px}
+.desc-legend{display:flex;gap:16px;font-size:12px;color:#6d8175;flex-wrap:wrap}
+.desc-legend i{display:inline-block;width:14px;height:10px;border-radius:3px;margin-inline-end:6px;vertical-align:middle}
+.desc-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.desc-opt{border:1.5px solid #dde6e0;border-radius:14px;background:#fff;padding:10px;display:grid;gap:6px;justify-items:center;align-content:start;cursor:pointer;font:inherit;color:#17231b;text-align:center}
+.desc-opt svg{width:100%;max-width:190px;height:auto;display:block}
+.desc-opt span{font-size:13.5px;font-weight:700;line-height:1.5}
+.desc-opt small{font-size:12px;color:#6d8175;line-height:1.5;font-weight:400}
+.desc-opt .you{font-size:11px;background:#e9f4ed;color:#006c35;border-radius:99px;padding:2px 10px;font-weight:700;font-style:normal}
+.desc-opt:hover{border-color:#a9c4b2}
+.desc-opt[aria-pressed="true"]{border-color:#006c35;background:#eef7f1;box-shadow:0 0 0 1px #006c35 inset}
+.carpick{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+.zone{cursor:pointer;fill:transparent}
+.zone:hover{fill:#d23b2f22}
+.zone.on{fill:#d23b2f55;stroke:#d23b2f;stroke-width:2}
+.carpick .chosen b{color:#d23b2f}
+.desc-text label{font-weight:700;font-size:14px}
+.desc-text textarea{line-height:1.8;min-height:130px}
+.desc-meta{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:12px;color:#7a8b80;margin-top:6px}
+.desc-meta .bad{color:#b3261e}
+.desc-meta .linkish{background:none;border:0;color:#006c35;font:inherit;font-size:12px;cursor:pointer;padding:0;text-decoration:underline}
+form[data-step="7"] .wizardfooter{display:none}
+.camera-options .camera-option{display:flex!important;flex-direction:row!important;align-items:center}.camera-option>span{flex:1 1 auto;min-width:0;display:block}.camera-option input[type=radio]{flex:0 0 18px;margin:0!important;padding:0!important;width:18px!important;height:18px!important;min-height:0!important}
+.garage-dialog{max-height:92vh;overflow:auto}

@@ -1,234 +1,49 @@
-
-{# Extend the shared base template #}
 {% extends 'base.html' %}
-
-{% block title %}
-    {{ 'إنشاء حساب' if mode == 'register' else 'تسجيل الدخول' }} | سياق
-{% endblock %}
-
-{% block content %}
+{% block title %}{{ 'إنشاء حساب' if mode=='register' else 'تسجيل الدخول' }} | سياق{% endblock %}
+{% block content %}{# show the account fields and any registration errors #}
 <div class="siyaq-auth">
-
-    <aside class="siyaq-auth-side">
-        <div>
-            <span class="auth-chip">● قرار بشري مدعوم بالأدلة</span>
-            <h2>
-                لأن تفاصيل الحادث<br>
-                تصنع فارقًا.
-            </h2>
-            <p>
-                نجمع التسجيل، والأحداث المرصودة، والقاعدة ذات الصلة في مسار واحد واضح.
-            </p>
-        </div>
-    </aside>
-
-    <section class="siyaq-auth-card">
-
-        <a class="auth-back" href="{{ url_for('home') }}">
-            → العودة إلى الرئيسية
-        </a>
-
-        {# Show the heading and description based on the current mode #}
-        <div class="auth-heading">
-            <h1>{{ 'إنشاء حساب' if mode == 'register' else 'مرحبًا بعودتك' }}</h1>
-            <p>
-                {{ 'بياناتك تُدخل مرة واحدة وتُستخدم في البلاغات القادمة.' if mode == 'register' else 'تسجيل الدخول لمتابعة البلاغات أو بدء بلاغ جديد.' }}
-            </p>
-        </div>
-
-        {# Show success or error messages #}
-        {% with msgs = get_flashed_messages(with_categories=true) %}
-            {% for category, message in msgs %}
-                <div class="auth-inline-alert {{ category }}" role="alert">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        {% endwith %}
-
-        {# Create the form and apply different validation settings for each mode #}
-        <form
-            method="post"
-            id="identity-form"
-            class="siyaq-auth-form {{ 'explain-errors' if mode == 'register' else 'siyaq-validated-form' }}"
-            {% if mode == 'register' %}novalidate{% endif %}
-        >
-
-            {# Include a CSRF token to protect the form #}
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-            {% if mode == 'register' %}
-
-                <div class="identity-grid">
-
-                    <label>
-                        الاسم الثلاثي
-                        <input
-                            name="full_name"
-                            required
-                            autocomplete="name"
-                            value="{{ request.form.get('full_name', '') }}"
-                        >
-                        <span class="field-error" data-error-for="full_name" hidden></span>
-                    </label>
-
-                    <label>
-                        تاريخ الميلاد
-                        <input
-                            name="birth_date"
-                            type="date"
-                            required
-                            value="{{ request.form.get('birth_date', '') }}"
-                        >
-                        <span class="field-error" data-error-for="birth_date" hidden></span>
-                    </label>
-
-                    <label>
-                        رقم الهوية / الإقامة
-                        <input
-                            name="national_id"
-                            inputmode="numeric"
-                            dir="ltr"
-                            maxlength="10"
-                            required
-                            placeholder="١٠ أرقام"
-                            value="{{ request.form.get('national_id', '') }}"
-                        >
-                        <span class="field-error" data-error-for="national_id" hidden></span>
-                    </label>
-
-                    <label>
-                        البريد الإلكتروني
-                        <input
-                            name="email"
-                            type="email"
-                            required
-                            autocomplete="email"
-                            placeholder="name@example.com"
-                            value="{{ request.form.get('email', '') }}"
-                        >
-                        <span class="field-error" data-error-for="email" hidden></span>
-                    </label>
-                    <label>
-                        رقم الجوال
-                        <input
-                            name="phone"
-                            inputmode="tel"
-                            dir="ltr"
-                            maxlength="10"
-                            required
-                            placeholder="05xxxxxxxx"
-                            value="{{ request.form.get('phone', '') }}"
-                        >
-                        <span class="field-error" data-error-for="phone" hidden></span>
-                    </label>
-
-                    <label>
-                        كلمة المرور
-                        <input
-                            name="password"
-                            type="password"
-                            required
-                            autocomplete="new-password"
-                        >
-
-                        {# Show the password strength meter #}
-                        <span class="pw-meter" aria-hidden="true">
-                            <i></i><i></i><i></i><i></i>
-                        </span>
-
-                        <small class="pw-label" aria-live="polite">
-                            ٨ أحرف على الأقل، وتتضمن حرفًا ورقمًا.
-                        </small>
-
-                        <span class="field-error" data-error-for="password" hidden></span>
-                    </label>
-
-                    <label>
-                        تأكيد كلمة المرور
-                        <input
-                            name="confirm_password"
-                            type="password"
-                            required
-                            autocomplete="new-password"
-                        >
-                        <span class="field-error" data-error-for="confirm_password" hidden></span>
-                    </label>
-
-                </div>
-
-                <button class="siyaq-auth-submit" type="submit">
-                    إنشاء الحساب ←
-                </button>
-
-                <p class="identity-note">
-                    سيُرسل رمز تحقق من 6 أرقام إلى بريدك الإلكتروني قبل تفعيل الحساب.
-                </p>
-
-            {% else %}
-                {# Create a stack layout for the login form #}
-                <div class="identity-stack">
-
-                    <label>
-                        رقم الهوية الوطنية
-                        <input
-                            name="national_id"
-                            inputmode="numeric"
-                            dir="ltr"
-                            minlength="10"
-                            maxlength="10"
-                            pattern="[0-9٠-٩]{10}"
-                            required
-                            placeholder="١٠ أرقام"
-                            autocomplete="username"
-                        >
-                    </label>
-                    <label>
-                        كلمة المرور
-                        <input
-                            name="password"
-                            type="password"
-                            required
-                            autocomplete="current-password"
-                        >
-                    </label>
-
-                </div>
-
-                {# Provide a link to reset a forgotten password #}
-                <a class="forgot-link" href="{{ url_for('forgot_password') }}">
-                    نسيت كلمة المرور؟
-                </a>
-
-                <button
-                    class="siyaq-auth-submit guarded-submit"
-                    type="submit"
-                    disabled
-                >
-                    تسجيل الدخول ←
-                </button>
-
-            {% endif %}
-        </form>
-
-        {# Provide a link to switch between registration and login #}
-        <div class="siyaq-auth-switch">
-            {% if mode == 'register' %}
-                لديك حساب؟
-                <a href="{{ url_for('login', next=request.args.get('next', '')) }}">
-                    تسجيل الدخول
-                </a>
-            {% else %}
-                ليس لديك حساب؟
-                <a href="{{ url_for('register', next=request.args.get('next', '')) }}">
-                    إنشاء حساب
-                </a>
-            {% endif %}
-        </div>
-        <div class="siyaq-auth-security">
-            <i data-lucide="lock"></i>
-            يتم حفظ بيانات حسابك وتتاح وفق صلاحيات الوصول
-        </div>
-
-    </section>
+  <aside class="siyaq-auth-side">
+    <div>
+      <span class="auth-chip">● قرار بشري مدعوم بالأدلة</span>
+      <h2>لأن تفاصيل الحادث<br>تصنع فارقًا.</h2>
+      <p>نجمع التسجيل، والأحداث المرصودة، والقاعدة ذات الصلة في مسار واحد واضح.</p>
+    </div>
+  </aside>
+  <section class="siyaq-auth-card">
+    <a class="auth-back" href="{{url_for('home')}}">→ العودة إلى الرئيسية</a>
+    <div class="auth-heading">
+      <h1>{{ 'إنشاء حساب' if mode=='register' else 'مرحبًا بعودتك' }}</h1>
+      <p>{{ 'بياناتك تُدخل مرة واحدة وتُستخدم في البلاغات القادمة.' if mode=='register' else 'تسجيل الدخول لمتابعة البلاغات أو بدء بلاغ جديد.' }}</p>
+    </div>
+    {% with msgs=get_flashed_messages(with_categories=true) %}{% for category,message in msgs %}<div class="auth-inline-alert {{category}}" role="alert">{{message}}</div>{% endfor %}{% endwith %}
+    <form method="post" id="identity-form" class="siyaq-auth-form {{'explain-errors' if mode=='register' else 'siyaq-validated-form'}}" {% if mode=='register' %}novalidate{% endif %}>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% if mode=='register' %}
+      <div class="identity-grid">
+        <label>الاسم الثلاثي<input name="full_name" required autocomplete="name" value="{{request.form.get('full_name','')}}"><span class="field-error" data-error-for="full_name" hidden></span></label>
+        <label>تاريخ الميلاد<input name="birth_date" type="date" required value="{{request.form.get('birth_date','')}}"><span class="field-error" data-error-for="birth_date" hidden></span></label>
+        <label>رقم الهوية / الإقامة<input name="national_id" inputmode="numeric" dir="ltr" maxlength="10" required placeholder="١٠ أرقام" value="{{request.form.get('national_id','')}}"><span class="field-error" data-error-for="national_id" hidden></span></label>
+        <label>البريد الإلكتروني<input name="email" type="email" required autocomplete="email" placeholder="name@example.com" value="{{request.form.get('email','')}}"><span class="field-error" data-error-for="email" hidden></span></label>
+        <label>رقم الجوال<input name="phone" inputmode="tel" dir="ltr" maxlength="10" required placeholder="05xxxxxxxx" value="{{request.form.get('phone','')}}"><span class="field-error" data-error-for="phone" hidden></span></label>
+        <label>كلمة المرور<input name="password" type="password" required autocomplete="new-password">
+          <span class="pw-meter" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <small class="pw-label" aria-live="polite">٨ أحرف على الأقل، وتتضمن حرفًا ورقمًا.</small>
+          <span class="field-error" data-error-for="password" hidden></span></label>
+        <label>تأكيد كلمة المرور<input name="confirm_password" type="password" required autocomplete="new-password"><span class="field-error" data-error-for="confirm_password" hidden></span></label>
+      </div>
+      <button class="siyaq-auth-submit" type="submit">إنشاء الحساب ←</button>
+      <p class="identity-note">سيُرسل رمز تحقق من 6 أرقام إلى بريدك الإلكتروني قبل تفعيل الحساب.</p>
+      {% else %}
+      <div class="identity-stack">
+        <label>رقم الهوية الوطنية<input name="national_id" inputmode="numeric" dir="ltr" minlength="10" maxlength="10" pattern="[0-9٠-٩]{10}" required placeholder="١٠ أرقام" autocomplete="username"></label>
+        <label>كلمة المرور<input name="password" type="password" required autocomplete="current-password"></label>
+      </div>
+      <a class="forgot-link" href="{{url_for('forgot_password')}}">نسيت كلمة المرور؟</a>
+      <button class="siyaq-auth-submit guarded-submit" type="submit" disabled>تسجيل الدخول ←</button>
+      {% endif %}
+    </form>
+    <div class="siyaq-auth-switch">{% if mode=='register' %}لديك حساب؟ <a href="{{url_for('login',next=request.args.get('next',''))}}">تسجيل الدخول</a>{% else %}ليس لديك حساب؟ <a href="{{url_for('register',next=request.args.get('next',''))}}">إنشاء حساب</a>{% endif %}</div>
+    <div class="siyaq-auth-security"><i data-lucide="lock"></i> يتم حفظ بيانات حسابك وتتاح وفق صلاحيات الوصول</div>
+  </section>
 </div>
 {% endblock %}

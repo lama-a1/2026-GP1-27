@@ -1,10 +1,7 @@
-
 {% extends 'base.html' %}
 {% block title %}دخول الخبير | سياق{% endblock %}
-
-{% block content %}
+{% block content %}{# expert login form #}
 <div class="siyaq-auth expert-auth">
-
   <aside class="siyaq-auth-side">
     <div>
       <span class="auth-chip">● مساحة الخبير المختص</span>
@@ -12,76 +9,20 @@
       <p>تسجيل دخول مخصص للاطلاع على البلاغات.</p>
     </div>
   </aside>
-
   <section class="siyaq-auth-card">
-
-    {# Return to the regular login page #}
-    <a href="{{ url_for('login') }}" class="auth-back">
-      → العودة لتسجيل الدخول
-    </a>
-
-    <div class="auth-heading">
-      <h1>دخول الخبير المختص</h1>
-      <p>تسجيل دخول خاص للمصرّح لهم. عرض الحالات فقط.</p>
-    </div>
-
-    {# Show success or error messages #}
-    {% with msgs = get_flashed_messages(with_categories=true) %}
-      {% for category, message in msgs %}
-        <div class="auth-inline-alert {{ category }}" role="alert">
-          {{ message }}
-        </div>
-      {% endfor %}
-    {% endwith %}
-
+    <a href="{{url_for('login')}}" class="auth-back">→ العودة لتسجيل الدخول</a>
+    <div class="auth-heading"><h1>دخول الخبير المختص</h1><p>تسجيل دخول خاص للمصرّح لهم. عرض الحالات فقط.</p></div>
+    {% with msgs=get_flashed_messages(with_categories=true) %}{% for category,message in msgs %}<div class="auth-inline-alert {{category}}" role="alert">{{message}}</div>{% endfor %}{% endwith %}
     <form method="post" class="siyaq-auth-form siyaq-validated-form">
-
-      {# Include a CSRF token to protect the form #}
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
+      <input type="hidden" name="csrf_token" value="{{csrf_token()}}">
       <div class="identity-stack">
-
-        <label>
-          معرّف الخبير
-          <input
-            type="text"
-            name="username"
-            required
-            autocomplete="username"
-            placeholder="معرّف الخبير"
-          >
-        </label>
-
-        <label>
-          كلمة المرور
-          <input
-            type="password"
-            name="password"
-            required
-            autocomplete="current-password"
-            placeholder="كلمة المرور"
-          >
-        </label>
-
+        <label>معرّف الخبير<input type="text" name="username" required autocomplete="username" placeholder="معرّف الخبير"></label>
+        <label>كلمة المرور<input type="password" name="password" required autocomplete="current-password" placeholder="كلمة المرور"></label>
       </div>
-
-      {# Submit the login form to access the case list #}
-      <button class="siyaq-auth-submit guarded-submit" type="submit" disabled>
-        الدخول إلى قائمة الحالات ←
-      </button>
+      <button class="siyaq-auth-submit guarded-submit" type="submit" disabled>الدخول إلى قائمة الحالات ←</button>
     </form>
-
-    {# Provide a link for new experts to register #}
-    <p class="siyaq-auth-switch">
-      خبير جديد؟
-      <a href="{{ url_for('expert_register') }}">تسجيل خبير مصرح</a>
-    </p>
-
-    <div class="siyaq-auth-security">
-      <i data-lucide="lock"></i>
-      مساحة مخصصة للخبراء المصرح لهم
-    </div>
-
+    <p class="siyaq-auth-switch">خبير جديد؟ <a href="{{url_for('expert_register')}}">تسجيل خبير مصرح</a></p>
+    <div class="siyaq-auth-security"><i data-lucide="lock"></i> مساحة مخصصة للخبراء المصرح لهم</div>
   </section>
 </div>
 {% endblock %}

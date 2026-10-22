@@ -1,3 +1,4 @@
+# check the upload signature and saving the uploaded video in the case
 import os, sys, tempfile, json, time
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
@@ -31,12 +32,13 @@ def test_cloudinary_presign_and_complete(monkeypatch):
             sess['uid']=uid
             sess['csrf']='csrf-test'
         endpoint=f'/api/cases/{cid}/videos/'
-        r=client.post(endpoint+'presign',json={'filename':'test.mp4','size':1234},headers={'X-CSRF-Token':'csrf-test'})
+        r=client.post(endpoint+'presign',json={'filename':'test.mp4','size':1234,'camera':'front'},headers={'X-CSRF-Token':'csrf-test'})
         assert r.status_code==200, r.get_json()
         data=r.get_json()
         assert data['provider']=='cloudinary'
         assert data['delivery_type']=='authenticated'
         assert 'testsecret' not in json.dumps(data)
+        # use sample upload details instead of calling Cloudinary
         monkeypatch.setattr(module,'cloudinary_metadata',lambda pid: {'public_id':pid,'resource_type':'video','type':'authenticated','bytes':1234})
         result=client.post(endpoint+'complete',headers={'X-CSRF-Token':'csrf-test'})
         assert result.status_code==200, result.get_json()

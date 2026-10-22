@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% from '_vehicle_fields.html' import plate_fields, color_field %}
-{% block content %}
+{% block content %}{# each party fills in their own details and continues from their saved step #}
 {% set is_a = party.position=='A' %}
 {% set joined = other_party and other_party.user_id %}
 {% set invite_sent = invite and not invite.revoked_at and not invite.claimed_by %}
@@ -10,7 +10,7 @@
 {% set show_invite_form = is_a and not other_joined and (not invite_sent or editing_invite) %}
 <div class="wizardwrap">
 
-  <!-- Page header -->
+  <!-- page heading -->
   <div class="wizardhero pattern">
     <a class="hero-back" href="{{url_for('dashboard')}}">→ رجوع</a>
     <div>
@@ -20,7 +20,7 @@
     <span><i data-lucide="check"></i> تم الحفظ</span>
   </div>
 
-  <!-- Steps bar -->
+  <!-- case form steps -->
   <div class="stepper">
     {% set reachable = 0 if party.completed else [progress+1,6]|min %}
     {% for name in steps %}
@@ -39,7 +39,7 @@
 
   <div class="wizardcard panel">
 
-    <!-- Step title -->
+    <!-- current step heading -->
     <div class="wizardtitle">
       <div class="roundicon mini"><i data-lucide="{{['file-text','user','car','message-square-text','video','clipboard-check','send' if is_a else 'circle-check'][step-1]}}"></i></div>
       <div>
@@ -63,7 +63,7 @@
       <div class="wizardbody">
 
         {% if step==1 %}
-        <!-- Step 1: accident info -->
+        <!-- step 1: accident details -->
         <div class="readonlygrid">
           <div><span>رقم الحالة</span><b>{{case.reference}}</b></div>
           <div><span>نوع الحادث</span><b>{{'حادث تغيير مسار' if case.accident_type=='LANE_CHANGE' else 'حادث اصطدام خلفي'}}</b></div>
@@ -79,7 +79,7 @@
         </div>
 
         {% elif step==2 %}
-        <!-- Step 2: party info -->
+        <!-- step 2: party details -->
         <div class="stack">
           <label>الاسم الثلاثي<input value="{{user.full_name or ''}}" readonly></label>
           <div class="two">
@@ -93,7 +93,7 @@
         </div>
 
         {% elif step==3 %}
-        <!-- Step 3: vehicle info -->
+        <!-- step 3: vehicle details -->
         {% set pre = vehicle if vehicle else (garage[0] if garage|length==1 else None) %}
         {% set pre_garage = namespace(id='') %}
         {% for g in garage %}{% if (vehicle and vehicle.plate==g.plate) or (not vehicle and pre and pre.id==g.id) %}{% set pre_garage.id = g.id %}{% endif %}{% endfor %}
@@ -142,7 +142,7 @@
         {% endif %}
 
         {% elif step==4 %}
-        <!-- Step 4: accident description (picture choices fill the description) -->
+        <!-- step 4: picture choices that fill in the description -->
         {% set default_role = party.vehicle_role or '' %}
         <div id="desc-step" class="desc-step" data-type="{{case.accident_type}}" data-meta='{{desc_meta|tojson}}' data-role="{{default_role}}">
           <input type="hidden" name="pos"><input type="hidden" name="rcase"><input type="hidden" name="side"><input type="hidden" name="who"><input type="hidden" name="zone">
@@ -193,7 +193,7 @@
         <script src="{{url_for('static',filename='description.js')}}" defer></script>
 
         {% elif step==5 %}
-        <!-- Step 5: upload the video -->
+        <!-- step 5: video upload -->
         {% if not videos %}
         <span class="field-label"><b>الكاميرا التي صُوّر بها الفيديو</b></span>
         <div class="camera-options" role="radiogroup">
@@ -239,7 +239,7 @@
         </div>
 
         {% elif step==6 %}
-        <!-- Step 6: review -->
+        <!-- step 6: review the entered details -->
         <div class="review">
           <h3>ملخص البيانات</h3>
           <p><b>الاسم:</b> {{party.full_name or 'غير مدخل'}}</p>
@@ -251,10 +251,10 @@
         <label class="check"><input type="checkbox" name="consent" value="yes" required> أؤكد صحة البيانات التي أدخلتها حسب علمي، وأوافق على استخدامها لأغراض هذا المشروع الأكاديمي.</label>
 
         {% elif step==7 %}
-        <!-- Step 7: invite the other party (first party) / report status (both parties) -->
+        <!-- step 7: invitation for party A and case status for both parties -->
         <div class="invite-step">
           {% if show_invite_form %}
-            <!-- Invitation form -->
+            <!-- second party invitation -->
             <div class="alert-info"><i data-lucide="circle-check"></i><span><b>تم حفظ بياناتك بنجاح.</b> لن يُطلب من الطرف الثاني إعادة إدخال نوع الحادث أو التاريخ أو الوقت أو الموقع.</span></div>
             <label>البريد الإلكتروني للطرف الثاني<input form="party-invite-form" type="email" name="recipient_email" dir="ltr" required autocomplete="email" maxlength="254" placeholder="name@example.com" value="{{invite.recipient_email if editing_invite and invite else ''}}"></label>
             <p class="fineprint">سنرسل رابطًا آمنًا للانضمام إلى البلاغ {{case.reference}}، ويُستخدم مرة واحدة فقط.</p>
@@ -264,7 +264,7 @@
               {% if editing_invite %}<a class="btn secondary" href="{{url_for('wizard',case_id=case.id,step=7)}}">إلغاء</a>{% endif %}
             </div>
           {% else %}
-            <!-- Report status: same screen for both parties, content changes with the case stage -->
+            <!-- show the case status based on what both parties have completed -->
             <div class="status-hero">
               {% if other_done %}
                 <span class="pill pill-progress">{{case.status|status_label}}</span>
@@ -312,7 +312,7 @@
 
       </div>
 
-      <!-- Buttons -->
+      <!-- form buttons -->
       <div class="wizardfooter">
         {% if not party.completed %}
         <div class="footer-start">
@@ -334,14 +334,14 @@
     <form id="cancel-case-form" method="post" action="{{url_for('cancel_case',case_id=case.id)}}"><input type="hidden" name="csrf_token" value="{{csrf_token()}}"></form>
     {% endif %}
 
-    <!-- Forms to delete a video -->
+    <!-- forms for deleting the uploaded videos -->
     {% if step==5 and not party.completed %}
     {% for v in videos %}
     <form id="delete-video-{{v.id}}" method="post" action="{{url_for('delete_video',video_id=v.id)}}"><input type="hidden" name="csrf_token" value="{{csrf_token()}}"></form>
     {% endfor %}
     {% endif %}
 
-    <!-- Form to send the invitation -->
+    <!-- form for sending the invitation -->
     {% if step==7 and is_a and invite_sent and not editing_invite and not joined %}
     <form id="party-resend-form" method="post" action="{{url_for('invite',case_id=case.id)}}">
       <input type="hidden" name="csrf_token" value="{{csrf_token()}}">

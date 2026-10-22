@@ -1,6 +1,4 @@
-"""Best-effort face anonymization. Not a guarantee of complete anonymization.
-Plate redaction requires a separate validated plate detector and is intentionally not claimed.
-"""
+# blur faces in a local video (plates are not blurred, and the result needs a manual check)
 from pathlib import Path
 import uuid
 
@@ -14,11 +12,13 @@ def process_privacy(path,folder):
     fps=cap.get(cv2.CAP_PROP_FPS) or 25
     w=int(cap.get(cv2.CAP_PROP_FRAME_WIDTH));h=int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     if not w or not h:cap.release();return {'status':'requires_review','note':'تعذّر تحديد أبعاد الفيديو.'}
+    # use the face detector that comes with OpenCV
     face=cv2.CascadeClassifier(cv2.data.haarcascades+'haarcascade_frontalface_default.xml')
     output=uuid.uuid4().hex+'_faces_blurred.mp4'
     writer=cv2.VideoWriter(str(Path(folder)/output),cv2.VideoWriter_fourcc(*'mp4v'),fps,(w,h))
     if not writer.isOpened():cap.release();return {'status':'requires_review','note':'تعذّر إنشاء نسخة الفيديو المعالجة.'}
     count=0
+    # go through the frames and blur the faces we find
     while True:
         ok,frame=cap.read()
         if not ok:break
@@ -31,4 +31,5 @@ def process_privacy(path,folder):
     if count==0:
         (Path(folder)/output).unlink(missing_ok=True)
         return {'status':'requires_review','note':'الفيديو فارغ أو غير قابل للقراءة.'}
+    # keep the result marked for review because some faces may be missed
     return {'filename':output,'status':'requires_review','note':'تمت محاولة طمس الوجوه. يجب مراجعة الفيديو يدوياً؛ اللوحات والوجوه غير المكتشفة لم تُضمن تغطيتها، ولا تشاركي الملف قبل المراجعة.'}

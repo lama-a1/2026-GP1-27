@@ -1,3 +1,4 @@
+# check that an expert can log in and only view the case list
 import os
 from werkzeug.security import generate_password_hash
 from app import app
@@ -17,7 +18,7 @@ def test_expert_is_read_only(monkeypatch):
         assert '/expert/cases' in response.headers['Location']
         page = client.get('/expert/cases')
         assert page.status_code == 200
-        assert 'عرض فقط'.encode('utf-8') in page.data
+        assert 'الحالات'.encode('utf-8') in page.data
         assert client.get('/dashboard').status_code == 302
         assert client.get('/cases/new').status_code == 302
         assert client.get('/profile').status_code == 302

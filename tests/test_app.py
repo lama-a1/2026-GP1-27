@@ -1,19 +1,21 @@
-"""Run with: python -m pytest -q (after installing requirements and pytest)."""
+# check registration, account details, case submission and email delivery
 import os,tempfile,sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+# use a separate database for the tests
 os.environ['DATABASE_PATH']=str(Path(tempfile.gettempdir())/('siyaq_test_'+str(os.getpid())+'.db'))
 os.environ['SECRET_KEY']='test-only-secret'
 os.environ['OTP_MODE']='demo'
-from app import app
+from app import app, local_now
 
 def csrf(c):
     with c.session_transaction() as s:return s['csrf']
 
 def register(c,nid='1023456789',phone='0551234567'):
     c.get('/register')
-    r=c.post('/register',data={'csrf_token':csrf(c),'full_name':'Test User','national_id':nid,'birth_date':'2000-01-01','phone':phone,'email':'test'+nid+'@example.com','password':'password123','confirm_password':'password123'},follow_redirects=True)
+    r=c.post('/register',data={'csrf_token':csrf(c),'full_name':'Test User Name','national_id':nid,'birth_date':'2000-01-01','phone':phone,'email':'test'+nid+'@example.com','password':'password123','confirm_password':'password123'},follow_redirects=True)
     assert r.status_code==200
+    # get the local test code, then try a wrong code before the correct one
     with c.session_transaction() as sess: code=sess['pending_registration']['demo_code']
     assert c.post('/verify-email',data={'csrf_token':csrf(c),'code':'000000' if code!='000000' else '999999','action':'verify'}).status_code==200
     return c.post('/verify-email',data={'csrf_token':csrf(c),'code':code,'action':'verify'},follow_redirects=True)
@@ -31,9 +33,9 @@ def test_registration_profile_vehicle_and_case():
         assert r.status_code==200
         assert 'مرحبًا'.encode() in r.data
         assert c.get('/profile?tab=vehicles').status_code==200
-        r=c.post('/profile/vehicles',data={'csrf_token':csrf(c),'manufacturer':'تويوتا','model':'كامري','plate':'أ ب ج 1234','year':'2023','color':'أبيض'},follow_redirects=True)
+        r=c.post('/profile/vehicles',data={'csrf_token':csrf(c),'manufacturer':'تويوتا','model':'كامري','plate_letters':'أ ب ح','plate_numbers':'1234','year':'2023','color':'أبيض'},follow_redirects=True)
         assert 'كامري'.encode() in r.data
-        r=c.post('/cases/new',data={'csrf_token':csrf(c),'no_injuries':'yes','daylight':'yes','clear_weather':'yes','two_vehicles':'yes','accident_type':'REAR_END','vehicle_role':'REAR','accident_date':'2026-10-16','accident_time':'10:28','location':'الرياض'},follow_redirects=True)
+        r=c.post('/cases/new',data={'csrf_token':csrf(c),'no_injuries':'yes','daylight':'yes','clear_weather':'yes','two_vehicles':'yes','accident_type':'REAR_END','accident_date':local_now().strftime('%Y-%m-%d'),'accident_time':local_now().strftime('%H:%M'),'location':'الرياض'},follow_redirects=True)
         assert r.status_code==200 and b'SQ-' in r.data
 
 def test_csrf_rejection():
@@ -58,13 +60,14 @@ def test_email_invitation_is_targeted_single_use_and_private(monkeypatch):
     app.config['TESTING']=True
     monkeypatch.setenv('PUBLIC_BASE_URL','https://siyaq.example')
     delivered=[]
+    # collect the email details without sending a real invitation
     monkeypatch.setattr(module,'send_case_invitation',lambda email,link,reference: delivered.append((email,link,reference)))
     with app.test_client() as creator:
         creator.get('/login')
         with module.conn() as db:
             email='creator'+str(os.getpid())+'@example.com'
             db.execute('INSERT OR IGNORE INTO users(full_name,email,phone,password_hash,national_id) VALUES(?,?,?,?,?)',
-                       ('Creator',email,'0551234567','hash','1'+str(os.getpid()).zfill(9)[-9:]))
+                       ('Creator',email,'057'+str(os.getpid()).zfill(7)[-7:],'hash','1'+str(os.getpid()).zfill(9)[-9:]))
             uid=db.execute('SELECT id FROM users WHERE email=?',(email,)).fetchone()['id']
             ref='INVITE-'+str(os.getpid())
             db.execute('INSERT OR IGNORE INTO cases(reference,creator_id,accident_type,accident_date,accident_time,location) VALUES(?,?,?,?,?,?)',
@@ -106,7 +109,7 @@ def test_email_invitation_failure_does_not_leave_active_token(monkeypatch):
         client.get('/login')
         with module.conn() as db:
             email='failcreator'+str(os.getpid())+'@example.com'
-            db.execute('INSERT OR IGNORE INTO users(full_name,email,phone,password_hash,national_id) VALUES(?,?,?,?,?)',('Creator',email,'0551234567','hash','3'+str(os.getpid()).zfill(9)[-9:]))
+            db.execute('INSERT OR IGNORE INTO users(full_name,email,phone,password_hash,national_id) VALUES(?,?,?,?,?)',('Creator',email,'058'+str(os.getpid()).zfill(7)[-7:],'hash','3'+str(os.getpid()).zfill(9)[-9:]))
             uid=db.execute('SELECT id FROM users WHERE email=?',(email,)).fetchone()['id']
             ref='FAIL-'+str(os.getpid())
             db.execute('INSERT OR IGNORE INTO cases(reference,creator_id,accident_type,accident_date,accident_time,location) VALUES(?,?,?,?,?,?)',(ref,uid,'REAR_END','2026-10-16','11:00','الرياض'))
@@ -137,6 +140,7 @@ def test_brevo_rest_api_sends_otp_and_invitation(monkeypatch):
     monkeypatch.setenv('OTP_MODE','api')
     monkeypatch.setenv('BREVO_API_KEY','test-key')
     monkeypatch.setenv('BREVO_SENDER_EMAIL','verified@example.com')
+    # use a local response so this test does not contact Brevo
     monkeypatch.setattr(module,'urlopen',fake_urlopen)
     module.send_email_otp('tester@example.com','123456')
     module.send_case_invitation('second@example.com','https://siyaq.example/invite/token','SQ-123')
@@ -148,5 +152,5 @@ def test_brevo_rest_api_sends_otp_and_invitation(monkeypatch):
     assert sent[1]['to'][0]['email']=='second@example.com'
     assert 'https://siyaq.example/invite/token' in sent[1]['textContent']
     assert 'https://siyaq.example/invite/token' in sent[1]['htmlContent']
-    assert 'فتح الدعوة' in sent[1]['htmlContent']
+    assert 'الانضمام إلى البلاغ' in sent[1]['htmlContent']
     assert all(item['sender']['email']=='verified@example.com' for item in sent)

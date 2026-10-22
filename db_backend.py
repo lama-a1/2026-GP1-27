@@ -1,7 +1,4 @@
-"""SQLite for local development; persistent PostgreSQL when DATABASE_URL is set.
-
-Do not put DATABASE_URL or other credentials in source control.
-"""
+# use SQLite locally and PostgreSQL when DATABASE_URL is set
 import os
 import sqlite3
 from pathlib import Path
@@ -12,7 +9,7 @@ def is_postgres():
 
 
 class PgConnection:
-    """Small compatibility layer for the app's existing SQLite-style queries."""
+    # run the app's queries with PostgreSQL
     def __init__(self):
         import psycopg
         from psycopg.rows import dict_row
@@ -20,7 +17,7 @@ class PgConnection:
                                      connect_timeout=10)
 
     def execute(self, query, params=()):
-        # Application queries contain positional '?' placeholders and no literal '?'.
+        # PostgreSQL uses %s for the values instead of ?
         return self._conn.execute(query.replace('?', '%s'), params)
 
     def __enter__(self):
@@ -38,6 +35,7 @@ class PgConnection:
 
 
 def connect(sqlite_path):
+    # choose the database based on the environment settings
     if is_postgres():
         return PgConnection()
     c = sqlite3.connect(sqlite_path)
@@ -47,12 +45,14 @@ def connect(sqlite_path):
 
 
 def insert_id(c, sql, params):
+    # return the ID of the record we just added
     if is_postgres():
         return c.execute(sql + ' RETURNING id', params).fetchone()['id']
     return c.execute(sql, params).lastrowid
 
 
 def init_postgres():
+    # create the tables and any missing columns
     statements = [
         '''CREATE TABLE IF NOT EXISTS users(
             id SERIAL PRIMARY KEY, full_name TEXT NOT NULL, email TEXT NOT NULL UNIQUE,

@@ -2,14 +2,14 @@
 {% block content %}
 <div class="wizardwrap">
 
-  <!-- Page header -->
+  <!-- page heading -->
   <div class="wizardhero pattern">
     <a href="{{url_for('wizard',case_id=editing.id,step=1) if editing else url_for('dashboard')}}">→ {{'رجوع' if editing else 'العودة للرئيسية'}}</a>
     <h1>{{'تعديل بيانات الحادث' if editing else 'إبلاغ عن حادث'}}</h1>
     <p>استكمال متطلبات الأهلية ثم بيانات الحادث لبدء الحالة.</p>
   </div>
 
-  <!-- Steps bar -->
+  <!-- case form steps -->
   <div class="stepper">
     <div class="step active"><span>١</span><small>الأهلية</small></div>
     <div class="step"><span>٢</span><small>بيانات الحادث</small></div>
@@ -30,7 +30,7 @@
       {% with msgs=get_flashed_messages(with_categories=true) %}{% for category,message in msgs %}<div class="auth-inline-alert {{category}}" role="alert">{{message}}</div>{% endfor %}{% endwith %}
       <p class="muted">سياق مخصص لحوادث المركبتين البسيطة دون إصابات، في ظروف رؤية واضحة.</p>
 
-      <!-- Eligibility checks -->
+      <!-- accident requirements -->
       <div class="eligibility-checks">
         {% for key,title in [('no_injuries','لا توجد إصابات بشرية'),('clear_weather','الطقس والرؤية واضحان'),('two_vehicles','الحادث بين مركبتين فقط')] %}
         <label class="eligibility-item">
@@ -42,7 +42,7 @@
       </div>
       <p class="field-error" data-error-for="eligibility" hidden>يجب تأكيد شروط الأهلية الثلاثة للمتابعة.</p>
 
-      <!-- Accident info -->
+      <!-- accident details -->
       <h2>معلومات الحادث</h2>
       <div class="identity-grid">
 
@@ -66,7 +66,7 @@
           <small class="field-hint">يُقبل البلاغ عن حادث وقع خلال آخر 24 ساعة.</small>
         </label>
 
-        <!-- Accident location -->
+        <!-- accident location -->
         <div class="accident-location-field">
           <label for="accident-location">موقع الحادث</label>
           <div class="accident-location-controls">
@@ -81,7 +81,7 @@
             عرض الموقع على الخريطة <i data-lucide="external-link"></i>
           </a>
 
-          <!-- Map to pick the location -->
+          <!-- choose the accident location on the map -->
           <div id="location-picker" class="location-picker" dir="ltr"></div>
           <p class="location-picker-hint"><i data-lucide="mouse-pointer-click"></i> الضغط على الخريطة يحدد مكان الحادث، وسحب الدبوس يعدّله.</p>
         </div>
@@ -89,7 +89,7 @@
       </div>
     </div>
 
-    <!-- Buttons -->
+    <!-- form buttons -->
     <div class="wizardfooter">
       <a class="btn secondary" href="{{url_for('wizard',case_id=editing.id,step=1) if editing else url_for('dashboard')}}">رجوع</a>
       <button class="btn primary" type="submit">متابعة ←</button>
@@ -100,10 +100,14 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// Date and time: only allow the last 24 hours (no older dates, no future)
-const pad = n => String(n).padStart(2, '0');
-const ymd = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
-const hm = d => pad(d.getHours()) + ':' + pad(d.getMinutes());
+// set the date limits for reporting an accident within the last 24 hours
+// use Saudi time even when the browser is in another country
+const saudiParts = d => Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+}).formatToParts(d).map(p => [p.type, p.value]));
+const ymd = d => { const p = saudiParts(d); return p.year + '-' + p.month + '-' + p.day; };
+const hm = d => { const p = saudiParts(d); return p.hour + ':' + p.minute; };
 (function () {
   const now = new Date(), from = new Date(now.getTime() - 24 * 3600 * 1000);
   const date = document.getElementById('accident-date');
@@ -113,7 +117,7 @@ const hm = d => pad(d.getHours()) + ':' + pad(d.getMinutes());
   if (!time.value) time.value = hm(now);
 })();
 
-// Check all fields when the user clicks "Continue" and show an error under each wrong field
+// check the fields when the user continues and show the error under each field
 (function () {
   const form = document.getElementById('new-case-form');
   const show = (key, msg) => { const el = form.querySelector('[data-error-for="' + key + '"]'); if (!el) return; if (msg) el.textContent = msg; el.hidden = !msg; };
@@ -127,8 +131,8 @@ const hm = d => pad(d.getHours()) + ':' + pad(d.getMinutes());
     if (!d) dErr = 'تاريخ الحادث مطلوب.';
     if (!t) tErr = 'وقت الحادث مطلوب.';
     if (d && t && form.dataset.original !== d + ' ' + t) {
-      const when = new Date(d + 'T' + t), now = new Date();
-      if (when > new Date(now.getTime() + 5 * 60000)) tErr = 'لا يمكن أن يكون وقت الحادث في المستقبل.';
+      const when = new Date(d + 'T' + (t.length === 5 ? t + ':00' : t) + '+03:00'), now = new Date();
+      if (when > now) tErr = 'لا يمكن أن يكون وقت الحادث في المستقبل.';
       else if (when < new Date(now.getTime() - 24 * 3600 * 1000)) tErr = 'يجب أن يكون الحادث خلال آخر 24 ساعة.';
     }
     show('accident_date', dErr); show('accident_time', tErr); ok = ok && !dErr && !tErr;
@@ -144,14 +148,13 @@ const hm = d => pad(d.getHours()) + ':' + pad(d.getMinutes());
 (function () {
   const field = document.getElementById('accident-location');
   const mapLink = document.getElementById('location-map-link');
-  if (!window.L) return; // if the map does not load, the user can still type the address
-  const map = L.map('location-picker').setView([24.7136, 46.6753], 11); // Riyadh
+  if (!window.L) return; // the address can still be typed when the map is unavailable
+  const map = L.map('location-picker').setView([24.7136, 46.6753], 11); // start the map in Riyadh
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19, attribution: '&copy; OpenStreetMap'
   }).addTo(map);
   let marker = null;
 
-  // Put the pin on the map and fill the location field with the address
   async function pick(lat, lng) {
     if (!marker) {
       marker = L.marker([lat, lng], { draggable: true }).addTo(map);
@@ -165,7 +168,7 @@ const hm = d => pad(d.getHours()) + ':' + pad(d.getMinutes());
       const r = await fetch('https://nominatim.openstreetmap.org/reverse?format=json&accept-language=ar&lat=' + lat + '&lon=' + lng);
       const d = await r.json();
       if (d.display_name) field.value = d.display_name;
-    } catch (e) { /* if it fails, keep the coordinates in the field */ }
+    } catch (e) { /* keep the coordinates when the address cannot be found */ }
     mapLink.href = 'https://www.google.com/maps?q=' + encodeURIComponent(lat + ',' + lng);
     mapLink.dataset.coords = field.value;
     mapLink.hidden = false;
@@ -173,14 +176,13 @@ const hm = d => pad(d.getHours()) + ':' + pad(d.getMinutes());
 
   map.on('click', e => pick(e.latlng.lat, e.latlng.lng));
 
-  // when the user clicks "Use my current location", move the pin there
+  // move the pin when the location field contains coordinates
   field.addEventListener('change', () => {
     const m = field.value.match(/^\s*(-?\d+\.\d+),\s*(-?\d+\.\d+)\s*$/);
     if (m) { const lat = +m[1], lng = +m[2]; map.setView([lat, lng], 17); pick(lat, lng); }
   });
 })();
 
-// Save each eligibility checkbox as yes/no in its hidden input
 document.querySelectorAll('[data-eligibility]').forEach(el =>
   el.addEventListener('change', () =>
     document.getElementById('value-' + el.dataset.eligibility).value = el.checked ? 'yes' : 'no'

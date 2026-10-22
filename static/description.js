@@ -1,9 +1,8 @@
-/* Accident description step: the user picks pictures and they fill the description box (the user can still edit it).
-   The drawings match the figures in our report: the road is vertical and the cars go up. */
+/* fill the description from the selected pictures (the user can still edit it) */
 (function(){
   const root=document.getElementById('desc-step');
   if(!root)return;
-  const type=root.dataset.type; // REAR_END or LANE_CHANGE
+  const type=root.dataset.type; // the case is either rear-end or lane-change
   const saved=JSON.parse(root.dataset.meta||'{}');
   const form=root.closest('form');
   const $=id=>document.getElementById(id);
@@ -73,6 +72,7 @@
   const WHO={me:'أنا غيّرت المسار',other:'الطرف الآخر غيّر المسار',both:'كلانا غيّر المسار في الوقت نفسه'};
   const SIDE={left:'على يساري',right:'على يميني'};
   const opt=(key,val,art,label,sub,you)=>`<button type="button" class="desc-opt" data-k="${key}" data-v="${val}" aria-pressed="${st[key]===val}">${art}${you?'<em class="you">أنت</em>':''}<span>${label}</span>${sub?`<small>${sub}</small>`:''}</button>`;
+  // put the selected answers into the description
   function sentence(){
     const z=ZN[st.zone];
     if(type==='REAR_END'){
@@ -102,6 +102,7 @@
     $('zone-text').textContent=ZN[st.zone]||'لم يُحدَّد بعد';
     ['pos','rcase','side','who','zone'].forEach(k=>{const el=form.elements[k];if(el)el.value=st[k]||'';});
     const sen=sentence();
+    // keep what the user typed if they edited the description
     if(!st.edited&&sen&&ta.value!==sen){ta.value=sen;ta.dispatchEvent(new Event('change',{bubbles:true}));}
     $('desc-refill').hidden=!st.edited||!sen;
     count();

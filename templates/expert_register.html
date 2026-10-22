@@ -1,111 +1,40 @@
-
 {% extends 'base.html' %}
 {% block title %}تسجيل خبير مصرح | سياق{% endblock %}
-
-{% block content %}
+{% block content %}{# check the authorization code first, then show the username and password fields #}
 <div class="expert-register-clean" dir="rtl">
   <section class="expert-register-panel">
     <h1>تسجيل خبير مصرح</h1>
     <p class="muted">متاح للخبراء المصرح لهم فقط.</p>
-
-    {# Show success or error messages #}
-    {% with msgs = get_flashed_messages(with_categories=true) %}
-      {% for category, message in msgs %}
-        <div class="auth-inline-alert {{ category }}" role="alert">
-          {{ message }}
-        </div>
-      {% endfor %}
+    {% with msgs=get_flashed_messages(with_categories=true) %}
+      {% for category,message in msgs %}<div class="auth-inline-alert {{category}}" role="alert">{{message}}</div>{% endfor %}
     {% endwith %}
-
-    {# Show the authorization form if the expert is not verified #}
     {% if not verified %}
       <form method="post" class="siyaq-auth-form siyaq-validated-form">
-
-        {# Include a CSRF token to protect the form #}
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
+        <input type="hidden" name="csrf_token" value="{{csrf_token()}}">
         <input type="hidden" name="action" value="verify">
-
         <div class="expert-register-fields">
-
-          <label>
-            الاسم الكامل
-            <input type="text" name="full_name" required minlength="3" maxlength="100" autocomplete="name" placeholder="الاسم كما يظهر في سجل التفويض">
-          </label>
-
-          <label>
-            معرّف التفويض
-            <input type="password" name="authorization_code" required autocomplete="off" placeholder="رمز التفويض">
-          </label>
-
+          <label>الاسم الكامل<input type="text" name="full_name" required minlength="3" maxlength="100" autocomplete="name" placeholder="الاسم كما يظهر في سجل التفويض"></label>
+          <label>معرّف التفويض<input type="password" name="authorization_code" required autocomplete="off" placeholder="رمز التفويض"></label>
         </div>
-
-        <button class="expert-verify-btn guarded-submit" type="submit" disabled>
-          التحقق من التفويض
-        </button>
+        <button class="expert-verify-btn guarded-submit" type="submit" disabled>التحقق من التفويض</button>
       </form>
-
     {% else %}
       <div class="expert-verified">✓ تم التحقق من التفويض</div>
-
       <form method="post" class="siyaq-auth-form siyaq-validated-form">
-
-        {# Include a CSRF token to protect the form #}
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
+        <input type="hidden" name="csrf_token" value="{{csrf_token()}}">
         <input type="hidden" name="action" value="create">
-
         <div class="expert-register-fields">
-
-          <label>
-            معرّف الدخول
-            <span class="username-prefix">
-              <span>expert_</span>
-              <input type="text" name="username" required minlength="3" maxlength="25" pattern="[a-zA-Z0-9][a-zA-Z0-9_.\-]{2,24}" dir="ltr" autocomplete="username" placeholder="name">
-            </span>
-            <small class="field-hint">
-              سيكون معرّف الدخول: expert_ متبوعًا بالاسم المكتوب.
-            </small>
-          </label>
-
-          {# Set a password and display its strength indicator #}
-          <label data-pw-strength="12">
-            كلمة المرور
-            <input type="password" name="password" required minlength="12" maxlength="128" autocomplete="new-password" placeholder="١٢ حرفًا على الأقل">
-
-            {# Display the password strength meter #}
-            <span class="pw-meter" aria-hidden="true">
-              <i></i><i></i><i></i><i></i>
-            </span>
-
-            <small class="pw-label" aria-live="polite">
-              ١٢ حرفًا على الأقل.
-            </small>
-          </label>
-          <label>
-            تأكيد كلمة المرور
-            <input type="password" name="confirm_password" required minlength="12" maxlength="128" autocomplete="new-password">
-          </label>
-
+          <label>معرّف الدخول<span class="username-prefix"><span>expert_</span><input type="text" name="username" required minlength="3" maxlength="25" pattern="[a-zA-Z0-9][a-zA-Z0-9_.\-]{2,24}" dir="ltr" autocomplete="username" placeholder="name"></span><small class="field-hint">سيكون معرّف الدخول: expert_ متبوعًا بالاسم المكتوب.</small></label>
+          <label data-pw-strength="12">كلمة المرور<input type="password" name="password" required minlength="12" maxlength="128" autocomplete="new-password" placeholder="١٢ حرفًا على الأقل">
+            <span class="pw-meter" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+            <small class="pw-label" aria-live="polite">١٢ حرفًا على الأقل.</small></label>
+          <label>تأكيد كلمة المرور<input type="password" name="confirm_password" required minlength="12" maxlength="128" autocomplete="new-password"></label>
         </div>
-
-        <button class="siyaq-auth-submit guarded-submit" type="submit" disabled>
-          إنشاء حساب الخبير
-        </button>
+        <button class="siyaq-auth-submit guarded-submit" type="submit" disabled>إنشاء حساب الخبير</button>
       </form>
     {% endif %}
-
-    {# Provide a link for experts who already have an account #}
-    <p class="siyaq-auth-switch">
-      لديك حساب خبير؟
-      <a href="{{ url_for('expert_login') }}">تسجيل الدخول</a>
-    </p>
-
-    {# Display the security notice #}
-    <div class="expert-register-security">
-      <i data-lucide="shield-check"></i>
-      اتصال آمن ومعلومات متاحة للمصرح لهم فقط
-    </div>
+    <p class="siyaq-auth-switch">لديك حساب خبير؟ <a href="{{url_for('expert_login')}}">تسجيل الدخول</a></p>
+    <div class="expert-register-security"><i data-lucide="shield-check"></i> اتصال آمن ومعلومات متاحة للمصرح لهم فقط</div>
   </section>
 </div>
 {% endblock %}

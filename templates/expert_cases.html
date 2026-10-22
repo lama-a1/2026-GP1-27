@@ -1,10 +1,9 @@
 {% extends 'base.html' %}
 {% block title %}الحالات | مساحة الخبير | سياق{% endblock %}
-{% block content %}
+{% block content %}{# show the case list to the expert (view only) #}
 <div class="container expert-cases-page">
   <section class="expert-page-hero">
     <div><span class="eyebrow">مساحة الخبير</span><h1>الحالات</h1><p>البلاغات المسجلة مرتبة حسب حالتها، الأحدث أولًا.</p></div>
-    <span class="expert-readonly">عرض فقط · {{ cases|length }} حالة</span>
   </section>
   {% for key,title,hint in [('pending','قيد الانتظار','بانتظار اكتمال بيانات الطرفين'),('in_progress','قيد المراجعة','جاهزة لمراجعة الخبير'),('completed','مكتملة','تم اعتمادها')] %}
   <section class="expert-group">

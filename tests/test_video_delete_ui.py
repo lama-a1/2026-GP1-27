@@ -1,4 +1,4 @@
-"""Regression coverage for step 5 video replacement and step 7 invitation."""
+# check the video controls and deleting a video from the case
 import os, sys, tempfile, uuid
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -26,10 +26,10 @@ def test_uploaded_video_can_be_deleted_by_owner(monkeypatch):
         email='delete'+uuid.uuid4().hex[:12]+'@example.test'
         with module.conn() as db:
             uid=module.insert_id(db, 'INSERT INTO users(full_name,email,password_hash,national_id) VALUES(?,?,?,?)',
-                                 ('Video Owner', email, 'hash', '1999999999'))
+                                 ('Video Owner', email, 'hash', '1'+str(uuid.uuid4().int)[:9]))
             case_id=module.insert_id(db, 'INSERT INTO cases(reference,creator_id,accident_type,accident_date,accident_time,location) VALUES(?,?,?,?,?,?)',
                                      (reference, uid, 'REAR_END', '2026-10-17', '10:00', 'Riyadh'))
-            party_id=module.insert_id(db, 'INSERT INTO parties(case_id,user_id,position) VALUES(?,?,?)', (case_id,uid,'A'))
+            party_id=module.insert_id(db, 'INSERT INTO parties(case_id,user_id,position,progress) VALUES(?,?,?,?)', (case_id,uid,'A',4))
             video_id=module.insert_id(db, 'INSERT INTO videos(case_id,party_id,original_name,stored_name) VALUES(?,?,?,?)',
                                       (case_id,party_id,'test.mp4','cloudinary://siyaq/test-delete'))
             db.execute('INSERT INTO analysis_jobs(video_id) VALUES(?)', (video_id,))
@@ -39,6 +39,7 @@ def test_uploaded_video_can_be_deleted_by_owner(monkeypatch):
         monkeypatch.setenv('CLOUDINARY_CLOUD_NAME','testcloud')
         monkeypatch.setenv('CLOUDINARY_API_KEY','testkey')
         monkeypatch.setenv('CLOUDINARY_API_SECRET','testsecret')
+        # return a successful delete response without contacting Cloudinary
         class Response:
             def __enter__(self): return self
             def __exit__(self,*args): pass

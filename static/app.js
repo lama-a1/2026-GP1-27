@@ -253,9 +253,8 @@ function showFilename(input){
   const toAr=d=>String(d).replace(/\d/g,x=>'٠١٢٣٤٥٦٧٨٩'[x]);
   const toEn=v=>String(v).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
   function tokens(v){
-    return Array.from(v.replace(/ـ/g,'').replace(/\s+/g,'')).map(t=>{
-      if(EN2AR[t.toUpperCase()])return EN2AR[t.toUpperCase()];
-      if(t==='ه')return 'هـ';
+    return v.replace(/ـ/g,' ').replace(/ه(?!ـ)/g,'هـ').split(/\s+/).filter(Boolean).map(t=>{
+      t=t.trim();if(EN2AR[t.toUpperCase()])return EN2AR[t.toUpperCase()];
       if(['ا','إ','آ'].includes(t))return 'أ';if(t==='ي')return 'ى';return t;});
   }
   document.querySelectorAll('[data-plate-field]').forEach(box=>{

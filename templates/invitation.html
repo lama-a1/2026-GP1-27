@@ -1,20 +1,20 @@
 {% extends 'base.html' %}
 {% block title %}دعوة الطرف الثاني | سياق{% endblock %}
-{% block content %}
+{% block content %}{# show the join button when the account email matches the invitation #}
 <div class="invitebox panel">
   <div class="roundicon"><i data-lucide="mail"></i></div>
   <h3>دعوة للانضمام إلى بلاغ حادث</h3>
-  <p class="muted">وصلك رابط خاص لاستكمال إفادتك بصفتك الطرف الثاني في نظام سياق.</p>
+  <p class="muted">رابط خاص لاستكمال الإفادة بصفة الطرف الثاني في نظام سياق.</p>
   {% if valid %}
     {% if user %}
       {% if matched %}
-        <div class="notice">بريد حسابك الإلكتروني يطابق البريد المدعو. يمكنك قبولها واستكمال بياناتك وفيديو الحادث.</div>
+        <div class="notice">بريد الحساب يطابق البريد المدعو، ويمكن قبول الدعوة واستكمال البيانات وفيديو الحادث.</div>
         <form method="post" action="{{url_for('accept_invitation',token=token)}}">
           <input type="hidden" name="csrf_token" value="{{csrf_token()}}">
           <button class="btn primary full">قبول الدعوة واستكمال بياناتي</button>
         </form>
       {% else %}
-        <div class="notice">هذا الرابط مخصص لبريد إلكتروني مختلف عن بريد حسابك الحالي. سجّل الخروج ثم ادخل بحساب يحمل البريد الذي استقبل الدعوة.</div>
+        <div class="notice">هذا الرابط مخصص لبريد إلكتروني مختلف عن بريد حسابك الحالي. يُرجى تسجيل الخروج ثم الدخول بالحساب الذي يحمل البريد المدعو.</div>
         <form method="post" action="{{url_for('logout')}}"><input type="hidden" name="csrf_token" value="{{csrf_token()}}"><button class="btn secondary full">تسجيل الخروج</button></form>
       {% endif %}
     {% else %}
@@ -23,8 +23,8 @@
       <a class="btn secondary full" href="{{url_for('login',next=request.path)}}">لدي حساب — تسجيل الدخول</a>
     {% endif %}
   {% else %}
-    <div class="notice">الرابط غير صالح أو انتهت صلاحيته أو سبق استخدامه. اطلب دعوة جديدة من منشئ البلاغ.</div>
+    <div class="notice">الرابط غير صالح أو انتهت صلاحيته أو سبق استخدامه. يمكن طلب دعوة جديدة من منشئ البلاغ.</div>
   {% endif %}
-  <p class="fineprint">لا تُعرض بيانات البلاغ قبل قبول الدعوة. لا تشارك الرابط مع الآخرين.</p>
+  <p class="fineprint">لا تُعرض بيانات البلاغ قبل قبول الدعوة. يُرجى عدم مشاركة الرابط مع الآخرين.</p>
 </div>
 {% endblock %}

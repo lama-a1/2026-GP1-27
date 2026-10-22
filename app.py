@@ -542,7 +542,7 @@ def verify_email():
                         try:
                             with conn() as c:
                                 uid=insert_id(c,'INSERT INTO users(full_name,email,phone,password_hash,national_id,birth_date) VALUES(?,?,?,?,?,?)',
-                                    (pending['full_name'],pending['email'],pending['phone'],pending['password_hash'],pending['national_id'],pending['birth_date']))                                
+                                    (pending['full_name'],pending['email'],pending['phone'],pending['password_hash'],pending['national_id'],pending['birth_date']))
                             destination=session.get('after_registration')
                             session.clear();session['uid']=uid;csrf()
                             return redirect(destination if safe_invitation_next(destination) else url_for('dashboard'))
@@ -815,7 +815,7 @@ def accident_moment(date,time_value):
     except ValueError: return None
 def accident_within_window(when):
     now=local_now()
-    return now-timedelta(hours=ACCIDENT_WINDOW_HOURS)<=when<=now+timedelta(minutes=5)
+    return now-timedelta(hours=ACCIDENT_WINDOW_HOURS)<=when<=now
 @app.get('/cases/<int:case_id>')
 @login_required
 def case_detail(case_id):
@@ -834,10 +834,10 @@ def cancel_case(case_id):
         return redirect(url_for('wizard',case_id=case_id,step=7))
     with conn() as c:
         videos=c.execute('SELECT stored_name,processed_name FROM videos WHERE case_id=?',(case_id,)).fetchall()
-        # delete the case videos from storage (Cloudinary) first, and if that fails, keep the case so the user can try again
+    # delete the video files before removing the case records
     try:
-        for v in videos:
-            for path in {v['stored_name'],v['processed_name']}:
+        for video in videos:
+            for path in dict.fromkeys((video['stored_name'],video['processed_name'])):
                 if path: delete_stored_file(path)
     except Exception:
         app.logger.exception('Case cancellation: video deletion failed')
@@ -854,7 +854,7 @@ def cancel_case(case_id):
     return redirect(url_for('dashboard'))
 
 def delete_stored_file(path):
-    # delete the video file from storage (Cloudinary)
+    # delete a video from Cloudinary, S3 or the local uploads folder
     public_id = stored_cloudinary_id(path)
     key = stored_s3_key(path)
     if public_id:
@@ -969,14 +969,12 @@ PLATE_LETTERS={'أ':'A','ب':'B','ح':'J','د':'D','ر':'R','س':'S','ص':'X','�
 PLATE_LATIN={v:k for k,v in PLATE_LETTERS.items()}
 def parse_plate(letters_raw,numbers_raw):
     letters=[]
-    # accept letters with or without spaces
-    for ch in str(letters_raw or '').replace('ـ',''):
-        if ch.isspace(): continue
-        ch=PLATE_LATIN.get(ch.upper(),ch)
-        if ch=='ه': ch='هـ'
-        if ch=='ا' or ch=='إ' or ch=='آ': ch='أ'
-        if ch=='ي': ch='ى'
-        letters.append(ch)
+    for token in str(letters_raw or '').replace('ـ',' ').replace('ه','هـ').split():
+        token=token.strip()
+        if token.upper() in PLATE_LATIN: token=PLATE_LATIN[token.upper()]
+        if token=='ا' or token=='إ' or token=='آ': token='أ'
+        if token=='ي': token='ى'
+        letters.append(token)
     numbers=normalized_digits(numbers_raw or '')
     if not re.fullmatch(r'\d{1,4}',numbers): return None,'أرقام اللوحة يجب أن تكون من 1 إلى 4 أرقام.'
     if not 1<=len(letters)<=3 or any(l not in PLATE_LETTERS for l in letters): return None,'حروف اللوحة يجب أن تكون من 1 إلى 3 حروف من حروف اللوحات السعودية.'
@@ -1282,7 +1280,7 @@ def download_video(video_id):
     public_id = stored_cloudinary_id(v['processed_name'] or v['stored_name'])
     if public_id:
         if not cloudinary_ready(): abort(503)
-       # make a download link that only works for 2 minutes
+        # make a download link that only works for 2 minutes
         expires = int(time.time()) + 120
         fmt = v['original_name'].rsplit('.', 1)[-1].lower() if '.' in v['original_name'] else 'mp4'
         params = {'public_id': public_id, 'format': fmt, 'type': 'authenticated', 'expires_at': expires}

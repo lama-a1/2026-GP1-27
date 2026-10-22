@@ -33,7 +33,7 @@
   </div>
 </header>
 <main>
-  {% if request.endpoint not in ('register','login','verify_email','expert_login','expert_register','forgot_password','reset_password') %}
+  {% if request.endpoint not in ('register','login','verify_email','expert_login','expert_register','forgot_password','reset_password','new_case') %}
     {% with msgs=get_flashed_messages(with_categories=true) %}
       {% for category,message in msgs %}<div class="flash {{category}}" role="alert">{{message}}</div>{% endfor %}
     {% endwith %}
@@ -43,13 +43,13 @@
 <footer class="siyaq-footer">
   <div class="footer-grid">
 
-    <!-- الهوية -->
+    <!-- site logo -->
     <div class="footer-brand">
       <a href="{{url_for('dashboard') if user else url_for('expert_cases') if expert_logged_in else url_for('home')}}" aria-label="الرئيسية"><img class="siyaq-logo-img" src="{{url_for('static',filename='siyaq-logo-white.png')}}" alt="سياق" width="116" height="52"></a>
       <p>منصة لتوثيق الحوادث المرورية البسيطة وجمع الأدلة وإفادات الأطراف.</p>
     </div>
 
-    <!-- روابط سريعة -->
+    <!-- main page links -->
     <nav class="footer-col" aria-label="روابط سريعة">
       <h3>روابط سريعة</h3>
       {% if expert_logged_in %}
@@ -67,14 +67,14 @@
       {% endif %}
     </nav>
 
-    <!-- السياسات -->
+    <!-- privacy and terms links -->
     <nav class="footer-col" aria-label="السياسات">
       <h3>السياسات</h3>
       <a href="{{url_for('privacy_page')}}">سياسة الخصوصية</a>
       <a href="{{url_for('terms_page')}}">الشروط والأحكام</a>
     </nav>
 
-    <!-- التواصل -->
+    <!-- contact details -->
     <div class="footer-col">
       <h3>تواصل معنا</h3>
       <a href="mailto:siyaqProject@hotmail.com" dir="ltr">siyaqProject@hotmail.com</a>
