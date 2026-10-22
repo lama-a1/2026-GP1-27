@@ -136,6 +136,9 @@ def init_db():
                 username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
                 created_at TEXT DEFAULT to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS'))''')
             c.execute('ALTER TABLE parties ADD COLUMN IF NOT EXISTS vehicle_role TEXT')
+            c.execute('ALTER TABLE parties ADD COLUMN IF NOT EXISTS progress INTEGER DEFAULT 0')
+            c.execute('ALTER TABLE parties ADD COLUMN IF NOT EXISTS description_meta TEXT')
+            c.execute('ALTER TABLE videos ADD COLUMN IF NOT EXISTS camera TEXT')
             c.execute('''CREATE TABLE IF NOT EXISTS login_failures(
                 key TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0, locked_until DOUBLE PRECISION)''')
             c.execute('''CREATE TABLE IF NOT EXISTS password_resets(
@@ -144,6 +147,13 @@ def init_db():
             c.execute('''CREATE TABLE IF NOT EXISTS expert_logins(
                 id BIGSERIAL PRIMARY KEY, username TEXT NOT NULL, expert_id BIGINT,
                 logged_at TEXT DEFAULT to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS'), ip TEXT)''')
+        # Unique account credentials (email, phone, national ID). Each index is created on its own
+        # connection so an existing duplicate in old data cannot abort the rest of start-up.
+        for name,col in (('users_phone_unique','phone'),('users_national_id_unique','national_id'),('users_email_unique','email')):
+            try:
+                with conn() as c: c.execute(f'CREATE UNIQUE INDEX IF NOT EXISTS {name} ON users({col})')
+            except Exception: app.logger.warning('Could not create unique index %s (duplicate data?)',name)
+        backfill_progress()
         return
     with conn() as c:
         c.executescript('''
@@ -175,6 +185,23 @@ def init_db():
         ''')
         party_cols={r[1] for r in c.execute('PRAGMA table_info(parties)').fetchall()}
         if 'vehicle_role' not in party_cols: c.execute('ALTER TABLE parties ADD COLUMN vehicle_role TEXT')
+        if 'progress' not in party_cols: c.execute('ALTER TABLE parties ADD COLUMN progress INTEGER DEFAULT 0')
+        if 'description_meta' not in party_cols: c.execute('ALTER TABLE parties ADD COLUMN description_meta TEXT')
+        video_cols={r[1] for r in c.execute('PRAGMA table_info(videos)').fetchall()}
+        if 'camera' not in video_cols: c.execute('ALTER TABLE videos ADD COLUMN camera TEXT')
+    try:
+        with conn() as c: c.execute('CREATE UNIQUE INDEX IF NOT EXISTS users_phone_unique ON users(phone)')
+    except sqlite3.IntegrityError: app.logger.warning('Could not create unique phone index (duplicate data)')
+    backfill_progress()
+
+def backfill_progress():
+    # Older parties have no stored progress: derive it from the data they already saved.
+    with conn() as c:
+        c.execute("UPDATE parties SET progress=6 WHERE completed=1 AND COALESCE(progress,0)<6")
+        c.execute("UPDATE parties SET progress=2 WHERE completed=0 AND COALESCE(progress,0)<2 AND national_id IS NOT NULL AND national_id<>''")
+        c.execute("UPDATE parties SET progress=3 WHERE completed=0 AND COALESCE(progress,0)<3 AND id IN (SELECT party_id FROM vehicles)")
+        c.execute("UPDATE parties SET progress=4 WHERE completed=0 AND COALESCE(progress,0)<4 AND description IS NOT NULL AND description<>'' AND id IN (SELECT party_id FROM vehicles)")
+        c.execute("UPDATE parties SET progress=5 WHERE completed=0 AND COALESCE(progress,0)<5 AND id IN (SELECT party_id FROM videos) AND description IS NOT NULL AND description<>''")
 
 # Case status (Sprint 1 report): Pending = waiting for the second party,
 # In Progress = both parties submitted, waiting for expert review, Completed = approved by the expert.
@@ -201,7 +228,7 @@ def login_failed(key):
                   (key,0 if locked else count,locked))
 def login_succeeded(key):
     with conn() as c: c.execute('DELETE FROM login_failures WHERE key=?',(key,))
-LOCKED_MSG='تم إيقاف تسجيل الدخول مؤقتًا بسبب محاولات متكررة غير صحيحة. حاول مرة أخرى بعد 15 دقيقة.'
+LOCKED_MSG='تم إيقاف تسجيل الدخول مؤقتًا بسبب محاولات متكررة غير صحيحة. يمكن المحاولة مرة أخرى بعد 15 دقيقة.'
 
 def csrf():
     if 'csrf' not in session: session['csrf']=secrets.token_urlsafe(32)
@@ -210,7 +237,9 @@ app.jinja_env.globals['csrf_token']=csrf
 @app.before_request
 def protect():
     if request.method in ('POST','PUT','PATCH','DELETE'):
-        if not secrets.compare_digest(request.form.get('csrf_token','') or request.headers.get('X-CSRF-Token',''), session.get('csrf','')): abort(400,'Invalid CSRF token. Refresh and retry.')
+        expected=session.get('csrf','')
+        supplied=request.form.get('csrf_token','') or request.headers.get('X-CSRF-Token','')
+        if not expected or not secrets.compare_digest(supplied, expected): abort(400,'Invalid CSRF token. Refresh and retry.')
 
 @app.after_request
 def no_cache_for_pages(resp):
@@ -222,7 +251,7 @@ def login_required(fn):
     @wraps(fn)
     def wrapped(*args,**kwargs):
         if not session.get('uid') or current_user() is None:
-            session.clear()
+            session.pop('uid',None)
             flash('انتهت الجلسة. يرجى تسجيل الدخول مرة أخرى.','error')
             return redirect(url_for('login',next=request.path))
         return fn(*args,**kwargs)
@@ -279,8 +308,8 @@ def branded_email_html(kicker, title, description, panel_html, footer_note):
 <p style="font-size:13px;line-height:1.9;color:#697c71;margin:24px 0 0;">{html_escape(footer_note)}</p>
 </td></tr>
 <tr><td align="center" style="border-top:1px solid #e5ece7;padding:23px 24px;background:#fafcfb;color:#819187;font-size:12px;line-height:1.9;">
-هذه رسالة تلقائية من سياق — لا ترد على هذا البريد.<br>
-إذا وصلتك الرسالة بالخطأ، يمكنك تجاهلها بأمان.<br>
+هذه رسالة تلقائية من سياق — يُرجى عدم الرد على هذا البريد.<br>
+في حال وصول الرسالة بالخطأ، يمكن تجاهلها بأمان.<br>
 <span dir="ltr" style="color:#006b36;font-weight:bold;">SIYAQ • سياق</span>
 </td></tr></table></td></tr></table></body></html>"""
 
@@ -293,8 +322,8 @@ def otp_email_html(code):
            f'<div style="font-size:12px;color:#587563;margin-top:12px;">صالح لمدة 10 دقائق</div>'
            f'</td></tr></table>')
     return branded_email_html('التحقق من البريد الإلكتروني','تأكيد بريدك الإلكتروني',
-                              'استخدمي الرمز التالي لإكمال إنشاء حسابك في سياق.',panel,
-                              'لأمان حسابك، لا تشاركي رمز التحقق مع أي شخص.')
+                              'يُستخدم الرمز التالي لإكمال إنشاء الحساب في سياق.',panel,
+                              'لأمان الحساب، يُرجى عدم مشاركة رمز التحقق مع أي شخص.')
 
 
 def invitation_email_html(link, reference):
@@ -304,17 +333,14 @@ def invitation_email_html(link, reference):
            f'<tr><td style="padding:16px 18px;text-align:right;">'
            f'<div style="color:#718678;font-size:12px;">رقم البلاغ</div>'
            f'<div dir="ltr" style="text-align:right;color:#153d2b;font-weight:bold;font-size:17px;margin-top:6px;">{safe_ref}</div>'
-           f'<div style="border-top:1px solid #dfe9e2;margin:14px 0;"></div>'
-           f'<div style="color:#718678;font-size:12px;">صلاحية الدعوة</div>'
-           f'<div style="color:#153d2b;font-size:14px;font-weight:bold;margin-top:6px;">7 أيام • استخدام واحد</div>'
            f'</td></tr></table>'
            f'<table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr><td align="center" style="padding:26px 0 14px;">'
-           f'<a href="{safe_link}" style="display:inline-block;background:#006b36;color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:16px 30px;border-radius:9px;">فتح الدعوة والانضمام للبلاغ ←</a>'
+           f'<a href="{safe_link}" style="display:inline-block;background:#006b36;color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:16px 30px;border-radius:9px;">الانضمام إلى البلاغ</a>'
            f'</td></tr></table>'
-           f'<div style="color:#6d8175;font-size:12px;line-height:1.9;overflow-wrap:anywhere;word-break:break-word;">إذا ما فتح الزر، انسخ الرابط التالي إلى المتصفح:<br><a href="{safe_link}" style="color:#006b36;text-decoration:underline;" dir="ltr">{safe_link}</a></div>')
-    return branded_email_html('دعوة خاصة • الطرف الثاني','تمت دعوتك للانضمام إلى بلاغ',
-                              'وصلك طلب للمشاركة بصفتك الطرف الثاني في بلاغ حادث على سياق. افتح الدعوة، ثم سجّل الدخول أو أنشئ حسابًا ببريدك الموثّق لإكمال بياناتك وإضافة إفادتك أو فيديو الحادث إن توفر.',
-                              panel,'هذا الرابط مخصص للبريد الذي استقبل الدعوة فقط. لا تشاركه مع أي شخص. لن تظهر تفاصيل البلاغ قبل التحقق من حسابك.')
+           f'<div style="color:#6d8175;font-size:12px;line-height:1.9;overflow-wrap:anywhere;word-break:break-word;">في حال تعذّر فتح الزر، يُرجى نسخ الرابط التالي ولصقه في المتصفح:<br><a href="{safe_link}" style="color:#006b36;text-decoration:underline;" dir="ltr">{safe_link}</a></div>')
+    return branded_email_html('دعوة للمشاركة في بلاغ حادث','دعوة للانضمام إلى بلاغ حادث مروري',
+                              'السلام عليكم، تمت إضافتك بصفتك الطرف الثاني في بلاغ حادث مروري مسجّل على منصة سياق. نأمل منكم الانضمام إلى البلاغ عبر الزر أدناه، ثم تسجيل الدخول أو إنشاء حساب باستخدام هذا البريد الإلكتروني، لاستكمال بياناتكم وإفادتكم وإرفاق فيديو الحادث إن وُجد.',
+                              panel,'هذه الدعوة مخصّصة لصاحب هذا البريد الإلكتروني وتُستخدم مرة واحدة فقط، ويُرجى عدم مشاركتها مع أي طرف آخر. لن تُعرض تفاصيل البلاغ إلا بعد التحقق من الحساب.')
 
 
 def send_brevo_api_email(email, subject, body, html_body=None):
@@ -323,7 +349,7 @@ def send_brevo_api_email(email, subject, body, html_body=None):
     sender=os.getenv('BREVO_SENDER_EMAIL',os.getenv('SMTP_FROM','')).strip()
     sender_name=os.getenv('BREVO_SENDER_NAME','Siyaq').strip() or 'Siyaq'
     if not api_key or not sender:
-        raise RuntimeError('إعدادات Brevo API غير مكتملة. أضيفي BREVO_API_KEY و BREVO_SENDER_EMAIL إلى ملف .env.')
+        raise RuntimeError('إعدادات Brevo API غير مكتملة. يلزم إضافة BREVO_API_KEY و BREVO_SENDER_EMAIL إلى ملف .env.')
     payload={
         'sender':{'name':sender_name,'email':sender},
         'to':[{'email':email}],
@@ -344,15 +370,15 @@ def send_brevo_api_email(email, subject, body, html_body=None):
                 raise RuntimeError('تعذّر إرسال البريد عبر Brevo API.')
     except HTTPError as exc:
         app.logger.warning('Brevo API rejected email (HTTP %s)',exc.code)
-        raise RuntimeError('تعذّر إرسال البريد عبر Brevo API (HTTP '+str(exc.code)+'). راجعي تفعيل API والمرسل وعناوين IP المسموحة.') from exc
+        raise RuntimeError('تعذّر إرسال البريد عبر Brevo API (HTTP '+str(exc.code)+'). يُرجى مراجعة تفعيل API والمرسل وعناوين IP المسموحة.') from exc
     except (URLError,TimeoutError,OSError) as exc:
         app.logger.warning('Brevo API network error: %s',type(exc).__name__)
-        raise RuntimeError('تعذّر الاتصال بخدمة Brevo API. تحققي من الإنترنت وحاولي مجددًا.') from exc
+        raise RuntimeError('تعذّر الاتصال بخدمة Brevo API. يُرجى التحقق من الاتصال بالإنترنت والمحاولة مجددًا.') from exc
 
 
 def send_email_otp(email, code):
     """Send the OTP using the configured transport (REST API or SMTP)."""
-    body=(f'رمز التحقق من حساب سياق: {code}\nصلاحية الرمز 10 دقائق. لا تشارك هذا الرمز مع أي شخص.\n\n'
+    body=(f'رمز التحقق من حساب سياق: {code}\nصلاحية الرمز 10 دقائق. يُرجى عدم مشاركة هذا الرمز مع أي شخص.\n\n'
           f'Siyaq verification code: {code}\nExpires in 10 minutes.')
     if os.getenv('OTP_MODE','api').strip().lower()=='api':
         return send_brevo_api_email(email,'Siyaq | رمز التحقق من البريد الإلكتروني',body,otp_email_html(code))
@@ -362,7 +388,7 @@ def send_email_otp(email, code):
     sender=os.getenv('SMTP_FROM',username).strip()
     port=int(os.getenv('SMTP_PORT','587'))
     if not all((host,username,password,sender)):
-        raise RuntimeError('إعدادات SMTP غير مكتملة. راجعي ملف .env.')
+        raise RuntimeError('إعدادات SMTP غير مكتملة. يُرجى مراجعة ملف .env.')
     msg=EmailMessage()
     msg['Subject']='Siyaq | رمز التحقق من البريد الإلكتروني'
     msg['From']=sender
@@ -381,18 +407,17 @@ def send_email_otp(email, code):
                 smtp.send_message(msg)
     except (smtplib.SMTPException,OSError) as exc:
         app.logger.warning('SMTP send failed: %s',type(exc).__name__)
-        raise RuntimeError('تعذّر إرسال رمز البريد. تحققي من إعدادات SMTP.') from exc
+        raise RuntimeError('تعذّر إرسال رمز البريد. يُرجى التحقق من إعدادات SMTP.') from exc
 
 
 def send_case_invitation(email, link, reference):
     """Send a private invitation with the same email transport as registration OTP."""
     body=(
-        'مرحبًا،\n\nتمت دعوتك بصفتك الطرف الثاني لاستكمال بيانات بلاغ في سياق.\n'
+        'السلام عليكم،\n\nتمت إضافتكم بصفتكم الطرف الثاني في بلاغ حادث مروري مسجّل على منصة سياق.\n'
         'رقم البلاغ: '+reference+'\n\n'
-        'افتح الرابط التالي لتسجيل الدخول بحسابك الموثّق وإضافة إفادتك وفيديو الحادث إن توفر:\n'
+        'نأمل منكم الانضمام إلى البلاغ عبر الرابط التالي، وتسجيل الدخول أو إنشاء حساب باستخدام هذا البريد الإلكتروني لاستكمال بياناتكم وإفادتكم:\n'
         +link+'\n\n'
-        'الرابط صالح لمدة 7 أيام، ولمرة واحدة، ومخصص للبريد الذي استقبل الدعوة فقط.\n'
-        'إذا لم تكن معنيًا بهذا البلاغ، تجاهل الرسالة. لا تشارك الرابط مع أحد.\n\nفريق سياق'
+        'هذه الدعوة مخصّصة لصاحب هذا البريد وتُستخدم مرة واحدة فقط. في حال وصلتكم هذه الرسالة عن طريق الخطأ، يمكنكم تجاهلها.\n\nمع التحية،\nفريق منصة سياق'
     )
     if os.getenv('OTP_MODE','api').strip().lower()=='api':
         return send_brevo_api_email(email,'Siyaq | دعوة للمشاركة في بلاغ حادث',body,invitation_email_html(link,reference))
@@ -402,7 +427,7 @@ def send_case_invitation(email, link, reference):
     sender=os.getenv('SMTP_FROM',username).strip()
     port=int(os.getenv('SMTP_PORT','587'))
     if not all((host,username,password,sender)):
-        raise RuntimeError('إعدادات SMTP غير مكتملة. راجعي ملف .env.')
+        raise RuntimeError('إعدادات SMTP غير مكتملة. يُرجى مراجعة ملف .env.')
     msg=EmailMessage()
     msg['Subject']='Siyaq | دعوة للمشاركة في بلاغ حادث'
     msg['From']=sender
@@ -419,7 +444,7 @@ def send_case_invitation(email, link, reference):
                 smtp.login(username,password); smtp.send_message(msg)
     except (smtplib.SMTPException,OSError) as exc:
         app.logger.warning('Invitation SMTP send failed: %s',type(exc).__name__)
-        raise RuntimeError('تعذّر إرسال الدعوة. تحققي من إعدادات SMTP.') from exc
+        raise RuntimeError('تعذّر إرسال الدعوة. يُرجى التحقق من إعدادات SMTP.') from exc
 
 def safe_invitation_next(value):
     return bool(re.fullmatch(r'/invite/[A-Za-z0-9_-]{20,100}', value or ''))
@@ -430,7 +455,7 @@ def issue_otp(pending):
     if mode=='demo':
         # DEMO IS NOT IDENTITY VERIFICATION. Never permit demo outside localhost.
         if request.remote_addr not in ('127.0.0.1','::1'):
-            raise RuntimeError('وضع التجربة متاح محليًا فقط. فعّل إرسال البريد الحقيقي.')
+            raise RuntimeError('وضع التجربة متاح محليًا فقط. يلزم تفعيل إرسال البريد الحقيقي.')
         pending['demo_code']=code
     elif mode in ('smtp','api'):
         send_email_otp(pending['email'],code)
@@ -442,15 +467,22 @@ def issue_otp(pending):
     pending['attempts']=0
     return pending
 
+MIN_AGE=18
+def age_on(birth_date, today=None):
+    today=today or datetime.now().date()
+    return today.year-birth_date.year-((today.month,today.day)<(birth_date.month,birth_date.day))
+
 def registration_errors(name,nid,phone,birth,password,confirm):
     errors=[]
-    if not name: errors.append('أدخل الاسم الكامل.')
-    if not re.fullmatch(r'[12]\d{9}',nid): errors.append('رقم الهوية يجب أن يبدأ بـ 1 أو 2 ويتكون من 10 أرقام.')
+    if len(name.split())<3: errors.append('الاسم الثلاثي مطلوب (الاسم الأول واسم الأب واسم العائلة).')
+    if not re.fullmatch(r'[12]\d{9}',nid): errors.append('رقم الهوية / الإقامة يجب أن يبدأ بـ 1 أو 2 ويتكون من 10 أرقام.')
     if not re.fullmatch(r'05\d{8}',phone): errors.append('رقم الجوال يجب أن يبدأ بـ 05 ويتكون من 10 أرقام.')
-    if not birth: errors.append('اختر تاريخ الميلاد.')
+    if not birth: errors.append('تاريخ الميلاد مطلوب.')
     else:
         try:
-            if datetime.strptime(birth,'%Y-%m-%d').date()>datetime.now().date(): errors.append('تاريخ الميلاد لا يمكن أن يكون في المستقبل.')
+            born=datetime.strptime(birth,'%Y-%m-%d').date()
+            if born>datetime.now().date(): errors.append('تاريخ الميلاد لا يمكن أن يكون في المستقبل.')
+            elif age_on(born)<MIN_AGE: errors.append('يجب أن يكون عمرك 18 سنة أو أكثر لإنشاء حساب.')
         except ValueError: errors.append('تاريخ الميلاد غير صالح.')
     if len(password)<8 or not re.search(r'[A-Za-z\u0600-\u06FF]',password) or not re.search(r'\d',password): errors.append('كلمة المرور يجب أن تحتوي على 8 أحرف على الأقل، منها حرف ورقم.')
     if password!=confirm: errors.append('تأكيد كلمة المرور غير مطابق.')
@@ -468,12 +500,14 @@ def register():
         email=request.form.get('email','').strip().lower()
         password=request.form.get('password','')
         errors=registration_errors(name,nid,phone,birth,password,request.form.get('confirm_password',''))
-        if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',email) or len(email)>254: errors.append('أدخل بريدًا إلكترونيًا صالحًا.')
+        if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',email) or len(email)>254: errors.append('البريد الإلكتروني غير صالح.')
         if errors:
             for error in errors: flash(error,'error')
         else:
-            with conn() as c: exists=c.execute('SELECT id FROM users WHERE national_id=? OR phone=? OR email=?',(nid,phone,email)).fetchone()
-            if exists: flash('رقم الهوية الوطنية أو رقم الجوال أو البريد الإلكتروني مسجل مسبقًا.','error')
+            with conn() as c:
+                taken=[label for col,value,label in (('national_id',nid,'رقم الهوية / الإقامة'),('phone',phone,'رقم الجوال'),('email',email,'البريد الإلكتروني'))
+                       if c.execute(f'SELECT 1 FROM users WHERE {col}=?',(value,)).fetchone()]
+            if taken: flash(' و'.join(taken)+' مسجل مسبقًا بحساب آخر.','error')
             else:
                 try:
                     pending={'full_name':name,'national_id':nid,'phone':phone,'email':email,'birth_date':birth,'password_hash':generate_password_hash(password),'started':time.time(),'attempts':0}
@@ -488,12 +522,12 @@ def verify_email():
     if not pending: return redirect(url_for('register'))
     if time.time()-pending['started']>1800 or time.time()-pending.get('last_sent',0)>600:
         session.pop('pending_registration',None)
-        flash('انتهت مهلة التحقق. أعد التسجيل.','error')
+        flash('انتهت مهلة التحقق. يُرجى التسجيل من جديد.','error')
         return redirect(url_for('register'))
     if request.method=='POST':
         action=request.form.get('action','verify')
         if action=='resend':
-            if time.time()-pending.get('last_sent',0)<60: flash('انتظر دقيقة قبل طلب رمز جديد.','error')
+            if time.time()-pending.get('last_sent',0)<60: flash('يمكن طلب رمز جديد بعد دقيقة.','error')
             else:
                 try:
                     session['pending_registration']=issue_otp(pending)
@@ -501,8 +535,8 @@ def verify_email():
                 except RuntimeError as e: flash(str(e),'error')
         else:
             code=normalized_digits(request.form.get('code',''))
-            if pending['attempts']>=5: flash('تجاوزت عدد المحاولات. ابدأ التسجيل مجددًا.','error')
-            elif not re.fullmatch(r'\d{6}',code): flash('أدخل رمز التحقق الرقمي الصحيح.','error')
+            if pending['attempts']>=5: flash('تم تجاوز عدد المحاولات. يُرجى التسجيل من جديد.','error')
+            elif not re.fullmatch(r'\d{6}',code): flash('رمز التحقق يتكون من 6 أرقام.','error')
             else:
                 pending['attempts']+=1;session['pending_registration']=pending
                 try:
@@ -515,7 +549,7 @@ def verify_email():
                             destination=session.get('after_registration')
                             session.clear();session['uid']=uid;csrf()
                             return redirect(destination if safe_invitation_next(destination) else url_for('dashboard'))
-                        except (sqlite3.IntegrityError, psycopg.IntegrityError if psycopg else sqlite3.IntegrityError): flash('رقم الهوية مسجل مسبقًا.','error')
+                        except (sqlite3.IntegrityError, psycopg.IntegrityError if psycopg else sqlite3.IntegrityError): flash('رقم الهوية / الإقامة أو رقم الجوال أو البريد الإلكتروني مسجل مسبقًا بحساب آخر.','error')
                     else: flash('رمز التحقق غير صحيح أو انتهت صلاحيته.','error')
                 except RuntimeError as e: flash(str(e),'error')
     return render_template('verify_email.html',email=pending['email'],demo_code=pending.get('demo_code') if os.getenv('OTP_MODE','api').lower()=='demo' else None)
@@ -539,14 +573,14 @@ def login():
     return render_template('auth.html',mode='login')
 RESET_LINK_MINUTES=30
 def send_reset_email(email, link):
-    body=('طلبتَ إعادة تعيين كلمة المرور لحسابك في سياق.\n\nافتح الرابط التالي لتعيين كلمة مرور جديدة:\n'+link+
-          '\n\nالرابط صالح لمدة '+str(RESET_LINK_MINUTES)+' دقيقة ولمرة واحدة. إذا لم تطلب ذلك فتجاهل الرسالة.')
+    body=('وصلنا طلب لإعادة تعيين كلمة المرور لحسابك في سياق.\n\nلتعيين كلمة مرور جديدة يُرجى فتح الرابط التالي:\n'+link+
+          '\n\nالرابط صالح لمدة '+str(RESET_LINK_MINUTES)+' دقيقة ولمرة واحدة. في حال عدم طلب ذلك، يمكن تجاهل الرسالة.')
     panel=(f'<table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr><td align="center" style="padding:10px 0 14px;">'
            f'<a href="{html_escape(link,quote=True)}" style="display:inline-block;background:#006b36;color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:16px 30px;border-radius:9px;">تعيين كلمة مرور جديدة ←</a>'
            f'</td></tr></table>')
     html=branded_email_html('إعادة تعيين كلمة المرور','طلب تعيين كلمة مرور جديدة',
-                            'استخدم الزر التالي لتعيين كلمة مرور جديدة لحسابك في سياق.',panel,
-                            'الرابط صالح لمدة '+str(RESET_LINK_MINUTES)+' دقيقة ولمرة واحدة. إذا لم تطلب ذلك فتجاهل الرسالة.')
+                            'لتعيين كلمة مرور جديدة لحسابك في سياق، يُرجى استخدام الزر التالي.',panel,
+                            'الرابط صالح لمدة '+str(RESET_LINK_MINUTES)+' دقيقة ولمرة واحدة. في حال عدم طلب ذلك، يمكن تجاهل الرسالة.')
     if os.getenv('OTP_MODE','api').strip().lower()=='api':
         return send_brevo_api_email(email,'Siyaq | إعادة تعيين كلمة المرور',body,html)
     host=os.getenv('SMTP_HOST','').strip(); username=os.getenv('SMTP_USER','').strip()
@@ -598,10 +632,11 @@ def reset_password(token):
                 c.execute('UPDATE password_resets SET used_at=? WHERE user_id=? AND used_at IS NULL',(datetime.utcnow().isoformat(),r['user_id']))
                 nid=c.execute('SELECT national_id FROM users WHERE id=?',(r['user_id'],)).fetchone()['national_id']
             login_succeeded('party:'+(nid or ''))
-            flash('تم تعيين كلمة المرور الجديدة. يمكنك تسجيل الدخول الآن.','success')
+            flash('تم تعيين كلمة المرور الجديدة، ويمكن تسجيل الدخول الآن.','success')
             return redirect(url_for('login'))
     return render_template('password_reset.html',stage='reset')
 
+EXPERT_PREFIX='expert_'
 @app.route('/expert/register', methods=['GET', 'POST'])
 def expert_register():
     if session.get('expert_authenticated'):
@@ -624,11 +659,13 @@ def expert_register():
                 session['expert_registration'] = {'full_name': full_name, 'verified_at': time.time()}
                 return redirect(url_for('expert_register'))
         elif action == 'create' and verified:
-            username = request.form.get('username', '').strip().lower()
+            suffix = request.form.get('username', '').strip().lower()
+            if suffix.startswith(EXPERT_PREFIX): suffix = suffix[len(EXPERT_PREFIX):]
+            username = EXPERT_PREFIX + suffix
             password = request.form.get('password', '')
             confirm_password = request.form.get('confirm_password', '')
-            if not re.fullmatch(r'[a-z0-9][a-z0-9_.-]{3,31}', username):
-                flash('معرّف الخبير يجب أن يكون من ٤ إلى ٣٢ حرفًا إنجليزيًا أو رقمًا.', 'error')
+            if not re.fullmatch(r'[a-z0-9][a-z0-9_.-]{2,24}', suffix):
+                flash('اسم المستخدم بعد expert_ يجب أن يكون من ٣ إلى ٢٥ حرفًا إنجليزيًا أو رقمًا.', 'error')
             elif not 12 <= len(password) <= 128:
                 flash('كلمة المرور يجب أن تحتوي على ١٢ حرفًا على الأقل.', 'error')
             elif password != confirm_password:
@@ -642,7 +679,7 @@ def expert_register():
                         c.execute('INSERT INTO expert_accounts(full_name, username, password_hash) VALUES(?,?,?)',
                                   (pending['full_name'], username, generate_password_hash(password)))
                         session.pop('expert_registration', None)
-                        flash('تم إنشاء الحساب. يمكنك تسجيل الدخول الآن.', 'success')
+                        flash('تم إنشاء الحساب، ويمكن تسجيل الدخول الآن.', 'success')
                         return redirect(url_for('expert_login'))
         else:
             flash('انتهت صلاحية التحقق. يرجى إعادة المحاولة.', 'error')
@@ -661,6 +698,8 @@ def expert_login():
             return render_template('expert_login.html')
         with conn() as c:
             expert = c.execute('SELECT id, password_hash FROM expert_accounts WHERE username=?', (username,)).fetchone()
+            if not expert and not username.startswith(EXPERT_PREFIX):
+                expert = c.execute('SELECT id, password_hash FROM expert_accounts WHERE username=?', (EXPERT_PREFIX+username,)).fetchone()
         valid_registered = bool(expert) and check_password_hash(expert['password_hash'], password)
         expected_username = os.getenv('EXPERT_USERNAME', '').strip().lower()
         expected_hash = os.getenv('EXPERT_PASSWORD_HASH', '').strip()
@@ -709,7 +748,8 @@ def logout(): session.clear(); return redirect(url_for('home'))
 def dashboard():
     with conn() as c:
         cases=c.execute('''SELECT DISTINCT ca.* FROM cases ca LEFT JOIN parties p ON p.case_id=ca.id WHERE ca.creator_id=? OR p.user_id=? ORDER BY ca.id DESC''',(session['uid'],session['uid'])).fetchall()
-    return render_template('dashboard.html',cases=cases)
+    pending=[x for x in cases if status_key(x['status'])=='pending'][:1]
+    return render_template('dashboard.html',cases=cases[:3],pending_cases=pending)
 @app.route('/cases/new',methods=['GET','POST'])
 @login_required
 def new_case():
@@ -718,10 +758,11 @@ def new_case():
         if not eligible:
             flash('هذه الحالة خارج نطاق سياق الحالي: الحوادث البسيطة دون إصابات، في ظروف رؤية واضحة ولمركبتين.','error')
             return redirect(url_for('new_case'))
-        typ=request.form.get('accident_type'); date=request.form.get('accident_date');time=request.form.get('accident_time'); location=request.form.get('location','').strip()
-        role=request.form.get('vehicle_role') if typ=='REAR_END' else None
-        if typ not in ('REAR_END','LANE_CHANGE') or not date or not time or not location: flash('جميع بيانات الحادث مطلوبة.','error')
-        elif typ=='REAR_END' and role not in ('FRONT','REAR'): flash('حدد موقع مركبتك في التصادم الخلفي (أمامية أو خلفية).','error')
+        typ,date,time,location,errors=accident_form(request.form)
+        role=None  # chosen later, in the accident description step
+        if errors:
+            for e in errors: flash(e,'error')
+            return render_template('new_case.html',form=request.form)
         else:
             ref='SQ-'+datetime.now().strftime('%y%m')+'-'+secrets.token_hex(3).upper()
             with conn() as c:
@@ -729,7 +770,55 @@ def new_case():
                 c.execute('INSERT INTO parties(case_id,user_id,position,full_name,vehicle_role) VALUES(?,?,?,?,?)',(cid,session['uid'],'A',current_user()['full_name'],role))
                 c.execute('INSERT INTO parties(case_id,position,vehicle_role) VALUES(?,?,?)',(cid,'B',{'FRONT':'REAR','REAR':'FRONT'}.get(role)))
             return redirect(url_for('wizard',case_id=cid,step=1))
-    return render_template('new_case.html')
+    return render_template('new_case.html',form={})
+
+def accident_form(form,original=None):
+    typ=form.get('accident_type'); date=form.get('accident_date','').strip(); time=form.get('accident_time','').strip(); location=form.get('location','').strip()
+    errors=[]
+    if typ not in ('REAR_END','LANE_CHANGE'): errors.append('نوع الحادث مطلوب.')
+    if not date or not time: errors.append('تاريخ الحادث ووقته مطلوبان.')
+    else:
+        when=accident_moment(date,time)
+        unchanged=original is not None and original['accident_date']==date and str(original['accident_time'])[:5]==time[:5]
+        if when is None: errors.append('تاريخ أو وقت الحادث غير صالح.')
+        elif not unchanged and not accident_within_window(when): errors.append('يجب أن يكون وقت الحادث خلال آخر 24 ساعة، ولا يمكن أن يكون في المستقبل.')
+    if len(location)<3: errors.append('موقع الحادث مطلوب.')
+    return typ,date,time,location,errors
+
+@app.route('/cases/<int:case_id>/edit',methods=['GET','POST'])
+@login_required
+def edit_case(case_id):
+    # Party A can go back and correct the accident information until the final submission.
+    case,party=case_access(case_id)
+    if case['creator_id']!=session['uid'] or not party or party['position']!='A': abort(403)
+    if party['completed']: return redirect(url_for('wizard',case_id=case_id,step=7))
+    if request.method=='POST':
+        typ,date,time,location,errors=accident_form(request.form,case)
+        if errors:
+            for e in errors: flash(e,'error')
+            return render_template('new_case.html',form=request.form,editing=case)
+        with conn() as c:
+            c.execute('UPDATE cases SET accident_type=?,accident_date=?,accident_time=?,location=? WHERE id=?',(typ,date,time,location,case_id))
+            if typ!=case['accident_type']:
+                # the description answers belong to the old accident type
+                c.execute('UPDATE parties SET description=NULL,description_meta=NULL,vehicle_role=NULL WHERE case_id=?',(case_id,))
+                c.execute('UPDATE parties SET progress=3 WHERE case_id=? AND COALESCE(progress,0)>3',(case_id,))
+        flash('تم تحديث بيانات الحادث.','success')
+        return redirect(url_for('wizard',case_id=case_id,step=1))
+    form={'no_injuries':'yes','clear_weather':'yes','two_vehicles':'yes','accident_type':case['accident_type'],
+          'accident_date':case['accident_date'],'accident_time':str(case['accident_time'])[:5],'location':case['location']}
+    return render_template('new_case.html',form=form,editing=case)
+
+ACCIDENT_WINDOW_HOURS=24
+def local_now():
+    # Saudi time (UTC+3, no daylight saving): the date/time a reporter types is local time.
+    return datetime.utcnow()+timedelta(hours=3)
+def accident_moment(date,time_value):
+    try: return datetime.strptime(date+' '+time_value[:5],'%Y-%m-%d %H:%M')
+    except ValueError: return None
+def accident_within_window(when):
+    now=local_now()
+    return now-timedelta(hours=ACCIDENT_WINDOW_HOURS)<=when<=now+timedelta(minutes=5)
 @app.get('/cases/<int:case_id>')
 @login_required
 def case_detail(case_id):
@@ -738,6 +827,58 @@ def case_detail(case_id):
         return redirect(url_for('dashboard'))
     return redirect(url_for('wizard', case_id=case_id, step=7 if party['completed'] else 1))
 
+@app.post('/cases/<int:case_id>/cancel')
+@login_required
+def cancel_case(case_id):
+    case,party=case_access(case_id)
+    if case['creator_id']!=session['uid'] or not party or party['position']!='A': abort(403)
+    if party['completed']:
+        flash('لا يمكن إلغاء البلاغ بعد إرسال البيانات.','error')
+        return redirect(url_for('wizard',case_id=case_id,step=7))
+    with conn() as c:
+        videos=c.execute('SELECT stored_name,processed_name FROM videos WHERE case_id=?',(case_id,)).fetchall()
+    # Delete the video files from storage (Cloudinary/S3/local) first; keep the case if that fails so it can be retried.
+    try:
+        for v in videos:
+            for path in {v['stored_name'],v['processed_name']}:
+                if path: delete_stored_file(path)
+    except Exception:
+        app.logger.exception('Case cancellation: video deletion failed')
+        flash('تعذر إلغاء البلاغ حاليًا. يرجى المحاولة مرة أخرى.','error')
+        return redirect(url_for('wizard',case_id=case_id,step=1))
+    with conn() as c:
+        c.execute('DELETE FROM analysis_jobs WHERE video_id IN (SELECT id FROM videos WHERE case_id=?)',(case_id,))
+        c.execute('DELETE FROM videos WHERE case_id=?',(case_id,))
+        c.execute('DELETE FROM vehicles WHERE party_id IN (SELECT id FROM parties WHERE case_id=?)',(case_id,))
+        c.execute('DELETE FROM invitations WHERE case_id=?',(case_id,))
+        c.execute('DELETE FROM parties WHERE case_id=?',(case_id,))
+        c.execute('DELETE FROM cases WHERE id=?',(case_id,))
+    flash('تم إلغاء البلاغ '+case['reference']+'.','success')
+    return redirect(url_for('dashboard'))
+
+def delete_stored_file(path):
+    """Delete one stored video file from Cloudinary, S3, or the local uploads folder."""
+    public_id = stored_cloudinary_id(path)
+    key = stored_s3_key(path)
+    if public_id:
+        if not cloudinary_ready():
+            raise RuntimeError('Cloudinary credentials are missing')
+        timestamp = int(time.time())
+        params = {'public_id': public_id, 'timestamp': timestamp, 'type': 'authenticated'}
+        payload = urlencode({**params, 'api_key': os.environ['CLOUDINARY_API_KEY'],
+                             'signature': cloudinary_sign(params)}).encode()
+        url = 'https://api.cloudinary.com/v1_1/' + quote(os.environ['CLOUDINARY_CLOUD_NAME'], safe='') + '/video/destroy'
+        with urlopen(Request(url, data=payload, method='POST'), timeout=25) as response:
+            result = json.loads(response.read().decode())
+        if result.get('result') not in ('ok', 'not found'):
+            raise RuntimeError('Cloudinary deletion failed')
+    elif key:
+        if not storage_ready():
+            raise RuntimeError('Storage credentials are missing')
+        storage_client().delete_object(Bucket=os.environ['S3_BUCKET'], Key=key)
+    elif not os.getenv('VERCEL'):
+        (UPLOAD / Path(path).name).unlink(missing_ok=True)
+
 @app.post('/cases/<int:case_id>/invite')
 @login_required
 def invite(case_id):
@@ -745,7 +886,7 @@ def invite(case_id):
     if case['creator_id']!=session['uid']: abort(403)
     recipient_email=request.form.get('recipient_email','').strip().lower()
     if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',recipient_email) or len(recipient_email)>254:
-        flash('أدخل بريدًا إلكترونيًا صحيحًا للطرف الثاني.','error')
+        flash('البريد الإلكتروني للطرف الثاني غير صحيح.','error')
         return redirect(url_for('case_detail',case_id=case_id))
     if current_user()['email'].strip().lower()==recipient_email:
         flash('لا يمكن إرسال الدعوة إلى بريد منشئ البلاغ نفسه.','error')
@@ -755,8 +896,9 @@ def invite(case_id):
         if not second or second['user_id']:
             flash('الطرف الثاني مرتبط بالبلاغ بالفعل، ولا يمكن إرسال دعوة جديدة.','error')
             return redirect(url_for('case_detail',case_id=case_id))
-        latest=c.execute('SELECT created_at FROM invitations WHERE case_id=? ORDER BY id DESC LIMIT 1',(case_id,)).fetchone()
-        if latest and datetime.utcnow()-datetime.fromisoformat(latest['created_at'])<timedelta(seconds=60):
+        latest=c.execute('SELECT created_at,recipient_email FROM invitations WHERE case_id=? ORDER BY id DESC LIMIT 1',(case_id,)).fetchone()
+        # The one-minute wait only applies to re-sending to the same address; correcting the address is immediate.
+        if latest and (latest['recipient_email'] or '').lower()==recipient_email and datetime.utcnow()-datetime.fromisoformat(str(latest['created_at'])[:19].replace(' ','T'))<timedelta(seconds=60):
             flash('يرجى الانتظار دقيقة قبل إرسال دعوة أخرى لنفس البلاغ.','error')
             return redirect(url_for('case_detail',case_id=case_id))
     token=secrets.token_urlsafe(32)
@@ -774,11 +916,11 @@ def invite(case_id):
         with conn() as c:
             c.execute('UPDATE invitations SET revoked_at=? WHERE case_id=? AND id<>? AND claimed_by IS NULL AND revoked_at IS NULL',
                       (datetime.utcnow().isoformat(),case_id,invitation_id))
-        flash('وضع التجربة: لم يُرسل بريد. افتحي هذا الرابط في نافذة خاصة وسجّلي بحساب بريده '+recipient_email+' : '+url_for('invitation',token=token,_external=True),'success')
+        flash('وضع التجربة: لم يُرسل بريد. يُفتح هذا الرابط في نافذة خاصة ويُسجَّل بحساب بريده '+recipient_email+' : '+url_for('invitation',token=token,_external=True),'success')
         return redirect(url_for('case_detail',case_id=case_id))
     if not public_base and request.host.split(':')[0] in ('localhost','127.0.0.1'):
         with conn() as c: c.execute('DELETE FROM invitations WHERE id=?',(invitation_id,))
-        flash('قبل إرسال الدعوة أضيفي PUBLIC_BASE_URL لرابط موقع سياق المنشور على HTTPS؛ localhost لا يفتح على جوال الطرف الثاني.','error')
+        flash('قبل إرسال الدعوة يلزم إضافة PUBLIC_BASE_URL لرابط موقع سياق المنشور على HTTPS؛ localhost لا يفتح على جوال الطرف الثاني.','error')
         return redirect(url_for('case_detail',case_id=case_id))
     try:
         send_case_invitation(recipient_email,link,case['reference'])
@@ -825,6 +967,42 @@ def accept_invitation(token):
         if claimed.rowcount!=1: abort(403)
     return redirect(url_for('wizard',case_id=inv['case_id'],step=1))
 
+# Saudi plate: up to 4 digits and up to 3 letters; each Arabic letter has a fixed Latin twin.
+PLATE_LETTERS={'أ':'A','ب':'B','ح':'J','د':'D','ر':'R','س':'S','ص':'X','ط':'T','ع':'E','ق':'G','ك':'K','ل':'L','م':'Z','ن':'N','هـ':'H','و':'U','ى':'V'}
+PLATE_LATIN={v:k for k,v in PLATE_LETTERS.items()}
+def parse_plate(letters_raw,numbers_raw):
+    letters=[]
+    for token in str(letters_raw or '').replace('ـ',' ').replace('ه','هـ').split():
+        token=token.strip()
+        if token.upper() in PLATE_LATIN: token=PLATE_LATIN[token.upper()]
+        if token=='ا' or token=='إ' or token=='آ': token='أ'
+        if token=='ي': token='ى'
+        letters.append(token)
+    numbers=normalized_digits(numbers_raw or '')
+    if not re.fullmatch(r'\d{1,4}',numbers): return None,'أرقام اللوحة يجب أن تكون من 1 إلى 4 أرقام.'
+    if not 1<=len(letters)<=3 or any(l not in PLATE_LETTERS for l in letters): return None,'حروف اللوحة يجب أن تكون من 1 إلى 3 حروف من حروف اللوحات السعودية.'
+    return ' '.join(letters)+' '+numbers,None
+def split_plate(plate):
+    parts=str(plate or '').split()
+    if parts and parts[-1].isdigit(): return ' '.join(parts[:-1]),parts[-1]
+    return '',''
+app.jinja_env.globals.update(split_plate=split_plate,PLATE_LETTERS=PLATE_LETTERS)
+
+def vehicle_form_errors(form):
+    plate,error=parse_plate(form.get('plate_letters',''),form.get('plate_numbers',''))
+    data={'plate':plate}
+    for k in ('manufacturer','model','color'): data[k]=form.get(k,'').strip()
+    data['year']=normalized_digits(form.get('year',''))
+    errors=[error] if error else []
+    if not data['manufacturer']: errors.append('الشركة المصنعة مطلوبة.')
+    if not data['model']: errors.append('الطراز مطلوب.')
+    if not re.fullmatch(r'\d{4}',data['year']) or not 1950<=int(data['year'])<=datetime.now().year+1: errors.append('سنة الصنع يجب أن تكون 4 أرقام صحيحة.')
+    if not data['color']: errors.append('لون المركبة مطلوب.')
+    return data,errors
+
+def save_party_progress(party_id,step):
+    with conn() as c: c.execute('UPDATE parties SET progress=? WHERE id=? AND COALESCE(progress,0)<?',(step,party_id,step))
+
 STEPS=['بيانات الحادث','بيانات الطرف','بيانات المركبة','وصف الحادث','رفع الفيديو','المراجعة','دعوة الطرف الثاني']
 @app.route('/cases/<int:case_id>/steps/<int:step>',methods=['GET','POST'])
 @login_required
@@ -832,26 +1010,76 @@ def wizard(case_id,step):
     if step not in range(1,8): abort(404)
     case,party=case_access(case_id)
     if not party: abort(403)
-    if step==7 and not party['completed']:
-        return redirect(url_for('wizard',case_id=case_id,step=6))
+    progress=party['progress'] or 0
+    if party['completed'] and step<7:
+        return redirect(url_for('wizard',case_id=case_id,step=7))
+    if not party['completed'] and step>min(progress+1,6):
+        flash('يُرجى إكمال الخطوات بالترتيب قبل الانتقال للخطوة التالية.','error')
+        return redirect(url_for('wizard',case_id=case_id,step=min(progress+1,6)))
     if request.method=='POST':
         if step==7: abort(405)
         if step==2:
             account=current_user(); full_name=account['full_name']; national=account['national_id'] or ''; phone=account['phone'] or ''
             with conn() as c: c.execute('UPDATE parties SET full_name=?,national_id=?,phone=? WHERE id=?',(full_name,national,phone,party['id']))
         elif step==3:
-            fields=['plate','manufacturer','model','year','color']
-            if any(not request.form.get(k,'').strip() for k in fields) or not request.form.get('year','').isdigit():
-                flash('أكمل جميع بيانات المركبة.','error'); return redirect(request.url)
+            data,errors=vehicle_form_errors(request.form)
+            if errors:
+                for e in errors: flash(e,'error')
+                return redirect(request.url)
+            values=(data['plate'],data['manufacturer'],data['model'],int(data['year']),data['color'])
+            garage_id=request.form.get('garage_id','')
             with conn() as c:
-                c.execute('''INSERT INTO vehicles(party_id,plate,manufacturer,model,year,color) VALUES(?,?,?,?,?,?) ON CONFLICT(party_id) DO UPDATE SET plate=excluded.plate,manufacturer=excluded.manufacturer,model=excluded.model,year=excluded.year,color=excluded.color''',(party['id'],request.form.get('plate',''),request.form.get('manufacturer',''),request.form.get('model',''),int(request.form['year']) if request.form.get('year','').isdigit() else None,request.form.get('color','')))
+                c.execute('''INSERT INTO vehicles(party_id,plate,manufacturer,model,year,color) VALUES(?,?,?,?,?,?) ON CONFLICT(party_id) DO UPDATE SET plate=excluded.plate,manufacturer=excluded.manufacturer,model=excluded.model,year=excluded.year,color=excluded.color''',(party['id'],*values))
+                # Keep "My vehicles" in sync: edit the chosen saved vehicle, or save a new one to the account.
+                old=None
+                if garage_id.isdigit():
+                    old=c.execute('SELECT plate,manufacturer,model,year,color FROM garage_vehicles WHERE id=? AND user_id=?',(int(garage_id),session['uid'])).fetchone()
+                if old:
+                    c.execute('UPDATE garage_vehicles SET plate=?,manufacturer=?,model=?,year=?,color=? WHERE id=? AND user_id=?',(*values,int(garage_id),session['uid']))
+                    if (old['plate'],old['manufacturer'],old['model'],str(old['year']),old['color'])!=(values[0],values[1],values[2],str(values[3]),values[4]):
+                        flash('تم تحديث بيانات المركبة في «مركباتي».','success')
+                elif not c.execute('SELECT 1 FROM garage_vehicles WHERE user_id=? AND plate=?',(session['uid'],data['plate'])).fetchone():
+                    c.execute('INSERT INTO garage_vehicles(user_id,plate,manufacturer,model,year,color) VALUES(?,?,?,?,?,?)',(session['uid'],*values))
+                    flash('أُضيفت المركبة إلى «مركباتي» لاستخدامها في البلاغات القادمة.','success')
+                else:
+                    c.execute('UPDATE garage_vehicles SET manufacturer=?,model=?,year=?,color=? WHERE user_id=? AND plate=?',(*values[1:],session['uid'],data['plate']))
         elif step==4:
-            if not request.form.get('description','').strip(): flash('وصف الحادث مطلوب.','error'); return redirect(request.url)
-            with conn() as c:c.execute('UPDATE parties SET description=? WHERE id=?',(request.form.get('description','').strip(),party['id']))
+            text=request.form.get('description','').strip()
+            f=request.form
+            errors=[]
+            if case['accident_type']=='REAR_END':
+                meta={'pos':f.get('pos'),'rcase':f.get('rcase'),'zone':f.get('zone')}
+                if meta['pos'] not in ('FRONT','REAR'): errors.append('موقع المركبة مطلوب (الأمامية أو الخلفية).')
+                if meta['rcase'] not in ('normal','sudden','cutin'): errors.append('ما حدث قبل الصدمة مطلوب.')
+                if meta['zone'] not in ('front','rear'): errors.append('مكان الصدمة مطلوب.')
+            else:
+                meta={'side':f.get('side'),'who':f.get('who'),'zone':f.get('zone')}
+                if meta['side'] not in ('left','right'): errors.append('جهة سيارة الطرف الآخر مطلوبة.')
+                if meta['who'] not in ('me','other','both'): errors.append('تحديد من غيّر المسار مطلوب.')
+                if meta['zone'] not in ZONES: errors.append('مكان الصدمة مطلوب.')
+            if not 10<=len(text)<=500: errors.append('وصف الحادث يجب أن يكون من 10 إلى 500 حرف.')
+            if errors:
+                for e in errors: flash(e,'error')
+                return redirect(request.url)
+            with conn() as c:
+                c.execute('UPDATE parties SET description=?,description_meta=? WHERE id=?',(text,json.dumps(meta),party['id']))
+                if case['accident_type']=='REAR_END':
+                    c.execute('UPDATE parties SET vehicle_role=? WHERE id=?',(meta['pos'],party['id']))
+                    if party['position']=='A':
+                        # the second party is, by default, the other vehicle
+                        c.execute("UPDATE parties SET vehicle_role=? WHERE case_id=? AND position='B' AND completed=0 AND (description_meta IS NULL OR description_meta='')",
+                                  ({'FRONT':'REAR','REAR':'FRONT'}[meta['pos']],case_id))
         elif step==5:
             f=request.files.get('video')
             with conn() as c:
                 existing_count=c.execute('SELECT COUNT(*) AS n FROM videos WHERE party_id=?',(party['id'],)).fetchone()['n']
+            camera=request.form.get('camera')
+            if f and f.filename and existing_count:
+                flash('يمكن رفع فيديو واحد فقط. لاستبداله يُحذف الفيديو الحالي أولًا.','error')
+                return redirect(request.url)
+            if f and f.filename and camera not in allowed_cameras(case,party):
+                flash('يُرجى تحديد الكاميرا التي صُوّر بها الفيديو.','error')
+                return redirect(request.url)
             if (not f or not f.filename) and not existing_count and party['position']=='A':
                 flash('يجب اختيار فيديو الحادث قبل المتابعة.','error')
                 return redirect(request.url)
@@ -867,7 +1095,7 @@ def wizard(case_id,step):
                 filename=uuid.uuid4().hex+'.'+ext
                 f.save(UPLOAD/filename)
                 with conn() as c:
-                    video_id=insert_id(c,'INSERT INTO videos(case_id,party_id,original_name,stored_name) VALUES(?,?,?,?)',(case_id,party['id'],secure_filename(f.filename),filename))
+                    video_id=insert_id(c,'INSERT INTO videos(case_id,party_id,original_name,stored_name,camera) VALUES(?,?,?,?,?)',(case_id,party['id'],secure_filename(f.filename),filename,camera))
                     c.execute('INSERT INTO analysis_jobs(video_id) VALUES(?)',(video_id,))
         elif step==6:
             with conn() as c:
@@ -881,7 +1109,9 @@ def wizard(case_id,step):
                 count_row=c.execute('SELECT COUNT(*) AS total FROM parties WHERE case_id=? AND completed=1',(case_id,)).fetchone()
                 count=count_row['total'] if DATABASE_URL else count_row[0]
                 c.execute('UPDATE cases SET status=? WHERE id=?',('in_progress' if count==2 else 'pending',case_id))
+            save_party_progress(party['id'],6)
             flash('تم حفظ بياناتك بنجاح.','success');return redirect(url_for('wizard',case_id=case_id,step=7))
+        save_party_progress(party['id'],step)
         return redirect(url_for('wizard',case_id=case_id,step=step+1))
     with conn() as c:
         vehicle=c.execute('SELECT * FROM vehicles WHERE party_id=?',(party['id'],)).fetchone()
@@ -892,7 +1122,16 @@ def wizard(case_id,step):
         garage=c.execute('SELECT * FROM garage_vehicles WHERE user_id=? ORDER BY id DESC',(session['uid'],)).fetchall()
         other=c.execute('SELECT user_id,completed FROM parties WHERE case_id=? AND position<>?',(case_id,party['position'])).fetchone()
         first_vehicle=c.execute("SELECT v.manufacturer,v.model,v.plate FROM vehicles v JOIN parties p ON v.party_id=p.id WHERE p.case_id=? AND p.position='A'",(case_id,)).fetchone() if party['position']=='B' else None
-    return render_template('wizard.html',garage=garage,other=other,first_vehicle=first_vehicle,case=case,party=party,vehicle=vehicle,videos=videos,step=step,steps=STEPS if party['position']=='A' else STEPS[:6]+['اكتمال البلاغ'],invite=invited,other_party=other_party,cloud_upload=bool(os.getenv('VERCEL') or storage_ready() or cloudinary_ready()))
+    try: desc_meta=json.loads(party['description_meta'] or '{}')
+    except ValueError: desc_meta={}
+    return render_template('wizard.html',garage=garage,other=other,first_vehicle=first_vehicle,case=case,party=party,vehicle=vehicle,videos=videos,step=step,progress=progress,desc_meta=desc_meta,cameras=allowed_cameras(case,party),steps=STEPS if party['position']=='A' else STEPS[:6]+['اكتمال البلاغ'],invite=invited,other_party=other_party,cloud_upload=bool(os.getenv('VERCEL') or storage_ready() or cloudinary_ready()))
+ZONES=('front','front-left','front-right','left','right','rear-left','rear-right','rear')
+def allowed_cameras(case,party):
+    # Rear-end: the rear vehicle films the crash with its front camera, the front vehicle with its rear camera.
+    if case['accident_type']=='REAR_END' and party['vehicle_role']=='REAR': return ('front',)
+    if case['accident_type']=='REAR_END' and party['vehicle_role']=='FRONT': return ('rear',)
+    return ('front','rear')
+
 @app.post('/api/cases/<int:case_id>/videos/presign')
 @login_required
 def video_presign(case_id):
@@ -901,6 +1140,12 @@ def video_presign(case_id):
     if not (cloudinary_ready() or storage_ready()):
         return jsonify(error='خدمة رفع الفيديو غير متاحة حاليًا. يرجى المحاولة لاحقًا.'), 503
     data = request.get_json(silent=True) or {}
+    with conn() as c:
+        if c.execute('SELECT 1 FROM videos WHERE party_id=?',(party['id'],)).fetchone():
+            return jsonify(error='يمكن رفع فيديو واحد فقط. لاستبداله يُحذف الفيديو الحالي أولًا.'), 400
+    camera = data.get('camera')
+    if camera not in allowed_cameras(case, party):
+        return jsonify(error='يُرجى تحديد الكاميرا التي صُوّر بها الفيديو.'), 400
     original = str(data.get('filename', ''))
     size = data.get('size')
     ext = original.rsplit('.', 1)[-1].lower() if '.' in original else ''
@@ -913,7 +1158,7 @@ def video_presign(case_id):
         session['pending_video'] = {'provider': 'cloudinary', 'public_id': public_id,
                                     'case_id': case_id, 'party_id': party['id'],
                                     'name': secure_filename(original) or 'video.'+ext,
-                                    'size': size, 'expires': time.time()+3600}
+                                    'size': size, 'camera': camera, 'expires': time.time()+3600}
         return jsonify(provider='cloudinary', upload_url='https://api.cloudinary.com/v1_1/' +
                        quote(os.environ['CLOUDINARY_CLOUD_NAME'], safe='') + '/video/upload',
                        api_key=os.environ['CLOUDINARY_API_KEY'], timestamp=timestamp,
@@ -929,7 +1174,7 @@ def video_presign(case_id):
         return jsonify(error='تعذر بدء رفع الفيديو. يرجى المحاولة لاحقًا.'), 503
     session['pending_video'] = {'key':key,'case_id':case_id,'party_id':party['id'],
                                 'name':secure_filename(original) or 'video.'+ext,
-                                'size':size,'expires':time.time()+600}
+                                'size':size,'camera':camera,'expires':time.time()+600}
     return jsonify(upload_url=upload_url, content_type=mime)
 
 @app.post('/api/cases/<int:case_id>/videos/complete')
@@ -952,9 +1197,9 @@ def video_complete(case_id):
             with conn() as c:
                 existing = c.execute('SELECT id FROM videos WHERE stored_name=?',
                                      ('cloudinary://' + pending['public_id'],)).fetchone()
-                if not existing:
-                    video_id=insert_id(c,'INSERT INTO videos(case_id,party_id,original_name,stored_name) VALUES(?,?,?,?)',
-                                       (case_id,party['id'],pending['name'],'cloudinary://' + pending['public_id']))
+                if not existing and not c.execute('SELECT 1 FROM videos WHERE party_id=?',(party['id'],)).fetchone():
+                    video_id=insert_id(c,'INSERT INTO videos(case_id,party_id,original_name,stored_name,camera) VALUES(?,?,?,?,?)',
+                                       (case_id,party['id'],pending['name'],'cloudinary://' + pending['public_id'],pending.get('camera')))
                     c.execute('INSERT INTO analysis_jobs(video_id) VALUES(?)',(video_id,))
             session.pop('pending_video', None)
         except Exception:
@@ -968,8 +1213,10 @@ def video_complete(case_id):
         if meta['ContentLength'] != pending['size']:
             return jsonify(error='لم يكتمل رفع الفيديو. يرجى إعادة المحاولة.'), 400
         with conn() as c:
-            video_id=insert_id(c,'INSERT INTO videos(case_id,party_id,original_name,stored_name) VALUES(?,?,?,?)',
-                (case_id,party['id'],pending['name'],'s3://'+pending['key']))
+            if c.execute('SELECT 1 FROM videos WHERE party_id=?',(party['id'],)).fetchone():
+                return jsonify(error='يمكن رفع فيديو واحد فقط.'), 400
+            video_id=insert_id(c,'INSERT INTO videos(case_id,party_id,original_name,stored_name,camera) VALUES(?,?,?,?,?)',
+                (case_id,party['id'],pending['name'],'s3://'+pending['key'],pending.get('camera')))
             c.execute('INSERT INTO analysis_jobs(video_id) VALUES(?)',(video_id,))
         session.pop('pending_video', None)
     except Exception:
@@ -1024,7 +1271,7 @@ def delete_video(video_id):
     with conn() as c:
         c.execute('DELETE FROM analysis_jobs WHERE video_id=?', (video_id,))
         c.execute('DELETE FROM videos WHERE id=? AND party_id=?', (video_id, party['id']))
-    flash('تم حذف الفيديو. يمكنك اختيار فيديو آخر.', 'success')
+    flash('تم حذف الفيديو، ويمكن اختيار فيديو آخر.', 'success')
     return redirect(url_for('wizard', case_id=video['case_id'], step=5))
 
 @app.get('/videos/<int:video_id>/download')
@@ -1082,7 +1329,7 @@ def profile():
         action=request.form.get('action')
         if action=='email_request':
             new_email=request.form.get('email','').strip().lower()
-            if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',new_email) or len(new_email)>254: flash('أدخل بريدًا إلكترونيًا صالحًا.','error')
+            if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',new_email) or len(new_email)>254: flash('البريد الإلكتروني غير صالح.','error')
             elif new_email==current_user()['email'].strip().lower(): flash('هذا هو بريدك الحالي.','error')
             else:
                 with conn() as c: taken=c.execute('SELECT id FROM users WHERE email=?',(new_email,)).fetchone()
@@ -1096,9 +1343,9 @@ def profile():
             pending=session.get('pending_email')
             code=normalized_digits(request.form.get('code',''))
             if not pending or time.time()-pending.get('last_sent',0)>600:
-                session.pop('pending_email',None); flash('انتهت صلاحية الرمز. اطلب رمزًا جديدًا.','error')
+                session.pop('pending_email',None); flash('انتهت صلاحية الرمز. يُرجى طلب رمز جديد.','error')
             elif pending['attempts']>=5:
-                session.pop('pending_email',None); flash('تجاوزت عدد المحاولات. اطلب رمزًا جديدًا.','error')
+                session.pop('pending_email',None); flash('تم تجاوز عدد المحاولات. يُرجى طلب رمز جديد.','error')
             else:
                 pending['attempts']+=1; session['pending_email']=pending
                 if re.fullmatch(r'\d{6}',code) and hmac.compare_digest(otp_digest(code,pending['email']),pending.get('otp_digest','')):
@@ -1117,8 +1364,9 @@ def profile():
                 with conn() as c:c.execute('UPDATE users SET password_hash=? WHERE id=?',(generate_password_hash(new),session['uid']))
                 flash('تم تغيير كلمة المرور.','success')
         elif action=='notifications':
-            with conn() as c:c.execute('UPDATE users SET notification_status=?,notification_result=? WHERE id=?',(int(request.form.get('status')=='on'),int(request.form.get('result')=='on'),session['uid']))
-            flash('تم حفظ تفضيلات الإشعارات محليًا.','success')
+            # Only e-mail status updates are available now; result notifications are future work.
+            with conn() as c:c.execute('UPDATE users SET notification_status=? WHERE id=?',(int(request.form.get('status')=='on'),session['uid']))
+            flash('تم حفظ تفضيلات الإشعارات بنجاح.','success')
         return redirect(url_for('profile',tab=tab))
     with conn() as c: cars=c.execute('SELECT * FROM garage_vehicles WHERE user_id=? ORDER BY id DESC',(session['uid'],)).fetchall()
     pending_email=session.get('pending_email')
@@ -1128,12 +1376,15 @@ def profile():
 @app.post('/profile/vehicles')
 @login_required
 def save_vehicle():
-    data={k:request.form.get(k,'').strip() for k in ('plate','manufacturer','model','year','color')}
-    if any(not v for v in data.values()) or not re.fullmatch(r'\d{4}',normalized_digits(data['year'])):
-        flash('أكمل بيانات المركبة بما فيها سنة من أربعة أرقام.','error');return redirect(url_for('profile',tab='vehicles'))
-    data['year']=normalized_digits(data['year'])
+    data,errors=vehicle_form_errors(request.form)
+    if errors:
+        for e in errors: flash(e,'error')
+        return redirect(url_for('profile',tab='vehicles'))
     vid=request.form.get('vehicle_id','')
     with conn() as c:
+        dup=c.execute('SELECT id FROM garage_vehicles WHERE user_id=? AND plate=?',(session['uid'],data['plate'])).fetchone()
+        if dup and str(dup['id'])!=vid:
+            flash('هذه اللوحة مسجلة مسبقًا في مركباتك.','error');return redirect(url_for('profile',tab='vehicles'))
         if vid.isdigit():
             cur=c.execute('UPDATE garage_vehicles SET plate=?,manufacturer=?,model=?,year=?,color=? WHERE id=? AND user_id=?',(*[data[k] for k in ('plate','manufacturer','model','year','color')],int(vid),session['uid']))
             if not cur.rowcount:abort(404)
