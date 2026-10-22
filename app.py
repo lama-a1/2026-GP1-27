@@ -972,12 +972,14 @@ PLATE_LETTERS={'أ':'A','ب':'B','ح':'J','د':'D','ر':'R','س':'S','ص':'X','�
 PLATE_LATIN={v:k for k,v in PLATE_LETTERS.items()}
 def parse_plate(letters_raw,numbers_raw):
     letters=[]
-    for token in str(letters_raw or '').replace('ـ',' ').replace('ه','هـ').split():
-        token=token.strip()
-        if token.upper() in PLATE_LATIN: token=PLATE_LATIN[token.upper()]
-        if token=='ا' or token=='إ' or token=='آ': token='أ'
-        if token=='ي': token='ى'
-        letters.append(token)
+    # read letter by letter, so "بحد" and "ب ح د" both work
+    for ch in str(letters_raw or '').replace('ـ',''):
+        if ch.isspace(): continue
+        ch=PLATE_LATIN.get(ch.upper(),ch)
+        if ch=='ه': ch='هـ'
+        if ch=='ا' or ch=='إ' or ch=='آ': ch='أ'
+        if ch=='ي': ch='ى'
+        letters.append(ch)
     numbers=normalized_digits(numbers_raw or '')
     if not re.fullmatch(r'\d{1,4}',numbers): return None,'أرقام اللوحة يجب أن تكون من 1 إلى 4 أرقام.'
     if not 1<=len(letters)<=3 or any(l not in PLATE_LETTERS for l in letters): return None,'حروف اللوحة يجب أن تكون من 1 إلى 3 حروف من حروف اللوحات السعودية.'
