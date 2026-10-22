@@ -1,4 +1,6 @@
+// copy the invite link
 function copyInvite(){const el=document.getElementById('inviteLink');if(!el)return;navigator.clipboard.writeText(el.value).then(()=>alert('تم نسخ رابط الدعوة')).catch(()=>{el.select();document.execCommand('copy');alert('تم نسخ الرابط')})}
+// show the name of the chosen video
 function showFilename(input){
   const el=document.getElementById('filename');
   if(el)el.textContent=input.files.length?input.files[0].name:'';
@@ -8,11 +10,13 @@ function showFilename(input){
   if(form)form.dispatchEvent(new Event('change',{bubbles:true}));
 }
 (function(){
+  // remove the chosen video
   const clear=document.getElementById('clear-selected-video');
   const file=document.querySelector('input[name="video"]');
   if(clear&&file)clear.addEventListener('click',()=>{file.value='';showFilename(file);});
 })();
 (function(){
+  // the invite button works only when the email is valid
   const form=document.getElementById('party-invite-form');
   const field=document.querySelector('input[name="recipient_email"][form="party-invite-form"]');
   const button=document.getElementById('send-party-invite');
@@ -28,6 +32,7 @@ function showFilename(input){
 })();
 
 (function(){
+  // keep the submit button disabled until the form is filled correctly
   function updateForm(form){
     const button=form.querySelector('button.guarded-submit');
     if(!button)return;
@@ -58,6 +63,7 @@ function showFilename(input){
 
 
 (function(){
+  // upload the video to Cloudinary in parts and show the progress
   const form=document.querySelector('form[data-step="5"][data-cloud-upload="1"]');
   if(!form)return;
   form.addEventListener('submit',async function(event){
@@ -128,7 +134,7 @@ function showFilename(input){
       const done=await fetch(base+'complete',{method:'POST',headers:{'X-CSRF-Token':csrf}});
       const result=await done.json();
       if(!done.ok)throw new Error(result.error||'تعذر حفظ الفيديو.');
-      // Stay on the upload step so the user can inspect or delete the video.
+      // stay on the video step so the user can check or delete the video
       window.location.assign('/cases/'+encodeURIComponent(caseId)+'/steps/5');
     }catch(error){setMessage(error.message||'حدث خطأ أثناء رفع الفيديو.');if(button)button.disabled=false;}
   });
@@ -136,6 +142,7 @@ function showFilename(input){
 
 
 (function(){
+  // "my location" button: fill in the accident location from the browser
   const button=document.getElementById('locate-me-btn');
   const field=document.getElementById('accident-location');
   const feedback=document.getElementById('location-feedback');
@@ -169,7 +176,7 @@ function showFilename(input){
   });
 })();
 
-/* Registration: keep the button clickable and explain exactly what is wrong under each field. */
+// sign up form: show the error under each field and the password strength
 (function(){
   const form=document.querySelector('form.explain-errors');
   if(!form)return;
@@ -239,7 +246,7 @@ function showFilename(input){
   paintMeter();
 })();
 
-/* Saudi plate fields: letter picker, validation and live preview */
+// plate fields: check the letters and numbers and show a preview of the plate
 (function(){
   const AR2EN={'أ':'A','ب':'B','ح':'J','د':'D','ر':'R','س':'S','ص':'X','ط':'T','ع':'E','ق':'G','ك':'K','ل':'L','م':'Z','ن':'N','هـ':'H','و':'U','ى':'V'};
   const EN2AR=Object.fromEntries(Object.entries(AR2EN).map(([a,e])=>[e,a]));
@@ -295,7 +302,7 @@ function showFilename(input){
   });
 })();
 
-/* Password strength meter for the expert account (12+ characters required) */
+// password strength for the expert account (at least 12 characters)
 (function(){
   document.querySelectorAll('[data-pw-strength]').forEach(box=>{
     const min=+box.dataset.pwStrength,input=box.querySelector('input'),meter=box.querySelector('.pw-meter'),label=box.querySelector('.pw-label');
@@ -313,7 +320,7 @@ function showFilename(input){
   });
 })();
 
-/* Manufacturing year: digits only while typing, and a message right away (not after submit) */
+// car year: numbers only, and show the error while typing
 (function(){
   const max=new Date().getFullYear()+1, min=1950;
   document.querySelectorAll('input[name="year"]').forEach(input=>{

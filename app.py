@@ -147,8 +147,7 @@ def init_db():
             c.execute('''CREATE TABLE IF NOT EXISTS expert_logins(
                 id BIGSERIAL PRIMARY KEY, username TEXT NOT NULL, expert_id BIGINT,
                 logged_at TEXT DEFAULT to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS'), ip TEXT)''')
-        # Unique account credentials (email, phone, national ID). Each index is created on its own
-        # connection so an existing duplicate in old data cannot abort the rest of start-up.
+        # email, phone and national ID can't be repeated (each one separately, so if one fails the others still work)
         for name,col in (('users_phone_unique','phone'),('users_national_id_unique','national_id'),('users_email_unique','email')):
             try:
                 with conn() as c: c.execute(f'CREATE UNIQUE INDEX IF NOT EXISTS {name} ON users({col})')
@@ -195,7 +194,7 @@ def init_db():
     backfill_progress()
 
 def backfill_progress():
-    # Older parties have no stored progress: derive it from the data they already saved.
+    # set each party's step based on what they already filled in
     with conn() as c:
         c.execute("UPDATE parties SET progress=6 WHERE completed=1 AND COALESCE(progress,0)<6")
         c.execute("UPDATE parties SET progress=2 WHERE completed=0 AND COALESCE(progress,0)<2 AND national_id IS NOT NULL AND national_id<>''")
@@ -203,16 +202,15 @@ def backfill_progress():
         c.execute("UPDATE parties SET progress=4 WHERE completed=0 AND COALESCE(progress,0)<4 AND description IS NOT NULL AND description<>'' AND id IN (SELECT party_id FROM vehicles)")
         c.execute("UPDATE parties SET progress=5 WHERE completed=0 AND COALESCE(progress,0)<5 AND id IN (SELECT party_id FROM videos) AND description IS NOT NULL AND description<>''")
 
-# Case status (Sprint 1 report): Pending = waiting for the second party,
-# In Progress = both parties submitted, waiting for expert review, Completed = approved by the expert.
+# the 3 case statuses shown to users: pending, in progress, completed
 STATUS_LABELS={'pending':'قيد الانتظار','in_progress':'قيد المراجعة','completed':'مكتملة'}
 def status_key(raw):
-    # also maps older stored values (pending_second_party / awaiting_other_party / submitted)
+    # get the status of a case (anything not in progress or completed counts as pending)
     return {'submitted':'in_progress','in_progress':'in_progress','approved':'completed','completed':'completed'}.get(raw or '','pending')
 app.jinja_env.filters['status_key']=status_key
 app.jinja_env.filters['status_label']=lambda raw: STATUS_LABELS[status_key(raw)]
 
-# ---------- PBI 2 / 18: temporary lock after repeated failed logins ----------
+# after 5 wrong passwords, login is locked for 15 minutes
 LOGIN_MAX_FAILS=5
 LOGIN_LOCK_SECONDS=15*60
 def login_locked(key):
@@ -286,7 +284,7 @@ def otp_digest(code, email):
     return hmac.new(key, f"{email.lower()}:{code}".encode(), hashlib.sha256).hexdigest()
 
 def branded_email_html(kicker, title, description, panel_html, footer_note):
-    """Email-client-friendly RTL transactional email; content fragments are escaped by callers."""
+    # the design of the emails we send (logo, colors, Arabic layout)
     base=os.getenv('PUBLIC_BASE_URL','https://siyaq-plum.vercel.app').strip().rstrip('/')
     logo_url=html_escape(base+'/static/siyaq-email-logo.png',quote=True) if re.fullmatch(r'https://[^\s/]+',base) else ''
     brand_logo=(f'<img src="{logo_url}" alt="سياق | SIYAQ" width="134" height="60" style="display:block;max-width:134px;height:auto;margin:auto;" />' if logo_url else 'سياق | SIYAQ')
@@ -344,7 +342,7 @@ def invitation_email_html(link, reference):
 
 
 def send_brevo_api_email(email, subject, body, html_body=None):
-    """Send transactional email through Brevo's REST API, without exposing the API key."""
+    # send an email through Brevo
     api_key=os.getenv('BREVO_API_KEY','').strip()
     sender=os.getenv('BREVO_SENDER_EMAIL',os.getenv('SMTP_FROM','')).strip()
     sender_name=os.getenv('BREVO_SENDER_NAME','Siyaq').strip() or 'Siyaq'
@@ -377,7 +375,7 @@ def send_brevo_api_email(email, subject, body, html_body=None):
 
 
 def send_email_otp(email, code):
-    """Send the OTP using the configured transport (REST API or SMTP)."""
+    # email the user the verification code
     body=(f'رمز التحقق من حساب سياق: {code}\nصلاحية الرمز 10 دقائق. يُرجى عدم مشاركة هذا الرمز مع أي شخص.\n\n'
           f'Siyaq verification code: {code}\nExpires in 10 minutes.')
     if os.getenv('OTP_MODE','api').strip().lower()=='api':
@@ -411,7 +409,7 @@ def send_email_otp(email, code):
 
 
 def send_case_invitation(email, link, reference):
-    """Send a private invitation with the same email transport as registration OTP."""
+    # email the second party the link to join the case
     body=(
         'السلام عليكم،\n\nتمت إضافتكم بصفتكم الطرف الثاني في بلاغ حادث مروري مسجّل على منصة سياق.\n'
         'رقم البلاغ: '+reference+'\n\n'
@@ -453,7 +451,7 @@ def issue_otp(pending):
     code=f'{secrets.randbelow(1000000):06d}'
     mode=os.getenv('OTP_MODE','api').strip().lower()
     if mode=='demo':
-        # DEMO IS NOT IDENTITY VERIFICATION. Never permit demo outside localhost.
+        # demo mode shows the code on screen, so it only works on our own computer
         if request.remote_addr not in ('127.0.0.1','::1'):
             raise RuntimeError('وضع التجربة متاح محليًا فقط. يلزم تفعيل إرسال البريد الحقيقي.')
         pending['demo_code']=code
@@ -544,8 +542,7 @@ def verify_email():
                         try:
                             with conn() as c:
                                 uid=insert_id(c,'INSERT INTO users(full_name,email,phone,password_hash,national_id,birth_date) VALUES(?,?,?,?,?,?)',
-                                    (pending['full_name'],pending['email'],pending['phone'],pending['password_hash'],pending['national_id'],pending['birth_date']))
-                                # uid returned by insert_id
+                                    (pending['full_name'],pending['email'],pending['phone'],pending['password_hash'],pending['national_id'],pending['birth_date']))                                
                             destination=session.get('after_registration')
                             session.clear();session['uid']=uid;csrf()
                             return redirect(destination if safe_invitation_next(destination) else url_for('dashboard'))
@@ -611,7 +608,7 @@ def forgot_password():
             else:
                 try: send_reset_email(u['email'],link)
                 except Exception: app.logger.exception('Password reset email failed')
-        sent=True  # same response whether or not the ID exists (does not reveal registered IDs)
+        sent=True  # same message even if the ID isn't registered, so no one can find out which IDs exist
     return render_template('password_reset.html',stage='request',sent=sent)
 
 @app.route('/reset-password/<token>',methods=['GET','POST'])
@@ -788,7 +785,7 @@ def accident_form(form,original=None):
 @app.route('/cases/<int:case_id>/edit',methods=['GET','POST'])
 @login_required
 def edit_case(case_id):
-    # Party A can go back and correct the accident information until the final submission.
+    # party A can change the accident info until they submit
     case,party=case_access(case_id)
     if case['creator_id']!=session['uid'] or not party or party['position']!='A': abort(403)
     if party['completed']: return redirect(url_for('wizard',case_id=case_id,step=7))
@@ -800,7 +797,7 @@ def edit_case(case_id):
         with conn() as c:
             c.execute('UPDATE cases SET accident_type=?,accident_date=?,accident_time=?,location=? WHERE id=?',(typ,date,time,location,case_id))
             if typ!=case['accident_type']:
-                # the description answers belong to the old accident type
+                # if the accident type changed the description no longer fits, so we clear it
                 c.execute('UPDATE parties SET description=NULL,description_meta=NULL,vehicle_role=NULL WHERE case_id=?',(case_id,))
                 c.execute('UPDATE parties SET progress=3 WHERE case_id=? AND COALESCE(progress,0)>3',(case_id,))
         flash('تم تحديث بيانات الحادث.','success')
@@ -811,7 +808,7 @@ def edit_case(case_id):
 
 ACCIDENT_WINDOW_HOURS=24
 def local_now():
-    # Saudi time (UTC+3, no daylight saving): the date/time a reporter types is local time.
+    # Saudi time
     return datetime.utcnow()+timedelta(hours=3)
 def accident_moment(date,time_value):
     try: return datetime.strptime(date+' '+time_value[:5],'%Y-%m-%d %H:%M')
@@ -837,7 +834,7 @@ def cancel_case(case_id):
         return redirect(url_for('wizard',case_id=case_id,step=7))
     with conn() as c:
         videos=c.execute('SELECT stored_name,processed_name FROM videos WHERE case_id=?',(case_id,)).fetchall()
-    # Delete the video files from storage (Cloudinary/S3/local) first; keep the case if that fails so it can be retried.
+        # delete the case videos from storage (Cloudinary) first, and if that fails, keep the case so the user can try again
     try:
         for v in videos:
             for path in {v['stored_name'],v['processed_name']}:
@@ -857,7 +854,7 @@ def cancel_case(case_id):
     return redirect(url_for('dashboard'))
 
 def delete_stored_file(path):
-    """Delete one stored video file from Cloudinary, S3, or the local uploads folder."""
+    # delete the video file from storage (Cloudinary)
     public_id = stored_cloudinary_id(path)
     key = stored_s3_key(path)
     if public_id:
@@ -897,7 +894,7 @@ def invite(case_id):
             flash('الطرف الثاني مرتبط بالبلاغ بالفعل، ولا يمكن إرسال دعوة جديدة.','error')
             return redirect(url_for('case_detail',case_id=case_id))
         latest=c.execute('SELECT created_at,recipient_email FROM invitations WHERE case_id=? ORDER BY id DESC LIMIT 1',(case_id,)).fetchone()
-        # The one-minute wait only applies to re-sending to the same address; correcting the address is immediate.
+        # wait 1 minute before resending to the same email, but a different email can be sent right away
         if latest and (latest['recipient_email'] or '').lower()==recipient_email and datetime.utcnow()-datetime.fromisoformat(str(latest['created_at'])[:19].replace(' ','T'))<timedelta(seconds=60):
             flash('يرجى الانتظار دقيقة قبل إرسال دعوة أخرى لنفس البلاغ.','error')
             return redirect(url_for('case_detail',case_id=case_id))
@@ -912,7 +909,7 @@ def invite(case_id):
         return redirect(url_for('case_detail',case_id=case_id))
     link=(public_base+url_for('invitation',token=token)) if public_base else url_for('invitation',token=token,_external=True)
     if os.getenv('INVITE_MODE','').strip().lower()=='demo' and request.remote_addr in ('127.0.0.1','::1'):
-        # DEMO ONLY (localhost): no email is sent; the link is shown so the second party can be tested locally.
+        # demo on our computer: no email is sent, the link shows on screen instead
         with conn() as c:
             c.execute('UPDATE invitations SET revoked_at=? WHERE case_id=? AND id<>? AND claimed_by IS NULL AND revoked_at IS NULL',
                       (datetime.utcnow().isoformat(),case_id,invitation_id))
@@ -967,12 +964,12 @@ def accept_invitation(token):
         if claimed.rowcount!=1: abort(403)
     return redirect(url_for('wizard',case_id=inv['case_id'],step=1))
 
-# Saudi plate: up to 4 digits and up to 3 letters; each Arabic letter has a fixed Latin twin.
+# Saudi plate letters and their English letters
 PLATE_LETTERS={'أ':'A','ب':'B','ح':'J','د':'D','ر':'R','س':'S','ص':'X','ط':'T','ع':'E','ق':'G','ك':'K','ل':'L','م':'Z','ن':'N','هـ':'H','و':'U','ى':'V'}
 PLATE_LATIN={v:k for k,v in PLATE_LETTERS.items()}
 def parse_plate(letters_raw,numbers_raw):
     letters=[]
-    # read letter by letter, so "بحد" and "ب ح د" both work
+    # accept letters with or without spaces
     for ch in str(letters_raw or '').replace('ـ',''):
         if ch.isspace(): continue
         ch=PLATE_LATIN.get(ch.upper(),ch)
@@ -1032,7 +1029,7 @@ def wizard(case_id,step):
             garage_id=request.form.get('garage_id','')
             with conn() as c:
                 c.execute('''INSERT INTO vehicles(party_id,plate,manufacturer,model,year,color) VALUES(?,?,?,?,?,?) ON CONFLICT(party_id) DO UPDATE SET plate=excluded.plate,manufacturer=excluded.manufacturer,model=excluded.model,year=excluded.year,color=excluded.color''',(party['id'],*values))
-                # Keep "My vehicles" in sync: edit the chosen saved vehicle, or save a new one to the account.
+                # also save the car in "My vehicles" (update it if it's already there)
                 old=None
                 if garage_id.isdigit():
                     old=c.execute('SELECT plate,manufacturer,model,year,color FROM garage_vehicles WHERE id=? AND user_id=?',(int(garage_id),session['uid'])).fetchone()
@@ -1068,7 +1065,7 @@ def wizard(case_id,step):
                 if case['accident_type']=='REAR_END':
                     c.execute('UPDATE parties SET vehicle_role=? WHERE id=?',(meta['pos'],party['id']))
                     if party['position']=='A':
-                        # the second party is, by default, the other vehicle
+                        # party B gets the other car (if A is front, B is rear)
                         c.execute("UPDATE parties SET vehicle_role=? WHERE case_id=? AND position='B' AND completed=0 AND (description_meta IS NULL OR description_meta='')",
                                   ({'FRONT':'REAR','REAR':'FRONT'}[meta['pos']],case_id))
         elif step==5:
@@ -1129,7 +1126,7 @@ def wizard(case_id,step):
     return render_template('wizard.html',garage=garage,other=other,first_vehicle=first_vehicle,case=case,party=party,vehicle=vehicle,videos=videos,step=step,progress=progress,desc_meta=desc_meta,cameras=allowed_cameras(case,party),steps=STEPS if party['position']=='A' else STEPS[:6]+['اكتمال البلاغ'],invite=invited,other_party=other_party,cloud_upload=bool(os.getenv('VERCEL') or storage_ready() or cloudinary_ready()))
 ZONES=('front','front-left','front-right','left','right','rear-left','rear-right','rear')
 def allowed_cameras(case,party):
-    # Rear-end: the rear vehicle films the crash with its front camera, the front vehicle with its rear camera.
+    # rear-end: the rear car needs its front camera video, the front car needs its rear camera video
     if case['accident_type']=='REAR_END' and party['vehicle_role']=='REAR': return ('front',)
     if case['accident_type']=='REAR_END' and party['vehicle_role']=='FRONT': return ('rear',)
     return ('front','rear')
@@ -1229,7 +1226,7 @@ def video_complete(case_id):
 @app.post('/videos/<int:video_id>/delete')
 @login_required
 def delete_video(video_id):
-    """Remove an uploaded video and its analysis record before final submission."""
+    # delete a video, only allowed before the case is submitted
     with conn() as c:
         video = c.execute('SELECT * FROM videos WHERE id=?', (video_id,)).fetchone()
     if not video:
@@ -1285,7 +1282,7 @@ def download_video(video_id):
     public_id = stored_cloudinary_id(v['processed_name'] or v['stored_name'])
     if public_id:
         if not cloudinary_ready(): abort(503)
-        # Cloudinary private download API issues an expiring, signed link.
+       # make a download link that only works for 2 minutes
         expires = int(time.time()) + 120
         fmt = v['original_name'].rsplit('.', 1)[-1].lower() if '.' in v['original_name'] else 'mp4'
         params = {'public_id': public_id, 'format': fmt, 'type': 'authenticated', 'expires_at': expires}
@@ -1366,7 +1363,7 @@ def profile():
                 with conn() as c:c.execute('UPDATE users SET password_hash=? WHERE id=?',(generate_password_hash(new),session['uid']))
                 flash('تم تغيير كلمة المرور.','success')
         elif action=='notifications':
-            # Only e-mail status updates are available now; result notifications are future work.
+            # save the notification setting for status updates
             with conn() as c:c.execute('UPDATE users SET notification_status=? WHERE id=?',(int(request.form.get('status')=='on'),session['uid']))
             flash('تم حفظ تفضيلات الإشعارات بنجاح.','success')
         return redirect(url_for('profile',tab=tab))
