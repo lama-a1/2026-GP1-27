@@ -48,7 +48,7 @@
           {% if step==2 %}يُرجى التأكد من البيانات ثم الضغط على متابعة.
           {% elif step==1 %}{{'مراجعة بيانات الحادث المُدخلة.' if is_a else 'بيانات الحادث التي أدخلها الطرف الأول، للمراجعة قبل المتابعة.'}}
           {% elif step==3 %}بيانات المركبة وقت الحادث.
-          {% elif step==4 %}الاختيارات تكتب وصف الحادث تلقائيًا، مع إمكانية تعديله.
+          {% elif step==4 %}يُنشأ وصف الحادث بناءً على الخيارات المحددة، مع إمكانية تعديله.
           {% elif step==5 %}{{'فيديو واحد من كاميرا سيارتك مطلوب لإكمال البلاغ.' if is_a else 'رفع فيديو واحد من كاميرا سيارتك اختياري، ويساعد في دقة التحليل.'}}
           {% elif step==7 %}{{'إرسال دعوة إلى البريد الإلكتروني للطرف الثاني.' if is_a and not (other and other.user_id) and (not invite_sent or editing_invite) else 'متابعة حالة البلاغ من هنا.'}}
           {% else %}يُرجى إكمال الحقول ثم الضغط على متابعة.{% endif %}
@@ -146,19 +146,19 @@
         {% set default_role = party.vehicle_role or '' %}
         <div id="desc-step" class="desc-step" data-type="{{case.accident_type}}" data-meta='{{desc_meta|tojson}}' data-role="{{default_role}}">
           <input type="hidden" name="pos"><input type="hidden" name="rcase"><input type="hidden" name="side"><input type="hidden" name="who"><input type="hidden" name="zone">
-          <div class="desc-legend"><span><i style="background:#2f7a52"></i>سيارتك</span><span><i style="background:#d9573a"></i>سيارة الطرف الآخر</span>{% if case.accident_type=='REAR_END' %}<span><i style="background:#9aa3ab"></i>سيارة أخرى</span>{% endif %}</div>
+          <div class="desc-legend"><span><i style="background:#2f7a52"></i>مركبتك</span><span><i style="background:#d9573a"></i>مركبة الطرف الآخر</span>{% if case.accident_type=='REAR_END' %}<span><i style="background:#9aa3ab"></i>مركبة أخرى</span>{% endif %}</div>
           {% if case.accident_type=='REAR_END' %}
-          <div class="desc-q"><h3><i>١</i>موقع مركبتك في الحادث</h3><div class="desc-opts" id="d-pos"></div></div>
-          <div class="desc-q"><h3><i>٢</i>ماذا حدث قبل الصدمة؟</h3><p>الخيار الأقرب لما حصل.</p><div class="desc-opts" id="d-rcase"></div></div>
+          <div class="desc-q"><h3><i>١</i>موقع المركبة وقت وقوع الحادث</h3><div class="desc-opts" id="d-pos"></div></div>
+          <div class="desc-q"><h3><i>٢</i>اختر الخيار الأقرب إلى ما حدث قبل الاصطدام</h3><p>يرجى تحديد الخيار الأقرب إلى تفاصيل الحادث.</p><div class="desc-opts" id="d-rcase"></div></div>
           {% else %}
-          <div class="desc-q"><h3><i>١</i>سيارة الطرف الآخر كانت على أي جهة منك؟</h3><div class="desc-opts" id="d-side"></div></div>
-          <div class="desc-q"><h3><i>٢</i>من غيّر المسار؟</h3><div class="desc-opts" id="d-who"></div></div>
+          <div class="desc-q"><h3><i>١</i>جهة مركبة الطرف الآخر بالنسبة إلى مركبتك</h3><div class="desc-opts" id="d-side"></div></div>
+          <div class="desc-q"><h3><i>٢</i>حدّد المركبة التي غيّرت مسارها</h3><div class="desc-opts" id="d-who"></div></div>
           {% endif %}
           <div class="desc-q">
-            <h3><i>٣</i>أين الصدمة في سيارتك؟</h3>
-            <p>يُحدَّد مكان الصدمة بالضغط على الرسم.</p>
+            <h3><i>٣</i>حدّد موضع الاصطدام في مركبتك</h3>
+            <p>يرجى تحديد موضع الاصطدام على الرسم التوضيحي.</p>
             <div class="carpick">
-              <svg viewBox="0 0 160 260" width="150" role="group" aria-label="سيارتك من الأعلى">
+              <svg viewBox="0 0 160 260" width="150" role="group" aria-label="عرض علوي للمركبة">
                 <text x="80" y="14" text-anchor="middle" font-size="11" fill="#6d8175">الأمام</text>
                 <rect x="35" y="22" width="90" height="216" rx="30" fill="#fff" stroke="#17231b" stroke-width="2"/>
                 <path d="M48 70 Q80 56 112 70 L106 96 Q80 88 54 96 Z" fill="#e3ebe6" stroke="#17231b" stroke-width="1.2"/>
@@ -179,13 +179,13 @@
                 <path class="zone" tabindex="0" data-z="rear" d="M58 208 H102 V238 H58 Z"/>
                 {% endif %}
               </svg>
-              <p class="chosen">مكان الصدمة: <b id="zone-text"></b></p>
+              <p class="chosen">موضع الاصطدام: <b id="zone-text"></b></p>
             </div>
           </div>
           <div class="desc-text">
             <label for="desc-text">وصف الحادث</label>
             <textarea id="desc-text" name="description" rows="5" maxlength="500" required>{{party.description or ''}}</textarea>
-            <div class="desc-meta"><span>يُكتب الوصف من الاختيارات، مع إمكانية تعديله.</span><span><button type="button" class="linkish" id="desc-refill" hidden>إعادة الوصف من الاختيارات</button> <span id="desc-count"></span></span></div>
+            <div class="desc-meta"><span>يُنشأ الوصف بناءً على الخيارات المحددة، ويمكنك تعديله.</span><span><button type="button" class="linkish" id="desc-refill" hidden>إعادة إنشاء الوصف من الخيارات المحددة</button> <span id="desc-count"></span></span></div>
             <p class="field-error" id="desc-error" hidden></p>
           </div>
           <p class="fineprint">تُحفظ إفادتك كما كتبتها ولا تمثل حكمًا على المسؤولية.</p>

@@ -7,7 +7,7 @@
   const form=root.closest('form');
   const $=id=>document.getElementById(id);
   const ZN={front:'المقدمة','front-left':'المقدمة من اليسار','front-right':'المقدمة من اليمين',left:'الجانب الأيسر',right:'الجانب الأيمن','rear-left':'المؤخرة من اليسار','rear-right':'المؤخرة من اليمين',rear:'المؤخرة'};
-  const MINE='#2f7a52',OTHER='#d9573a',GREY='#9aa3ab',ME='أنت',OT='الطرف الآخر';
+  const MINE='#2f7a52',OTHER='#d9573a',GREY='#9aa3ab',ME='مركبتك',OT='الطرف الآخر';
   const F='font-family="Tajawal,Tahoma,sans-serif"';
   const st={
     pos:saved.pos||root.dataset.role||'',
@@ -48,8 +48,8 @@
   function rearScene(kind,pos){
     pos=pos||'REAR';
     const [fc,ft]=who2(pos==='FRONT'),[rc,rt]=who2(pos==='REAR');
-    if(kind==='normal')return svg(240,road(240)+car(R,44,GREY)+car(R,118,fc,{brake:1})+car(R,186,rc)+star(R,152)+tag(114,44,'زحمة','end')+tag(114,118,ft,'end')+tag(114,186,rt,'end'));
-    if(kind==='sudden')return svg(240,road(240)+`<circle cx="${R}" cy="40" r="15" fill="#e5483b"/><text x="${R}" y="47" text-anchor="middle" font-size="20" font-weight="700" fill="#fff" ${F}>!</text>`+tag(114,40,'ما فيه شي قدام','end')+car(R,118,fc,{brake:1})+car(R,186,rc)+star(R,152)+tag(114,118,ft,'end')+tag(114,186,rt,'end'));
+    if(kind==='normal')return svg(240,road(240)+car(R,44,GREY)+car(R,118,fc,{brake:1})+car(R,186,rc)+star(R,152)+tag(114,44,'ازدحام','end')+tag(114,118,ft,'end')+tag(114,186,rt,'end'));
+    if(kind==='sudden')return svg(240,road(240)+`<circle cx="${R}" cy="40" r="15" fill="#e5483b"/><text x="${R}" y="47" text-anchor="middle" font-size="20" font-weight="700" fill="#fff" ${F}>!</text>`+tag(114,40,'دون عائق','end')+car(R,118,fc,{brake:1})+car(R,186,rc)+star(R,152)+tag(114,118,ft,'end')+tag(114,186,rt,'end'));
     return svg(240,road(240)+trail(66,236,124,140)+car(128,110,fc,{rot:16})+car(R,190,rc)+star(R,154)+tag(96,92,ft,'end')+tag(114,200,rt,'end'));
   }
   function laneScene(who,side){
@@ -66,26 +66,26 @@
     return svg(230,road(230)+parts+(moved?star(100,who==='both'?126:(who==='me'?120:142)):''));
   }
   const POS={FRONT:'المركبة الأمامية',REAR:'المركبة الخلفية'};
-  const RC={normal:['الأمامية خففت أو وقفت بشكل طبيعي','بسبب زحمة أو إشارة أو عائق أمامها'],
-            sudden:['الأمامية وقفت فجأة دون سبب','لا يوجد أمامها ما يستدعي الوقوف'],
-            cutin:['الأمامية دخلت المسار قبل الصدمة بقليل','غيّرت مسارها أمام الخلفية ثم وقع الصدم']};
-  const WHO={me:'أنا غيّرت المسار',other:'الطرف الآخر غيّر المسار',both:'كلانا غيّر المسار في الوقت نفسه'};
-  const SIDE={left:'على يساري',right:'على يميني'};
-  const opt=(key,val,art,label,sub,you)=>`<button type="button" class="desc-opt" data-k="${key}" data-v="${val}" aria-pressed="${st[key]===val}">${art}${you?'<em class="you">أنت</em>':''}<span>${label}</span>${sub?`<small>${sub}</small>`:''}</button>`;
+  const RC={normal:['خفّضت المركبة الأمامية سرعتها أو توقفت بصورة اعتيادية','بسبب ازدحام مروري أو إشارة مرورية أو عائق أمامها'],
+            sudden:['توقفت المركبة الأمامية فجأة دون وجود عائق ظاهر','لم يظهر أمام المركبة ما يستدعي التوقف'],
+            cutin:['غيّرت المركبة الأمامية مسارها قبل الاصطدام مباشرة','انتقلت إلى المسار أمام المركبة الخلفية ثم وقع الاصطدام']};
+  const WHO={me:'غيّرت مركبتي مسارها',other:'غيّرت مركبة الطرف الآخر مسارها',both:'غيّرت المركبتان مساريهما في الوقت نفسه'};
+  const SIDE={left:'إلى يسار مركبتي',right:'إلى يمين مركبتي'};
+  const opt=(key,val,art,label,sub,you)=>`<button type="button" class="desc-opt" data-k="${key}" data-v="${val}" aria-pressed="${st[key]===val}">${art}${you?'<em class="you">مركبتك</em>':''}<span>${label}</span>${sub?`<small>${sub}</small>`:''}</button>`;
   // put the selected answers into the description
   function sentence(){
     const z=ZN[st.zone];
     if(type==='REAR_END'){
       if(!st.pos||!st.rcase||!z)return '';
       const me=st.pos==='FRONT';
-      const s={normal:me?'كنت أخفف السرعة بشكل طبيعي وصدمتني السيارة التي خلفي':'كانت السيارة التي أمامي تخفف السرعة بشكل طبيعي فصدمتها',
-               sudden:me?'توقفت فجأة فصدمتني السيارة التي خلفي':'توقفت السيارة التي أمامي فجأة دون سبب فصدمتها',
-               cutin:me?'دخلت المسار أمام سيارة الطرف الآخر قبل الصدمة بقليل فصدمتني من الخلف':'دخلت سيارة الطرف الآخر المسار أمامي قبل الصدمة بقليل فصدمتها'}[st.rcase];
-      return `مكان الصدمة: ${z}\nكنت في ${POS[st.pos]}، و${s}، والصدمة في ${z} من سيارتي.`;
+      const s={normal:me?'خفّضت سرعة مركبتي أو توقفت بصورة اعتيادية، ثم اصطدمت بها المركبة الخلفية':'خفّضت المركبة الأمامية سرعتها أو توقفت بصورة اعتيادية، ثم اصطدمت بها مركبتي',
+               sudden:me?'توقفت مركبتي فجأة دون وجود عائق ظاهر، ثم اصطدمت بها المركبة الخلفية':'توقفت المركبة الأمامية فجأة دون وجود عائق ظاهر، ثم اصطدمت بها مركبتي',
+               cutin:me?'غيّرت مركبتي مسارها أمام مركبة الطرف الآخر قبل الاصطدام مباشرة، ثم وقع الاصطدام من الخلف':'انتقلت مركبة الطرف الآخر إلى مساري قبل الاصطدام مباشرة، ثم اصطدمت بها مركبتي'}[st.rcase];
+      return `موضع الاصطدام: ${z}\nكانت مركبتي هي ${POS[st.pos]}، و${s}. وقع الاصطدام في ${z} من مركبتي.`;
     }
     if(!st.who||!st.side||!z)return '';
-    const w={me:'غيّرت المسار',other:'غيّر الطرف الآخر المسار',both:'غيّر الطرفان المسار في الوقت نفسه'}[st.who];
-    return `مكان الصدمة: ${z}\n${w}، وكانت سيارة الطرف الآخر ${SIDE[st.side]}، والصدمة في ${z} من سيارتي.`;
+    const w={me:'غيّرت مركبتي مسارها',other:'غيّرت مركبة الطرف الآخر مسارها',both:'غيّرت المركبتان مساريهما في الوقت نفسه'}[st.who];
+    return `موضع الاصطدام: ${z}\n${w}، وكانت مركبة الطرف الآخر ${SIDE[st.side]}، ووقع الاصطدام في ${z} من مركبتي.`;
   }
   const ta=$('desc-text');
   if(ta.value.trim()&&ta.value.trim()!==sentence().trim())st.edited=true;
@@ -118,9 +118,9 @@
   $('desc-refill').addEventListener('click',()=>{st.edited=false;render()});
   form.addEventListener('submit',e=>{
     const missing=[];
-    if(type==='REAR_END'){if(!st.pos)missing.push('موقع مركبتك');if(!st.rcase)missing.push('ما حدث قبل الصدمة');}
-    else{if(!st.side)missing.push('جهة سيارة الطرف الآخر');if(!st.who)missing.push('من غيّر المسار');}
-    if(!st.zone)missing.push('مكان الصدمة');
+    if(type==='REAR_END'){if(!st.pos)missing.push('موقع المركبة');if(!st.rcase)missing.push('الخيار الأقرب إلى ما حدث قبل الاصطدام');}
+    else{if(!st.side)missing.push('جهة مركبة الطرف الآخر');if(!st.who)missing.push('المركبة التي غيّرت مسارها');}
+    if(!st.zone)missing.push('موضع الاصطدام');
     const n=ta.value.trim().length;
     let msg=missing.length?'يرجى تحديد: '+missing.join('، ')+'.':'';
     if(!msg&&(n<10||n>500))msg='وصف الحادث يجب أن يكون من 10 إلى 500 حرف.';

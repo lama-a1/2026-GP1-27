@@ -969,10 +969,11 @@ PLATE_LETTERS={'أ':'A','ب':'B','ح':'J','د':'D','ر':'R','س':'S','ص':'X','�
 PLATE_LATIN={v:k for k,v in PLATE_LETTERS.items()}
 def parse_plate(letters_raw,numbers_raw):
     letters=[]
-    for token in str(letters_raw or '').replace('ـ',' ').replace('ه','هـ').split():
-        token=token.strip()
-        if token.upper() in PLATE_LATIN: token=PLATE_LATIN[token.upper()]
-        if token=='ا' or token=='إ' or token=='آ': token='أ'
+    # accept letters with or without spaces
+    for token in re.sub(r'[\sـ]+','',str(letters_raw or '')):
+        token=PLATE_LATIN.get(token.upper(),token)
+        if token=='ه': token='هـ'
+        if token in ('ا','إ','آ'): token='أ'
         if token=='ي': token='ى'
         letters.append(token)
     numbers=normalized_digits(numbers_raw or '')

@@ -253,8 +253,9 @@ function showFilename(input){
   const toAr=d=>String(d).replace(/\d/g,x=>'٠١٢٣٤٥٦٧٨٩'[x]);
   const toEn=v=>String(v).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
   function tokens(v){
-    return v.replace(/ـ/g,' ').replace(/ه(?!ـ)/g,'هـ').split(/\s+/).filter(Boolean).map(t=>{
-      t=t.trim();if(EN2AR[t.toUpperCase()])return EN2AR[t.toUpperCase()];
+    return Array.from(v.replace(/[\sـ]/g,'')).map(t=>{
+      if(EN2AR[t.toUpperCase()])return EN2AR[t.toUpperCase()];
+      if(t==='ه')return 'هـ';
       if(['ا','إ','آ'].includes(t))return 'أ';if(t==='ي')return 'ى';return t;});
   }
   document.querySelectorAll('[data-plate-field]').forEach(box=>{
@@ -272,7 +273,7 @@ function showFilename(input){
     function paint(show){
       const t=tokens(L.value),n=toEn(N.value).replace(/\D/g,'');
       pv('let-ar').textContent=t.length?t.join(' '):'—';
-      pv('let-en').textContent=t.length?t.map(x=>AR2EN[x]||'?').join(' '):'—';
+      pv('let-en').textContent=t.length?t.map(x=>AR2EN[x]||'—').join(' '):'—';
       pv('num-ar').textContent=n?toAr(n):'—';
       pv('num-en').textContent=n||'—';
       const msg=check();
@@ -285,12 +286,19 @@ function showFilename(input){
       if(b.dataset.letter==='back')t.pop();else if(t.length<3)t.push(b.dataset.letter);
       L.value=t.join(' ');L.dispatchEvent(new Event('input',{bubbles:true}));
     }));
+    // count letters without spaces and stop at three
+    function limitLetters(){
+      const letters=Array.from(L.value.replace(/[\sـ]/g,''));
+      if(letters.length>3)L.value=letters.slice(0,3).join(' ');
+    }
+    L.addEventListener('input',limitLetters);
     N.addEventListener('input',()=>{N.value=toEn(N.value).replace(/\D/g,'').slice(0,4);});
     [L,N].forEach(el=>el.addEventListener('input',()=>paint(false)));
     [L,N].forEach(el=>el.addEventListener('invalid',()=>{box.dataset.tried='1';paint(true);}));
     const form=box.closest('form');
     form&&form.addEventListener('submit',e=>{box.dataset.tried='1';if(!paint(true)){e.preventDefault();e.stopImmediatePropagation();}},true);
-    box._repaint=()=>paint(false);
+    box._repaint=()=>{limitLetters();return paint(false);};
+    limitLetters();
     paint(false);
   });
   document.querySelectorAll('[data-color-field]').forEach(box=>{
