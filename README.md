@@ -1,123 +1,178 @@
 <p align="center">
-  <img src="siyaq-logo.png" alt="Siyaq Logo" width="300">
+  <img src="siyaq-logo.png" alt="Siyaq logo" width="240">
 </p>
 
-# Siyaq
+# Siyaq | سياق
 
 ## About Siyaq
 
-**Siyaq** is a graduation project developed to support the analysis of minor traffic accidents using dashcam footage.
+Siyaq is a graduation project developed by Information Technology students at King Saud University. It aims to support the analysis of minor traffic accidents using dashcam footage, accident details, and accounts from the involved parties.
 
-The system is a **web-based AI decision-support system** that uses computer vision to analyze dashcam videos, detect and track relevant vehicles, examine vehicle movements, and identify traffic events and predefined violations.
+The planned system combines video processing, vehicle detection and tracking, traffic-event analysis, and rule-based fault estimation based on relevant Saudi traffic regulations. Its intended output is a suggested fault percentage supported by evidence and reasoning, followed by review by an authorized expert.
 
-Based on the extracted evidence, Siyaq applies **rule-based reasoning derived from relevant Saudi traffic regulations** to generate a suggested fault percentage of **0%, 25%, 50%, 75%, or 100%**.
-
-The generated result is supported by relevant evidence and reasoning and is reviewed by an **authorized expert**, who can approve or modify the suggested fault percentage before the final result is issued.
-
----
-
-## Key Features
-
-- **Dashcam Video Analysis** – Analyzes submitted dashcam footage to extract relevant information about the accident.
-
-- **Vehicle Detection and Tracking** – Detects relevant vehicles and follows their movement across video frames.
-
-- **Traffic Event Analysis** – Examines vehicle movements and identifies relevant traffic events and predefined violations.
-
-- **Rule-Based Fault Estimation** – Applies predefined rules derived from relevant Saudi traffic regulations to generate a suggested fault percentage.
-
-- **Explainable Results** – Presents supporting evidence and reasoning alongside the suggested fault percentage.
-
-- **Expert Review and Approval** – Allows an authorized expert to review the case, modify the suggested fault percentage when necessary, and provide final approval.
-
-- **One or Two Video Support** – Requires one dashcam video from the first accident party and allows an optional second video from the other party. Each video is analyzed independently.
-
-- **Accident Case Management** – Allows accident parties to submit cases and review their final approved results.
-
-- **Privacy Protection** – Requires explicit consent for dashcam footage processing and applies privacy safeguards to accident reports.
-
----
+The current implementation provides the Arabic web application for collecting and managing accident cases. Automated accident analysis, fault estimation, report generation, and expert approval are planned for later development.
 
 ## Supported Accident Scenarios
 
-Siyaq currently focuses on two types of minor traffic accidents:
+- Rear-end collisions.
+- Lane-change accidents.
 
-- **Rear-End Collisions**
-- **Lane-Change Accidents**
+The project scope covers minor, two-vehicle accidents with no injuries, recorded during daylight and in clear weather. Party A must provide one dashcam video; Party B may provide one additional video. The planned analysis treats each video independently.
 
-The current project scope is limited to **no-injury, property-damage-only accidents** recorded during **daytime and clear weather conditions**.
+## Current Features
 
----
+- Accident-party registration with a required national ID and email verification.
+- Login, logout, password changes, and email-based password recovery.
+- Case creation with accident details, location selection, vehicle information, and an accident description.
+- Selection of saved vehicles and management of vehicles through profile settings.
+- Email-address changes after verification of the new address.
+- Video upload, download, and deletion with access checks; one video per party, up to 200 MB.
+- Targeted email invitations allowing the second party to join the same case.
+- Case lists and progress statuses for accident parties.
+- Authorized expert registration and login with read-only case lists and a rules page.
+- Local face-blurring support through the optional OpenCV dependency.
 
-## System Overview
+Expert case review, editing, and approval are not yet available. Notification preferences can be saved, but automatic case-status and result emails are not implemented. Local face blurring requires manual review and does not include license-plate blurring or cloud-video processing. Automatic retention cleanup is also pending.
 
-**Dashcam Video(s) → Video Processing → Vehicle Detection & Tracking → Movement & Event Analysis → Rule-Based Fault Estimation → Expert Review → Final Result**
+## Planned Features
 
-The first accident party submits one required dashcam video, while the second party may optionally submit an additional video.
+- Vehicle detection and tracking from dashcam recordings.
+- Movement, traffic-event, and violation analysis.
+- Rule-based suggested fault percentages of 0%, 25%, 50%, 75%, or 100%.
+- Evidence frames and explanations accompanying the suggested result.
+- Expert review, modification, and approval of reports.
+- Final approved results for accident parties.
+- Extended privacy processing and automatic retention cleanup.
 
-Each submitted video is analyzed independently using computer vision techniques. The system extracts relevant evidence about vehicle movements and traffic events. The extracted evidence is then evaluated using predefined rules based on relevant Saudi traffic regulations.
-
-Siyaq generates a suggested fault percentage together with supporting evidence and reasoning. An authorized expert reviews the generated analysis and makes the final decision.
-
----
-
-## Fault Percentage
-
-Siyaq uses the following proportional fault levels:
-
-**0% · 25% · 50% · 75% · 100%**
-
-The generated percentage is a **suggested assessment** intended to support the authorized expert. Siyaq does not independently issue legally binding fault decisions.
-
----
+The suggested assessment is intended to support expert review. It does not independently issue a legally binding fault decision.
 
 ## Technologies
 
 | Component | Technology |
-|---|---|
-| AI / Computer Vision | Python |
-| Video Processing | OpenCV |
-| Vehicle Detection | YOLO |
-| Fault Assessment | Rule-Based Reasoning |
-| Backend | Web Development Framework |
-| Database | SQL Database |
-| Messaging | Twilio Programmable Messaging API |
-| Development Environment | Visual Studio Code |
-| Project Management | Jira |
-| Version Control | Git & GitHub |
+| --- | --- |
+| Backend | Python, Flask |
+| Frontend | HTML, CSS, JavaScript, Jinja templates |
+| Local database | SQLite |
+| Hosted database support | PostgreSQL, including Neon |
+| Verification and invitation email | Brevo API or SMTP |
+| Video storage | Local storage, Cloudinary, or Amazon S3 |
+| Location selection | Leaflet, OpenStreetMap, Nominatim |
+| Optional local face blurring | OpenCV |
+| Deployment workflow | Vercel |
+| Development environment | Visual Studio Code |
+| Project management | Jira and Confluence |
+| Version control | Git and GitHub |
+| Planned vehicle detection | YOLO |
 
----
+## Repository Structure
+
+| Path | Purpose |
+| --- | --- |
+| `app.py` | Flask routes, authentication, case workflows, and storage integration |
+| `db_backend.py` | Additional database connection and schema helpers |
+| `privacy.py` | Local face-blurring function |
+| `templates/` | Arabic interface templates |
+| `static/` | Stylesheets, browser scripts, and logos |
+| `tests/` | Existing application tests |
+| `docs/sprints/sprint-1/` | Sprint 1 implementation summary |
+| `.env.example` | Environment-variable template |
+| `requirements.txt` | Main Python dependencies |
+| `requirements-privacy.txt` | Optional local video-processing dependency |
+| `NEON_VERCEL_SETUP.md` | Deployment settings |
+| `AUTHORS` | Project team and supervisor |
+
+`siyaq.db` and `uploads/` are created locally when needed and are excluded from Git.
+
+## Run Locally
+
+Use Python 3.11 or later for development. Open a terminal in the repository root.
+
+### 1. Create and activate a virtual environment
+
+Windows PowerShell:
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+
+macOS or Linux:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### 2. Install dependencies
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+To enable the optional local face-blurring function:
+
+```bash
+python -m pip install -r requirements-privacy.txt
+```
+
+### 3. Create the environment file
+
+Copy `.env.example` to `.env` using your editor. Set `SECRET_KEY` to a long random value and set `PUBLIC_BASE_URL=http://127.0.0.1:5000` for local development. Leave `DATABASE_URL` unset to use SQLite.
+
+For real verification and invitation emails, configure:
+
+```dotenv
+OTP_MODE=api
+BREVO_API_KEY=your-brevo-api-key
+BREVO_SENDER_EMAIL=your-verified-sender-address
+BREVO_SENDER_NAME=Siyaq
+COOKIE_SECURE=0
+```
+
+Alternatively, use `OTP_MODE=smtp` with the SMTP variables shown in `.env.example`.
+
+For a local demonstration without email delivery, set `OTP_MODE=demo` and `INVITE_MODE=demo`. Demo mode displays verification codes and invitation links locally and only works from a loopback address. Use real email delivery on a hosted site.
+
+Set a private `EXPERT_REGISTRATION_CODE` in `.env` to enable expert registration. Do not place the actual code in repository files.
+
+### 4. Start the application
+
+```bash
+python -m flask --app app run
+```
+
+Open [http://127.0.0.1:5000](http://127.0.0.1:5000). The application initializes the local database on startup. The `/health` route checks application and database availability.
+
+## Deployment
+
+See [Neon and Vercel setup](NEON_VERCEL_SETUP.md). Configure PostgreSQL for persistent hosted data and Cloudinary or S3 for video uploads on Vercel. Cloudinary takes priority when both storage providers are configured. Vercel's local filesystem is temporary.
+
+Set a stable `SECRET_KEY`, `COOKIE_SECURE=1`, and the site's HTTPS address as `PUBLIC_BASE_URL` in the deployment environment. Keep service credentials in environment settings. Existing SQLite records are not automatically migrated to PostgreSQL.
+
+## Tests
+
+Install and run the existing test suite:
+
+```bash
+python -m pip install pytest
+python -m pytest -q
+```
+
+The tests use SQLite and mocked external services. Live email delivery, hosted databases, and cloud storage require separate deployment checks.
 
 ## Siyaq Team
 
-Developed by Information Technology students at  
-**King Saud University – College of Computer and Information Sciences**
+Developed at King Saud University, College of Computer and Information Sciences.
 
-### Team Members
-
-- Raneem Alroaini
+- Raneem Alraoini
 - Jana Almengash
 - Lama Almubarak
 - Waad Alghamdi
 
-### Supervisor
+**Supervisor:** Dr. Hessah Alsaaran
 
-**Dr. Hessah Alsaaran**
-
----
+See [AUTHORS](AUTHORS).
 
 ## Project Status
 
-Siyaq is currently under development as part of the **IT 496 Graduation Project**.
-
-The project is being developed incrementally using the **Scrum framework**.
-
----
-
-<div align="center">
-
-### Siyaq | سياق
-
-**AI-Assisted Traffic Accident Analysis**
-
-</div>
+Siyaq is under development as part of the IT496 graduation project and follows an incremental Scrum process. The current features listed above reflect the supplied source archive.
