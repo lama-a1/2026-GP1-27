@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="siyaq-logo.png" alt="Siyaq logo" width="240">
+  <img src="docs/images/siyaq-logo.png" alt="Siyaq logo" width="240">
 </p>
 
 # Siyaq | سياق
@@ -32,7 +32,7 @@ The project scope covers minor, two-vehicle accidents with no injuries, recorded
 - Authorized expert registration and login with read-only case lists and a rules page.
 - Local face-blurring support through the optional OpenCV dependency.
 
-Expert case review, editing, and approval are not yet available. Notification preferences can be saved, but automatic case-status and result emails are not implemented. Local face blurring requires manual review and does not include license-plate blurring or cloud-video processing. Automatic retention cleanup is also pending.
+Expert case review, editing, and approval are not yet available. Case-status emails are sent to users who turn them on; final-result emails are not implemented yet. Local face blurring requires manual review and does not include license-plate blurring or cloud-video processing. Automatic retention cleanup is also pending.
 
 ## Planned Features
 
@@ -52,6 +52,7 @@ The suggested assessment is intended to support expert review. It does not indep
 | --- | --- |
 | Backend | Python, Flask |
 | Frontend | HTML, CSS, JavaScript, Jinja templates |
+| Database design | Tables follow the Siyaq EER diagram (`schema.py`) |
 | Local database | SQLite |
 | Hosted database support | PostgreSQL, including Neon |
 | Verification and invitation email | Brevo API or SMTP |
@@ -69,16 +70,19 @@ The suggested assessment is intended to support expert review. It does not indep
 | Path | Purpose |
 | --- | --- |
 | `app.py` | Flask routes, authentication, case workflows, and storage integration |
-| `db_backend.py` | Additional database connection and schema helpers |
+| `schema.py` | Database tables from the EER diagram, plus supporting tables |
+| `db_backend.py` | Additional database connection helpers |
 | `privacy.py` | Local face-blurring function |
+| `database/` | EER mapping document and SQL scripts for SQLite and PostgreSQL |
 | `templates/` | Arabic interface templates |
 | `static/` | Stylesheets, browser scripts, and logos |
-| `tests/` | Existing application tests |
-| `docs/sprints/sprint-1/` | Sprint 1 implementation summary |
+| `tests/` | Application tests |
+| `docs/sprints/sprint-1/` | Sprint 1 report and files |
+| `docs/deployment/` | Neon and Vercel deployment settings |
+| `docs/images/` | Images used in the documentation |
 | `.env.example` | Environment-variable template |
 | `requirements.txt` | Main Python dependencies |
 | `requirements-privacy.txt` | Optional local video-processing dependency |
-| `NEON_VERCEL_SETUP.md` | Deployment settings |
 | `AUTHORS` | Project team and supervisor |
 
 `siyaq.db` and `uploads/` are created locally when needed and are excluded from Git.
@@ -145,9 +149,9 @@ Open [http://127.0.0.1:5000](http://127.0.0.1:5000). The application initializes
 
 ## Deployment
 
-See [Neon and Vercel setup](NEON_VERCEL_SETUP.md). Configure PostgreSQL for persistent hosted data and Cloudinary or S3 for video uploads on Vercel. Cloudinary takes priority when both storage providers are configured. Vercel's local filesystem is temporary.
+See [Neon and Vercel setup](docs/deployment/NEON_VERCEL_SETUP.md). Configure PostgreSQL for persistent hosted data and Cloudinary or S3 for video uploads on Vercel. Cloudinary takes priority when both storage providers are configured. Vercel's local filesystem is temporary.
 
-Set a stable `SECRET_KEY`, `COOKIE_SECURE=1`, and the site's HTTPS address as `PUBLIC_BASE_URL` in the deployment environment. Keep service credentials in environment settings. Existing SQLite records are not automatically migrated to PostgreSQL.
+Set a stable `SECRET_KEY`, `COOKIE_SECURE=1`, and the site's HTTPS address as `PUBLIC_BASE_URL` in the deployment environment. Keep service credentials in environment settings. Existing SQLite records are not automatically migrated to PostgreSQL. The database tables are created on startup; see [EER mapping](database/EER_MAPPING.md).
 
 ## Tests
 
@@ -175,4 +179,4 @@ See [AUTHORS](AUTHORS).
 
 ## Project Status
 
-Siyaq is under development as part of the IT496 graduation project and follows an incremental Scrum process. The current features listed above reflect the supplied source archive.
+Siyaq is under development as part of the IT496 graduation project and follows an incremental Scrum process. Sprint 1 files are in [docs/sprints/sprint-1](docs/sprints/sprint-1/).
