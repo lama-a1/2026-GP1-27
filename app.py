@@ -84,123 +84,66 @@ def conn():
     c.execute('PRAGMA foreign_keys=ON')
     return c
 
-def insert_id(c, sql, params):
+def insert_id(c, sql, params, key='id'):
+    # insert a row and return its new id
     if DATABASE_URL:
-        return c.execute(sql+' RETURNING id',params).fetchone()['id']
+        return c.execute(sql+' RETURNING '+key,params).fetchone()[key]
     return c.execute(sql,params).lastrowid
 
 def init_db():
-    if DATABASE_URL:
-        with conn() as c:
-            c.execute('''CREATE TABLE IF NOT EXISTS users(
-                id BIGSERIAL PRIMARY KEY, full_name TEXT NOT NULL, email TEXT NOT NULL UNIQUE,
-                phone TEXT, password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'party',
-                created_at TEXT DEFAULT to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS'),
-                national_id TEXT UNIQUE, birth_date TEXT,
-                notification_status INTEGER DEFAULT 1, notification_result INTEGER DEFAULT 1)''')
-            c.execute('''CREATE TABLE IF NOT EXISTS cases(
-                id BIGSERIAL PRIMARY KEY, reference TEXT NOT NULL UNIQUE,
-                creator_id BIGINT NOT NULL REFERENCES users(id), accident_type TEXT NOT NULL,
-                accident_date TEXT NOT NULL, accident_time TEXT NOT NULL, location TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'pending_second_party',
-                created_at TEXT DEFAULT to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS'))''')
-            c.execute('''CREATE TABLE IF NOT EXISTS parties(
-                id BIGSERIAL PRIMARY KEY, case_id BIGINT NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
-                user_id BIGINT REFERENCES users(id), position TEXT NOT NULL CHECK(position IN ('A','B')),
-                full_name TEXT, national_id TEXT, phone TEXT, description TEXT,
-                completed INTEGER NOT NULL DEFAULT 0, UNIQUE(case_id,position))''')
-            c.execute('''CREATE TABLE IF NOT EXISTS vehicles(
-                id BIGSERIAL PRIMARY KEY, party_id BIGINT NOT NULL UNIQUE REFERENCES parties(id) ON DELETE CASCADE,
-                plate TEXT, manufacturer TEXT, model TEXT, year INTEGER, color TEXT)''')
-            c.execute('''CREATE TABLE IF NOT EXISTS invitations(
-                id BIGSERIAL PRIMARY KEY, case_id BIGINT NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
-                token TEXT NOT NULL UNIQUE, expires_at TEXT NOT NULL, claimed_by BIGINT REFERENCES users(id),
-                created_at TEXT DEFAULT to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS'),
-                recipient_email TEXT, recipient_phone TEXT, revoked_at TEXT)''')
-            c.execute('''CREATE TABLE IF NOT EXISTS videos(
-                id BIGSERIAL PRIMARY KEY, case_id BIGINT NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
-                party_id BIGINT NOT NULL REFERENCES parties(id), original_name TEXT NOT NULL,
-                stored_name TEXT NOT NULL, processed_name TEXT, privacy_status TEXT NOT NULL DEFAULT 'pending',
-                uploaded_at TEXT DEFAULT to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS'),
-                processing_note TEXT)''')
-            c.execute('''CREATE TABLE IF NOT EXISTS garage_vehicles(
-                id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                plate TEXT NOT NULL, manufacturer TEXT NOT NULL, model TEXT NOT NULL,
-                year INTEGER NOT NULL, color TEXT NOT NULL)''')
-            c.execute('''CREATE TABLE IF NOT EXISTS analysis_jobs(
-                id BIGSERIAL PRIMARY KEY, video_id BIGINT NOT NULL UNIQUE REFERENCES videos(id) ON DELETE CASCADE,
-                status TEXT NOT NULL DEFAULT 'not_started', details TEXT,
-                updated_at TEXT DEFAULT to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS'))''')
-            c.execute('''CREATE TABLE IF NOT EXISTS expert_accounts(
-                id BIGSERIAL PRIMARY KEY, full_name TEXT NOT NULL,
-                username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
-                created_at TEXT DEFAULT to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS'))''')
-            c.execute('ALTER TABLE parties ADD COLUMN IF NOT EXISTS vehicle_role TEXT')
-            c.execute('ALTER TABLE parties ADD COLUMN IF NOT EXISTS progress INTEGER DEFAULT 0')
-            c.execute('ALTER TABLE parties ADD COLUMN IF NOT EXISTS description_meta TEXT')
-            c.execute('ALTER TABLE videos ADD COLUMN IF NOT EXISTS camera TEXT')
-            c.execute('''CREATE TABLE IF NOT EXISTS login_failures(
-                key TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0, locked_until DOUBLE PRECISION)''')
-            c.execute('''CREATE TABLE IF NOT EXISTS password_resets(
-                id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                token_hash TEXT NOT NULL UNIQUE, expires_at DOUBLE PRECISION NOT NULL, used_at TEXT)''')
-            c.execute('''CREATE TABLE IF NOT EXISTS expert_logins(
-                id BIGSERIAL PRIMARY KEY, username TEXT NOT NULL, expert_id BIGINT,
-                logged_at TEXT DEFAULT to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS'), ip TEXT)''')
-        # email, phone and national ID can't be repeated (each one separately, so if one fails the others still work)
-        for name,col in (('users_phone_unique','phone'),('users_national_id_unique','national_id'),('users_email_unique','email')):
-            try:
-                with conn() as c: c.execute(f'CREATE UNIQUE INDEX IF NOT EXISTS {name} ON users({col})')
-            except Exception: app.logger.warning('Could not create unique index %s (duplicate data?)',name)
-        backfill_progress()
-        return
+    # create the EER tables and the supporting tables (see schema.py and database/EER_MAPPING.md)
+    import schema
     with conn() as c:
-        c.executescript('''
-        CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, full_name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, phone TEXT, password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'party', created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-        CREATE TABLE IF NOT EXISTS cases(id INTEGER PRIMARY KEY, reference TEXT NOT NULL UNIQUE, creator_id INTEGER NOT NULL REFERENCES users(id), accident_type TEXT NOT NULL, accident_date TEXT NOT NULL, accident_time TEXT NOT NULL, location TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending_second_party', created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-        CREATE TABLE IF NOT EXISTS parties(id INTEGER PRIMARY KEY, case_id INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE, user_id INTEGER REFERENCES users(id), position TEXT NOT NULL CHECK(position IN ('A','B')), full_name TEXT, national_id TEXT, phone TEXT, description TEXT, completed INTEGER NOT NULL DEFAULT 0, UNIQUE(case_id,position));
-        CREATE TABLE IF NOT EXISTS vehicles(id INTEGER PRIMARY KEY, party_id INTEGER NOT NULL UNIQUE REFERENCES parties(id) ON DELETE CASCADE, plate TEXT, manufacturer TEXT, model TEXT, year INTEGER, color TEXT);
-        CREATE TABLE IF NOT EXISTS invitations(id INTEGER PRIMARY KEY, case_id INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE, token TEXT NOT NULL UNIQUE, expires_at TEXT NOT NULL, claimed_by INTEGER REFERENCES users(id), created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-        CREATE TABLE IF NOT EXISTS videos(id INTEGER PRIMARY KEY, case_id INTEGER NOT NULL REFERENCES cases(id) ON DELETE CASCADE, party_id INTEGER NOT NULL REFERENCES parties(id), original_name TEXT NOT NULL, stored_name TEXT NOT NULL, processed_name TEXT, privacy_status TEXT NOT NULL DEFAULT 'pending', uploaded_at TEXT DEFAULT CURRENT_TIMESTAMP, processing_note TEXT);
-        CREATE TABLE IF NOT EXISTS garage_vehicles(id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, plate TEXT NOT NULL, manufacturer TEXT NOT NULL, model TEXT NOT NULL, year INTEGER NOT NULL, color TEXT NOT NULL);
-        CREATE TABLE IF NOT EXISTS analysis_jobs(id INTEGER PRIMARY KEY, video_id INTEGER NOT NULL UNIQUE REFERENCES videos(id) ON DELETE CASCADE, status TEXT NOT NULL DEFAULT 'not_started', details TEXT, updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
-        CREATE TABLE IF NOT EXISTS expert_accounts(id INTEGER PRIMARY KEY, full_name TEXT NOT NULL, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-        ''')
-        cols={r[1] for r in c.execute('PRAGMA table_info(users)').fetchall()}
-        if 'national_id' not in cols: c.execute('ALTER TABLE users ADD COLUMN national_id TEXT')
-        if 'birth_date' not in cols: c.execute('ALTER TABLE users ADD COLUMN birth_date TEXT')
-        if 'notification_status' not in cols: c.execute('ALTER TABLE users ADD COLUMN notification_status INTEGER DEFAULT 1')
-        if 'notification_result' not in cols: c.execute('ALTER TABLE users ADD COLUMN notification_result INTEGER DEFAULT 1')
-        c.execute('CREATE UNIQUE INDEX IF NOT EXISTS users_national_id_unique ON users(national_id)')
-        c.execute('CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON users(email)')
-        invite_cols={r[1] for r in c.execute('PRAGMA table_info(invitations)').fetchall()}
-        if 'recipient_email' not in invite_cols: c.execute('ALTER TABLE invitations ADD COLUMN recipient_email TEXT')
-        if 'recipient_phone' not in invite_cols: c.execute('ALTER TABLE invitations ADD COLUMN recipient_phone TEXT')
-        if 'revoked_at' not in invite_cols: c.execute('ALTER TABLE invitations ADD COLUMN revoked_at TEXT')
-        c.executescript('''
-        CREATE TABLE IF NOT EXISTS login_failures(key TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0, locked_until REAL);
-        CREATE TABLE IF NOT EXISTS password_resets(id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, token_hash TEXT NOT NULL UNIQUE, expires_at REAL NOT NULL, used_at TEXT);
-        CREATE TABLE IF NOT EXISTS expert_logins(id INTEGER PRIMARY KEY, username TEXT NOT NULL, expert_id INTEGER, logged_at TEXT DEFAULT CURRENT_TIMESTAMP, ip TEXT);
-        ''')
-        party_cols={r[1] for r in c.execute('PRAGMA table_info(parties)').fetchall()}
-        if 'vehicle_role' not in party_cols: c.execute('ALTER TABLE parties ADD COLUMN vehicle_role TEXT')
-        if 'progress' not in party_cols: c.execute('ALTER TABLE parties ADD COLUMN progress INTEGER DEFAULT 0')
-        if 'description_meta' not in party_cols: c.execute('ALTER TABLE parties ADD COLUMN description_meta TEXT')
-        video_cols={r[1] for r in c.execute('PRAGMA table_info(videos)').fetchall()}
-        if 'camera' not in video_cols: c.execute('ALTER TABLE videos ADD COLUMN camera TEXT')
-    try:
-        with conn() as c: c.execute('CREATE UNIQUE INDEX IF NOT EXISTS users_phone_unique ON users(phone)')
-    except sqlite3.IntegrityError: app.logger.warning('Could not create unique phone index (duplicate data)')
-    backfill_progress()
+        for statement in schema.statements(bool(DATABASE_URL)):
+            c.execute(statement)
 
-def backfill_progress():
-    # set each party's step based on what they already filled in
-    with conn() as c:
-        c.execute("UPDATE parties SET progress=6 WHERE completed=1 AND COALESCE(progress,0)<6")
-        c.execute("UPDATE parties SET progress=2 WHERE completed=0 AND COALESCE(progress,0)<2 AND national_id IS NOT NULL AND national_id<>''")
-        c.execute("UPDATE parties SET progress=3 WHERE completed=0 AND COALESCE(progress,0)<3 AND id IN (SELECT party_id FROM vehicles)")
-        c.execute("UPDATE parties SET progress=4 WHERE completed=0 AND COALESCE(progress,0)<4 AND description IS NOT NULL AND description<>'' AND id IN (SELECT party_id FROM vehicles)")
-        c.execute("UPDATE parties SET progress=5 WHERE completed=0 AND COALESCE(progress,0)<5 AND id IN (SELECT party_id FROM videos) AND description IS NOT NULL AND description<>''")
+# ready-made SELECTs that give each row the names the pages use
+USER_SQL='''SELECT national_id AS id, national_id, full_name, date_of_birth AS birth_date, phone, email, password_hash,
+    notify_status_change AS notification_status, notify_final_result AS notification_result FROM accident_party'''
+CASE_SQL='''SELECT ca.*, ca.case_id AS id, ca.case_id AS reference,
+    (SELECT national_id FROM participation_progress WHERE case_id=ca.case_id AND position='A') AS creator_id,
+    (SELECT joined_at FROM participation_progress WHERE case_id=ca.case_id AND position='A') AS created_at
+    FROM accident_case ca'''
+VEHICLE_SQL='''SELECT vehicle_id AS id, vehicle_id, plate_letters, plate_number, plate_letters||' '||plate_number AS plate,
+    manufacturer, model, year, color, national_id FROM vehicle'''
+VIDEO_SQL='''SELECT v.video_id AS id, v.video_id, v.case_id, v.national_id AS party_id, v.national_id,
+    v.storage_path AS stored_name, v.camera_type AS camera, v.uploaded_at,
+    COALESCE(p.original_name,'video') AS original_name, p.processed_path AS processed_name,
+    COALESCE(p.privacy_status,'pending') AS privacy_status, p.note AS processing_note
+    FROM dashcam_video v LEFT JOIN video_processing p ON p.video_id=v.video_id'''
+OPPOSITE={'FRONT':'REAR','REAR':'FRONT'}
+
+def get_party(c, case, national_id):
+    # one party of a case, with the same field names the pages used before
+    if not national_id: return None
+    row=c.execute('''SELECT pp.*, ap.full_name, ap.phone FROM participation_progress pp
+        JOIN accident_party ap ON ap.national_id=pp.national_id WHERE pp.case_id=? AND pp.national_id=?''',
+        (case['case_id'],national_id)).fetchone()
+    if not row: return None
+    party=dict(row)
+    a=party['position']=='A'
+    party.update(id=row['national_id'], user_id=row['national_id'],
+                 description=case['party_a_description'] if a else case['party_b_description'],
+                 vehicle_role=case['party_a_position'] if a else OPPOSITE.get(case['party_a_position']))
+    return party
+
+def party_at(c, case, position):
+    # the party in position A or B (None if B did not join yet)
+    row=c.execute('SELECT national_id FROM participation_progress WHERE case_id=? AND position=?',(case['case_id'],position)).fetchone()
+    return get_party(c,case,row['national_id']) if row else None
+
+def get_case(c, case_id):
+    return c.execute(CASE_SQL+' WHERE ca.case_id=?',(case_id,)).fetchone()
+
+def party_vehicle(c, case_id, national_id):
+    # the vehicle this party added to the case (Involves)
+    return c.execute('''SELECT v.vehicle_id AS id, v.vehicle_id, v.plate_letters, v.plate_number, v.plate_letters||' '||v.plate_number AS plate,
+        v.manufacturer, v.model, v.year, v.color, v.national_id FROM involves i JOIN vehicle v ON v.vehicle_id=i.vehicle_id
+        WHERE i.case_id=? AND v.national_id=?''',(case_id,national_id)).fetchone()
+
+def user_cases(c, national_id):
+    return c.execute(CASE_SQL+''' WHERE ca.case_id IN (SELECT case_id FROM participates WHERE national_id=?)
+        ORDER BY created_at DESC''',(national_id,)).fetchall()
 
 # the 3 case statuses shown to users: pending, in progress, completed
 STATUS_LABELS={'pending':'قيد الانتظار','in_progress':'قيد المراجعة','completed':'مكتملة'}
@@ -215,17 +158,17 @@ LOGIN_MAX_FAILS=5
 LOGIN_LOCK_SECONDS=15*60
 def login_locked(key):
     with conn() as c:
-        row=c.execute('SELECT locked_until FROM login_failures WHERE key=?',(key,)).fetchone()
+        row=c.execute('SELECT locked_until FROM login_attempt WHERE key=?',(key,)).fetchone()
     return bool(row and row['locked_until'] and row['locked_until']>time.time())
 def login_failed(key):
     with conn() as c:
-        row=c.execute('SELECT count FROM login_failures WHERE key=?',(key,)).fetchone()
+        row=c.execute('SELECT count FROM login_attempt WHERE key=?',(key,)).fetchone()
         count=(row['count'] if row else 0)+1
         locked=time.time()+LOGIN_LOCK_SECONDS if count>=LOGIN_MAX_FAILS else None
-        c.execute('INSERT INTO login_failures(key,count,locked_until) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET count=excluded.count,locked_until=excluded.locked_until',
+        c.execute('INSERT INTO login_attempt(key,count,locked_until) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET count=excluded.count,locked_until=excluded.locked_until',
                   (key,0 if locked else count,locked))
 def login_succeeded(key):
-    with conn() as c: c.execute('DELETE FROM login_failures WHERE key=?',(key,))
+    with conn() as c: c.execute('DELETE FROM login_attempt WHERE key=?',(key,))
 LOCKED_MSG='تم إيقاف تسجيل الدخول مؤقتًا بسبب محاولات متكررة غير صحيحة. يمكن المحاولة مرة أخرى بعد 15 دقيقة.'
 
 def csrf():
@@ -257,15 +200,16 @@ def login_required(fn):
 
 def current_user():
     if not session.get('uid'): return None
-    with conn() as c: return c.execute('SELECT * FROM users WHERE id=?',(session['uid'],)).fetchone()
+    with conn() as c: return c.execute(USER_SQL+' WHERE national_id=?',(session['uid'],)).fetchone()
 @app.context_processor
 def globals_ctx(): return {'user':current_user(), 'expert_logged_in': bool(session.get('expert_authenticated'))}
 
 def case_access(case_id):
+    # the case and the logged-in user's party in it (403 if they are not in the case)
     with conn() as c:
-        case=c.execute('SELECT * FROM cases WHERE id=?',(case_id,)).fetchone()
+        case=get_case(c,case_id)
         if not case: abort(404)
-        party=c.execute('SELECT * FROM parties WHERE case_id=? AND user_id=?',(case_id,session.get('uid'))).fetchone()
+        party=get_party(c,case,session.get('uid'))
         if not party and case['creator_id']!=session.get('uid'): abort(403)
         return case,party
 
@@ -495,9 +439,10 @@ def notify_case(case_id, kind, only_user_id=None):
     if os.getenv('OTP_MODE','api').strip().lower()=='demo':
         return
     with conn() as c:
-        case=c.execute('SELECT id,reference FROM cases WHERE id=?',(case_id,)).fetchone()
-        users=c.execute('''SELECT DISTINCT u.id,u.email FROM parties p JOIN users u ON u.id=p.user_id
-                           WHERE p.case_id=? AND COALESCE(u.notification_status,1)=1''',(case_id,)).fetchall()
+        case=get_case(c,case_id)
+        users=c.execute('''SELECT DISTINCT ap.national_id AS id, ap.email FROM participates p
+                           JOIN accident_party ap ON ap.national_id=p.national_id
+                           WHERE p.case_id=? AND ap.notify_status_change=1''',(case_id,)).fetchall()
     if not case: return
     public_base=os.getenv('PUBLIC_BASE_URL','').strip().rstrip('/')
     path=url_for('case_detail',case_id=case_id)
@@ -567,7 +512,7 @@ def register():
         else:
             with conn() as c:
                 taken=[label for col,value,label in (('national_id',nid,'رقم الهوية / الإقامة'),('phone',phone,'رقم الجوال'),('email',email,'البريد الإلكتروني'))
-                       if c.execute(f'SELECT 1 FROM users WHERE {col}=?',(value,)).fetchone()]
+                       if c.execute(f'SELECT 1 FROM accident_party WHERE {col}=?',(value,)).fetchone()]
             if taken: flash(' و'.join(taken)+' مسجل مسبقًا بحساب آخر.','error')
             else:
                 try:
@@ -604,8 +549,9 @@ def verify_email():
                     if hmac.compare_digest(otp_digest(code,pending['email']),pending.get('otp_digest','')):
                         try:
                             with conn() as c:
-                                uid=insert_id(c,'INSERT INTO users(full_name,email,phone,password_hash,national_id,birth_date) VALUES(?,?,?,?,?,?)',
-                                    (pending['full_name'],pending['email'],pending['phone'],pending['password_hash'],pending['national_id'],pending['birth_date']))
+                                c.execute('INSERT INTO accident_party(national_id,full_name,date_of_birth,phone,email,password_hash) VALUES(?,?,?,?,?,?)',
+                                    (pending['national_id'],pending['full_name'],pending['birth_date'],pending['phone'],pending['email'],pending['password_hash']))
+                                uid=pending['national_id']
                             destination=session.get('after_registration')
                             session.clear();session['uid']=uid;csrf()
                             return redirect(destination if safe_invitation_next(destination) else url_for('dashboard'))
@@ -622,7 +568,7 @@ def login():
         if login_locked(key):
             flash(LOCKED_MSG,'error'); return render_template('auth.html',mode='login')
         with conn() as c:
-            u=c.execute('SELECT * FROM users WHERE national_id=?',(nid,)).fetchone()
+            u=c.execute(USER_SQL+' WHERE national_id=?',(nid,)).fetchone()
         if u and check_password_hash(u['password_hash'],request.form.get('password','')):
             login_succeeded(key)
             session.clear();session['uid']=u['id'];csrf()
@@ -657,13 +603,13 @@ def forgot_password():
     sent=False
     if request.method=='POST':
         nid=normalized_digits(request.form.get('national_id',''))
-        with conn() as c: u=c.execute('SELECT id,email FROM users WHERE national_id=?',(nid,)).fetchone()
+        with conn() as c: u=c.execute('SELECT national_id AS id,email FROM accident_party WHERE national_id=?',(nid,)).fetchone()
         if u:
             token=secrets.token_urlsafe(32)
             with conn() as c:
                 # a new request replaces any earlier unused link
-                c.execute('UPDATE password_resets SET used_at=? WHERE user_id=? AND used_at IS NULL',(datetime.utcnow().isoformat(),u['id']))
-                c.execute('INSERT INTO password_resets(user_id,token_hash,expires_at) VALUES(?,?,?)',
+                c.execute('UPDATE password_reset_link SET used_at=? WHERE national_id=? AND used_at IS NULL',(datetime.utcnow().isoformat(),u['id']))
+                c.execute('INSERT INTO password_reset_link(national_id,token_hash,expires_at) VALUES(?,?,?)',
                           (u['id'],hashlib.sha256(token.encode()).hexdigest(),time.time()+RESET_LINK_MINUTES*60))
             link=url_for('reset_password',token=token,_external=True)
             if os.getenv('OTP_MODE','api').strip().lower()=='demo' and request.remote_addr in ('127.0.0.1','::1'):
@@ -677,7 +623,7 @@ def forgot_password():
 @app.route('/reset-password/<token>',methods=['GET','POST'])
 def reset_password(token):
     digest=hashlib.sha256(token.encode()).hexdigest()
-    with conn() as c: r=c.execute('SELECT * FROM password_resets WHERE token_hash=?',(digest,)).fetchone()
+    with conn() as c: r=c.execute('SELECT * FROM password_reset_link WHERE token_hash=?',(digest,)).fetchone()
     valid=bool(r and not r['used_at'] and r['expires_at']>time.time())
     if not valid:
         return render_template('password_reset.html',stage='invalid')
@@ -688,9 +634,9 @@ def reset_password(token):
         elif new!=confirm: flash('تأكيد كلمة المرور غير مطابق.','error')
         else:
             with conn() as c:
-                c.execute('UPDATE users SET password_hash=? WHERE id=?',(generate_password_hash(new),r['user_id']))
-                c.execute('UPDATE password_resets SET used_at=? WHERE user_id=? AND used_at IS NULL',(datetime.utcnow().isoformat(),r['user_id']))
-                nid=c.execute('SELECT national_id FROM users WHERE id=?',(r['user_id'],)).fetchone()['national_id']
+                c.execute('UPDATE accident_party SET password_hash=? WHERE national_id=?',(generate_password_hash(new),r['national_id']))
+                c.execute('UPDATE password_reset_link SET used_at=? WHERE national_id=? AND used_at IS NULL',(datetime.utcnow().isoformat(),r['national_id']))
+                nid=r['national_id']
             login_succeeded('party:'+(nid or ''))
             flash('تم تعيين كلمة المرور الجديدة، ويمكن تسجيل الدخول الآن.','success')
             return redirect(url_for('login'))
@@ -732,11 +678,11 @@ def expert_register():
                 flash('كلمتا المرور غير متطابقتين.', 'error')
             else:
                 with conn() as c:
-                    existing = c.execute('SELECT id FROM expert_accounts WHERE username=?', (username,)).fetchone()
+                    existing = c.execute('SELECT expert_id FROM authorized_expert WHERE username=?', (username,)).fetchone()
                     if existing:
                         flash('معرّف الخبير مستخدم بالفعل.', 'error')
                     else:
-                        c.execute('INSERT INTO expert_accounts(full_name, username, password_hash) VALUES(?,?,?)',
+                        c.execute('INSERT INTO authorized_expert(full_name, username, password_hash) VALUES(?,?,?)',
                                   (pending['full_name'], username, generate_password_hash(password)))
                         session.pop('expert_registration', None)
                         flash('تم إنشاء الحساب، ويمكن تسجيل الدخول الآن.', 'success')
@@ -757,9 +703,9 @@ def expert_login():
             flash(LOCKED_MSG, 'error')
             return render_template('expert_login.html')
         with conn() as c:
-            expert = c.execute('SELECT id, password_hash FROM expert_accounts WHERE username=?', (username,)).fetchone()
+            expert = c.execute('SELECT expert_id AS id, password_hash FROM authorized_expert WHERE username=?', (username,)).fetchone()
             if not expert and not username.startswith(EXPERT_PREFIX):
-                expert = c.execute('SELECT id, password_hash FROM expert_accounts WHERE username=?', (EXPERT_PREFIX+username,)).fetchone()
+                expert = c.execute('SELECT expert_id AS id, password_hash FROM authorized_expert WHERE username=?', (EXPERT_PREFIX+username,)).fetchone()
         valid_registered = bool(expert) and check_password_hash(expert['password_hash'], password)
         expected_username = os.getenv('EXPERT_USERNAME', '').strip().lower()
         expected_hash = os.getenv('EXPERT_PASSWORD_HASH', '').strip()
@@ -768,9 +714,6 @@ def expert_login():
                         and check_password_hash(expected_hash, password))
         if valid_registered or valid_legacy:
             login_succeeded(key)
-            with conn() as c:
-                c.execute('INSERT INTO expert_logins(username,expert_id,ip) VALUES(?,?,?)',
-                          (username, expert['id'] if valid_registered else None, request.remote_addr))
             session.clear()
             session['expert_authenticated'] = True
             if valid_registered:
@@ -786,7 +729,7 @@ def expert_cases():
     if not session.get('expert_authenticated'):
         return redirect(url_for('expert_login'))
     with conn() as c:
-        cases = c.execute('SELECT reference, accident_type, accident_date, accident_time, status, created_at FROM cases ORDER BY id DESC LIMIT 100').fetchall()
+        cases = c.execute(CASE_SQL+' ORDER BY created_at DESC LIMIT 100').fetchall()
     groups = {k: [x for x in cases if status_key(x['status']) == k] for k in ('pending', 'in_progress', 'completed')}
     return render_template('expert_cases.html', cases=cases, groups=groups)
 
@@ -807,7 +750,7 @@ def logout(): session.clear(); return redirect(url_for('home'))
 @login_required
 def dashboard():
     with conn() as c:
-        cases=c.execute('''SELECT DISTINCT ca.* FROM cases ca LEFT JOIN parties p ON p.case_id=ca.id WHERE ca.creator_id=? OR p.user_id=? ORDER BY ca.id DESC''',(session['uid'],session['uid'])).fetchall()
+        cases=user_cases(c,session['uid'])
     pending=[x for x in cases if status_key(x['status'])=='pending'][:1]
     return render_template('dashboard.html',cases=cases[:3],pending_cases=pending)
 @app.route('/cases/new',methods=['GET','POST'])
@@ -819,17 +762,17 @@ def new_case():
             flash('هذه الحالة خارج نطاق سياق الحالي: الحوادث البسيطة دون إصابات، في ظروف رؤية واضحة ولمركبتين.','error')
             return redirect(url_for('new_case'))
         typ,date,time,location,errors=accident_form(request.form)
-        role=None  # chosen later, in the accident description step
         if errors:
             for e in errors: flash(e,'error')
             return render_template('new_case.html',form=request.form)
         else:
             ref='SQ-'+datetime.now().strftime('%y%m')+'-'+secrets.token_hex(3).upper()
             with conn() as c:
-                cid=insert_id(c,'INSERT INTO cases(reference,creator_id,accident_type,accident_date,accident_time,location,status) VALUES(?,?,?,?,?,?,?)',(ref,session['uid'],typ,date,time,location,'pending'))
-                c.execute('INSERT INTO parties(case_id,user_id,position,full_name,vehicle_role) VALUES(?,?,?,?,?)',(cid,session['uid'],'A',current_user()['full_name'],role))
-                c.execute('INSERT INTO parties(case_id,position,vehicle_role) VALUES(?,?,?)',(cid,'B',{'FRONT':'REAR','REAR':'FRONT'}.get(role)))
-            return redirect(url_for('wizard',case_id=cid,step=1))
+                # the case starts as a draft; the car position is chosen later, in the accident description step
+                c.execute('INSERT INTO accident_case(case_id,accident_type,accident_date,accident_time,location,status) VALUES(?,?,?,?,?,?)',(ref,typ,date,time,location,'draft'))
+                c.execute('INSERT INTO participates(national_id,case_id) VALUES(?,?)',(session['uid'],ref))
+                c.execute("INSERT INTO participation_progress(national_id,case_id,position) VALUES(?,?,'A')",(session['uid'],ref))
+            return redirect(url_for('wizard',case_id=ref,step=1))
     return render_template('new_case.html',form={})
 
 def accident_form(form,original=None):
@@ -845,7 +788,7 @@ def accident_form(form,original=None):
     if len(location)<3: errors.append('موقع الحادث مطلوب.')
     return typ,date,time,location,errors
 
-@app.route('/cases/<int:case_id>/edit',methods=['GET','POST'])
+@app.route('/cases/<case_id>/edit',methods=['GET','POST'])
 @login_required
 def edit_case(case_id):
     # party A can change the accident info until they submit
@@ -858,11 +801,12 @@ def edit_case(case_id):
             for e in errors: flash(e,'error')
             return render_template('new_case.html',form=request.form,editing=case)
         with conn() as c:
-            c.execute('UPDATE cases SET accident_type=?,accident_date=?,accident_time=?,location=? WHERE id=?',(typ,date,time,location,case_id))
+            c.execute('UPDATE accident_case SET accident_type=?,accident_date=?,accident_time=?,location=? WHERE case_id=?',(typ,date,time,location,case_id))
             if typ!=case['accident_type']:
                 # if the accident type changed the description no longer fits, so we clear it
-                c.execute('UPDATE parties SET description=NULL,description_meta=NULL,vehicle_role=NULL WHERE case_id=?',(case_id,))
-                c.execute('UPDATE parties SET progress=3 WHERE case_id=? AND COALESCE(progress,0)>3',(case_id,))
+                c.execute('UPDATE accident_case SET party_a_description=NULL,party_b_description=NULL,party_a_position=NULL WHERE case_id=?',(case_id,))
+                c.execute('UPDATE participation_progress SET description_meta=NULL WHERE case_id=?',(case_id,))
+                c.execute('UPDATE participation_progress SET progress=3 WHERE case_id=? AND progress>3',(case_id,))
         flash('تم تحديث بيانات الحادث.','success')
         return redirect(url_for('wizard',case_id=case_id,step=1))
     form={'no_injuries':'yes','clear_weather':'yes','two_vehicles':'yes','accident_type':case['accident_type'],
@@ -879,7 +823,7 @@ def accident_moment(date,time_value):
 def accident_within_window(when):
     now=local_now()
     return now-timedelta(hours=ACCIDENT_WINDOW_HOURS)<=when<=now
-@app.get('/cases/<int:case_id>')
+@app.get('/cases/<case_id>')
 @login_required
 def case_detail(case_id):
     case, party = case_access(case_id)
@@ -887,7 +831,7 @@ def case_detail(case_id):
         return redirect(url_for('dashboard'))
     return redirect(url_for('wizard', case_id=case_id, step=7 if party['completed'] else 1))
 
-@app.post('/cases/<int:case_id>/cancel')
+@app.post('/cases/<case_id>/cancel')
 @login_required
 def cancel_case(case_id):
     case,party=case_access(case_id)
@@ -896,7 +840,7 @@ def cancel_case(case_id):
         flash('لا يمكن إلغاء البلاغ بعد إرسال البيانات.','error')
         return redirect(url_for('wizard',case_id=case_id,step=7))
     with conn() as c:
-        videos=c.execute('SELECT stored_name,processed_name FROM videos WHERE case_id=?',(case_id,)).fetchall()
+        videos=c.execute(VIDEO_SQL+' WHERE v.case_id=?',(case_id,)).fetchall()
     # delete the video files before removing the case records
     try:
         for video in videos:
@@ -907,12 +851,9 @@ def cancel_case(case_id):
         flash('تعذر إلغاء البلاغ حاليًا. يرجى المحاولة مرة أخرى.','error')
         return redirect(url_for('wizard',case_id=case_id,step=1))
     with conn() as c:
-        c.execute('DELETE FROM analysis_jobs WHERE video_id IN (SELECT id FROM videos WHERE case_id=?)',(case_id,))
-        c.execute('DELETE FROM videos WHERE case_id=?',(case_id,))
-        c.execute('DELETE FROM vehicles WHERE party_id IN (SELECT id FROM parties WHERE case_id=?)',(case_id,))
-        c.execute('DELETE FROM invitations WHERE case_id=?',(case_id,))
-        c.execute('DELETE FROM parties WHERE case_id=?',(case_id,))
-        c.execute('DELETE FROM cases WHERE id=?',(case_id,))
+        # deleting the case also deletes its parties, vehicles links, videos and invitations (ON DELETE CASCADE);
+        # the cars stay in the users' "My vehicles"
+        c.execute('DELETE FROM accident_case WHERE case_id=?',(case_id,))
     flash('تم إلغاء البلاغ '+case['reference']+'.','success')
     return redirect(url_for('dashboard'))
 
@@ -939,11 +880,15 @@ def delete_stored_file(path):
     elif not os.getenv('VERCEL'):
         (UPLOAD / Path(path).name).unlink(missing_ok=True)
 
-@app.post('/cases/<int:case_id>/invite')
+@app.post('/cases/<case_id>/invite')
 @login_required
 def invite(case_id):
     case,party=case_access(case_id)
     if case['creator_id']!=session['uid']: abort(403)
+    if not party or not party['completed']:
+        # the invitation is sent after the first party submits their data
+        flash('يُرجى إرسال بياناتك أولًا قبل دعوة الطرف الثاني.','error')
+        return redirect(url_for('case_detail',case_id=case_id))
     recipient_email=request.form.get('recipient_email','').strip().lower()
     if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',recipient_email) or len(recipient_email)>254:
         flash('البريد الإلكتروني للطرف الثاني غير صحيح.','error')
@@ -952,11 +897,11 @@ def invite(case_id):
         flash('لا يمكن إرسال الدعوة إلى بريد منشئ البلاغ نفسه.','error')
         return redirect(url_for('case_detail',case_id=case_id))
     with conn() as c:
-        second=c.execute("SELECT user_id FROM parties WHERE case_id=? AND position='B'",(case_id,)).fetchone()
-        if not second or second['user_id']:
+        second=c.execute("SELECT national_id FROM participation_progress WHERE case_id=? AND position='B'",(case_id,)).fetchone()
+        if second:
             flash('الطرف الثاني مرتبط بالبلاغ بالفعل، ولا يمكن إرسال دعوة جديدة.','error')
             return redirect(url_for('case_detail',case_id=case_id))
-        latest=c.execute('SELECT created_at,recipient_email FROM invitations WHERE case_id=? ORDER BY id DESC LIMIT 1',(case_id,)).fetchone()
+        latest=c.execute('SELECT created_at,recipient_email FROM case_invitation WHERE case_id=? ORDER BY invitation_id DESC LIMIT 1',(case_id,)).fetchone()
         # wait 1 minute before resending to the same email, but a different email can be sent right away
         if latest and (latest['recipient_email'] or '').lower()==recipient_email and datetime.utcnow()-datetime.fromisoformat(str(latest['created_at'])[:19].replace(' ','T'))<timedelta(seconds=60):
             flash('يرجى الانتظار دقيقة قبل إرسال دعوة أخرى لنفس البلاغ.','error')
@@ -964,33 +909,35 @@ def invite(case_id):
     token=secrets.token_urlsafe(32)
     exp=(datetime.utcnow()+timedelta(days=7)).isoformat()
     with conn() as c:
-        invitation_id=insert_id(c,'INSERT INTO invitations(case_id,token,expires_at,recipient_email) VALUES(?,?,?,?)',(case_id,hashlib.sha256(token.encode()).hexdigest(),exp,recipient_email))
+        invitation_id=insert_id(c,'INSERT INTO case_invitation(case_id,token_hash,expires_at,recipient_email) VALUES(?,?,?,?)',(case_id,hashlib.sha256(token.encode()).hexdigest(),exp,recipient_email),'invitation_id')
     public_base=os.getenv('PUBLIC_BASE_URL','').strip().rstrip('/')
     if public_base and not re.fullmatch(r'https://[^\s/]+(?:\:[0-9]{2,5})?',public_base):
-        with conn() as c: c.execute('DELETE FROM invitations WHERE id=?',(invitation_id,))
+        with conn() as c: c.execute('DELETE FROM case_invitation WHERE invitation_id=?',(invitation_id,))
         flash('PUBLIC_BASE_URL يجب أن يكون رابط HTTPS عامًّا بدون مسار، مثل https://siyaq.example.','error')
         return redirect(url_for('case_detail',case_id=case_id))
     link=(public_base+url_for('invitation',token=token)) if public_base else url_for('invitation',token=token,_external=True)
     if os.getenv('INVITE_MODE','').strip().lower()=='demo' and request.remote_addr in ('127.0.0.1','::1'):
         # demo on our computer: no email is sent, the link shows on screen instead
         with conn() as c:
-            c.execute('UPDATE invitations SET revoked_at=? WHERE case_id=? AND id<>? AND claimed_by IS NULL AND revoked_at IS NULL',
+            c.execute('UPDATE case_invitation SET revoked_at=? WHERE case_id=? AND invitation_id<>? AND claimed_by IS NULL AND revoked_at IS NULL',
                       (datetime.utcnow().isoformat(),case_id,invitation_id))
+            c.execute('UPDATE accident_case SET party_b_email=? WHERE case_id=?',(recipient_email,case_id))
         flash('وضع التجربة: لم يُرسل بريد. يُفتح هذا الرابط في نافذة خاصة ويُسجَّل بحساب بريده '+recipient_email+' : '+url_for('invitation',token=token,_external=True),'success')
         return redirect(url_for('case_detail',case_id=case_id))
     if not public_base and request.host.split(':')[0] in ('localhost','127.0.0.1'):
-        with conn() as c: c.execute('DELETE FROM invitations WHERE id=?',(invitation_id,))
+        with conn() as c: c.execute('DELETE FROM case_invitation WHERE invitation_id=?',(invitation_id,))
         flash('قبل إرسال الدعوة يلزم إضافة PUBLIC_BASE_URL لرابط موقع سياق المنشور على HTTPS؛ localhost لا يفتح على جوال الطرف الثاني.','error')
         return redirect(url_for('case_detail',case_id=case_id))
     try:
         send_case_invitation(recipient_email,link,case['reference'])
     except RuntimeError as exc:
-        with conn() as c: c.execute('DELETE FROM invitations WHERE id=? AND claimed_by IS NULL',(invitation_id,))
+        with conn() as c: c.execute('DELETE FROM case_invitation WHERE invitation_id=? AND claimed_by IS NULL',(invitation_id,))
         flash(str(exc),'error')
         return redirect(url_for('case_detail',case_id=case_id))
     with conn() as c:
-        c.execute('UPDATE invitations SET revoked_at=? WHERE case_id=? AND id<>? AND claimed_by IS NULL AND revoked_at IS NULL',
+        c.execute('UPDATE case_invitation SET revoked_at=? WHERE case_id=? AND invitation_id<>? AND claimed_by IS NULL AND revoked_at IS NULL',
                   (datetime.utcnow().isoformat(),case_id,invitation_id))
+        c.execute('UPDATE accident_case SET party_b_email=? WHERE case_id=?',(recipient_email,case_id))
     flash('تم إرسال الدعوة إلى البريد الإلكتروني للطرف الثاني. يُرجى التحقق من صندوق الوارد والرسائل غير المرغوبة.','success')
     return redirect(url_for('case_detail',case_id=case_id))
 
@@ -998,11 +945,10 @@ def invite(case_id):
 def invitation(token):
     digest=hashlib.sha256(token.encode()).hexdigest()
     with conn() as c:
-        inv=c.execute('SELECT * FROM invitations WHERE token=?',(digest,)).fetchone()
+        inv=c.execute('SELECT * FROM case_invitation WHERE token_hash=?',(digest,)).fetchone()
         if not inv: abort(404)
         valid=bool(inv['recipient_email'] and not inv['revoked_at'] and not inv['claimed_by'] and inv['expires_at']>datetime.utcnow().isoformat())
-        party=c.execute("SELECT user_id FROM parties WHERE case_id=? AND position='B'",(inv['case_id'],)).fetchone()
-        if not party or party['user_id']: valid=False
+        if c.execute("SELECT 1 FROM participation_progress WHERE case_id=? AND position='B'",(inv['case_id'],)).fetchone(): valid=False
     user=current_user()
     matched=bool(user and user['email'].strip().lower()==inv['recipient_email'].strip().lower())
     return render_template('invitation.html',token=token,valid=valid,matched=matched,recipient_email=inv['recipient_email'])
@@ -1012,20 +958,21 @@ def invitation(token):
 def accept_invitation(token):
     digest=hashlib.sha256(token.encode()).hexdigest()
     with conn() as c:
-        inv=c.execute('SELECT * FROM invitations WHERE token=?',(digest,)).fetchone()
+        inv=c.execute('SELECT * FROM case_invitation WHERE token_hash=?',(digest,)).fetchone()
         if not inv or not inv['recipient_email'] or inv['revoked_at'] or inv['expires_at']<=datetime.utcnow().isoformat() or inv['claimed_by']:
             abort(403)
-        u=c.execute('SELECT email,full_name,phone FROM users WHERE id=?',(session['uid'],)).fetchone()
+        u=c.execute('SELECT email FROM accident_party WHERE national_id=?',(session['uid'],)).fetchone()
         if not u or u['email'].strip().lower()!=inv['recipient_email'].strip().lower(): abort(403)
-        party=c.execute("SELECT * FROM parties WHERE case_id=? AND position='B'",(inv['case_id'],)).fetchone()
-        if not party or party['user_id']: abort(403)
-        updated=c.execute('UPDATE parties SET user_id=?,full_name=? WHERE id=? AND user_id IS NULL',
-                          (session['uid'],u['full_name'],party['id']))
-        if updated.rowcount!=1: abort(403)
-        claimed=c.execute('UPDATE invitations SET claimed_by=? WHERE id=? AND claimed_by IS NULL AND revoked_at IS NULL',
-                          (session['uid'],inv['id']))
+        if c.execute("SELECT 1 FROM participation_progress WHERE case_id=? AND position='B'",(inv['case_id'],)).fetchone(): abort(403)
+        if c.execute('SELECT 1 FROM participates WHERE case_id=? AND national_id=?',(inv['case_id'],session['uid'])).fetchone(): abort(403)
+        claimed=c.execute('UPDATE case_invitation SET claimed_by=? WHERE invitation_id=? AND claimed_by IS NULL AND revoked_at IS NULL',
+                          (session['uid'],inv['invitation_id']))
         if claimed.rowcount!=1: abort(403)
-        creator=c.execute('SELECT creator_id FROM cases WHERE id=?',(inv['case_id'],)).fetchone()
+        # the second party joins the case (Participates)
+        c.execute('INSERT INTO participates(national_id,case_id) VALUES(?,?)',(session['uid'],inv['case_id']))
+        c.execute("INSERT INTO participation_progress(national_id,case_id,position) VALUES(?,?,'B')",(session['uid'],inv['case_id']))
+        c.execute('UPDATE accident_case SET party_b_email=? WHERE case_id=?',(u['email'],inv['case_id']))
+        creator=get_case(c,inv['case_id'])
     # tell the first party that the second party joined
     if creator: notify_case(inv['case_id'],'joined',only_user_id=creator['creator_id'])
     return redirect(url_for('wizard',case_id=inv['case_id'],step=1))
@@ -1062,18 +1009,47 @@ def vehicle_form_errors(form):
     if not data['model']: errors.append('الطراز مطلوب.')
     if not re.fullmatch(r'\d{4}',data['year']) or not 1950<=int(data['year'])<=datetime.now().year+1: errors.append('سنة الصنع يجب أن تكون 4 أرقام صحيحة.')
     if not data['color']: errors.append('لون المركبة مطلوب.')
+    data['plate_letters'],data['plate_number']=split_plate(plate) if plate else ('','')
     return data,errors
 
-def save_party_progress(party_id,step):
-    with conn() as c: c.execute('UPDATE parties SET progress=? WHERE id=? AND COALESCE(progress,0)<?',(step,party_id,step))
+def vehicle_locked(c, vehicle_id):
+    # a car can't be changed or deleted while it is in a case its owner already submitted
+    return bool(c.execute('''SELECT 1 FROM involves i JOIN vehicle v ON v.vehicle_id=i.vehicle_id
+        JOIN participation_progress pp ON pp.case_id=i.case_id AND pp.national_id=v.national_id
+        WHERE i.vehicle_id=? AND pp.completed=1''',(vehicle_id,)).fetchone())
+
+def save_owner_vehicle(c, owner, data, vehicle_id=None):
+    # add or update a car in the owner's "My vehicles" (VEHICLE, registered by ACCIDENT_PARTY)
+    # returns (vehicle_id, error, changed)
+    values=(data['plate_letters'],data['plate_number'],data['manufacturer'],data['model'],int(data['year']),data['color'])
+    same=c.execute('SELECT * FROM vehicle WHERE national_id=? AND plate_letters=? AND plate_number=?',(owner,data['plate_letters'],data['plate_number'])).fetchone()
+    if vehicle_id:
+        old=c.execute('SELECT * FROM vehicle WHERE vehicle_id=? AND national_id=?',(vehicle_id,owner)).fetchone()
+        if not old: return None,'المركبة غير موجودة.',False
+        if same and same['vehicle_id']!=old['vehicle_id']: return None,'هذه اللوحة مسجلة مسبقًا في مركباتك.',False
+    else:
+        old=same
+    if old:
+        changed=(old['plate_letters'],old['plate_number'],old['manufacturer'],old['model'],int(old['year']),old['color'])!=values
+        if changed and vehicle_locked(c,old['vehicle_id']):
+            return None,'لا يمكن تعديل هذه المركبة لأنها مرتبطة ببلاغ تم إرساله.',False
+        if changed:
+            c.execute('UPDATE vehicle SET plate_letters=?,plate_number=?,manufacturer=?,model=?,year=?,color=? WHERE vehicle_id=?',(*values,old['vehicle_id']))
+        return old['vehicle_id'],None,changed
+    new_id=insert_id(c,'INSERT INTO vehicle(plate_letters,plate_number,manufacturer,model,year,color,national_id) VALUES(?,?,?,?,?,?,?)',(*values,owner),'vehicle_id')
+    return new_id,None,True
+
+def save_party_progress(case_id,national_id,step):
+    with conn() as c: c.execute('UPDATE participation_progress SET progress=? WHERE case_id=? AND national_id=? AND progress<?',(step,case_id,national_id,step))
 
 STEPS=['بيانات الحادث','بيانات الطرف','بيانات المركبة','وصف الحادث','رفع الفيديو','المراجعة','دعوة الطرف الثاني']
-@app.route('/cases/<int:case_id>/steps/<int:step>',methods=['GET','POST'])
+@app.route('/cases/<case_id>/steps/<int:step>',methods=['GET','POST'])
 @login_required
 def wizard(case_id,step):
     if step not in range(1,8): abort(404)
     case,party=case_access(case_id)
     if not party: abort(403)
+    nid=party['national_id']
     progress=party['progress'] or 0
     if party['completed'] and step<7:
         return redirect(url_for('wizard',case_id=case_id,step=7))
@@ -1082,37 +1058,38 @@ def wizard(case_id,step):
         return redirect(url_for('wizard',case_id=case_id,step=min(progress+1,6)))
     if request.method=='POST':
         if step==7: abort(405)
-        if step==2:
-            account=current_user(); full_name=account['full_name']; national=account['national_id'] or ''; phone=account['phone'] or ''
-            with conn() as c: c.execute('UPDATE parties SET full_name=?,national_id=?,phone=? WHERE id=?',(full_name,national,phone,party['id']))
-        elif step==3:
+        if step==3:
             data,errors=vehicle_form_errors(request.form)
             if errors:
                 for e in errors: flash(e,'error')
                 return redirect(request.url)
-            values=(data['plate'],data['manufacturer'],data['model'],int(data['year']),data['color'])
             garage_id=request.form.get('garage_id','')
             with conn() as c:
-                c.execute('''INSERT INTO vehicles(party_id,plate,manufacturer,model,year,color) VALUES(?,?,?,?,?,?) ON CONFLICT(party_id) DO UPDATE SET plate=excluded.plate,manufacturer=excluded.manufacturer,model=excluded.model,year=excluded.year,color=excluded.color''',(party['id'],*values))
-                # also save the car in "My vehicles" (update it if it's already there)
-                old=None
-                if garage_id.isdigit():
-                    old=c.execute('SELECT plate,manufacturer,model,year,color FROM garage_vehicles WHERE id=? AND user_id=?',(int(garage_id),session['uid'])).fetchone()
-                if old:
-                    c.execute('UPDATE garage_vehicles SET plate=?,manufacturer=?,model=?,year=?,color=? WHERE id=? AND user_id=?',(*values,int(garage_id),session['uid']))
-                    if (old['plate'],old['manufacturer'],old['model'],str(old['year']),old['color'])!=(values[0],values[1],values[2],str(values[3]),values[4]):
-                        flash('تم تحديث بيانات المركبة في «مركباتي».','success')
-                elif not c.execute('SELECT 1 FROM garage_vehicles WHERE user_id=? AND plate=?',(session['uid'],data['plate'])).fetchone():
-                    c.execute('INSERT INTO garage_vehicles(user_id,plate,manufacturer,model,year,color) VALUES(?,?,?,?,?,?)',(session['uid'],*values))
-                    flash('أُضيفت المركبة إلى «مركباتي» لاستخدامها في البلاغات القادمة.','success')
-                else:
-                    c.execute('UPDATE garage_vehicles SET manufacturer=?,model=?,year=?,color=? WHERE user_id=? AND plate=?',(*values[1:],session['uid'],data['plate']))
+                other_car=c.execute('''SELECT 1 FROM involves i JOIN vehicle v ON v.vehicle_id=i.vehicle_id
+                    WHERE i.case_id=? AND v.national_id<>? AND v.plate_letters=? AND v.plate_number=?''',
+                    (case_id,nid,data['plate_letters'],data['plate_number'])).fetchone()
+                if other_car:
+                    flash('هذه اللوحة مسجلة لمركبة الطرف الآخر في نفس البلاغ.','error')
+                    return redirect(request.url)
+                is_new=not c.execute('SELECT 1 FROM vehicle WHERE national_id=? AND plate_letters=? AND plate_number=?',(nid,data['plate_letters'],data['plate_number'])).fetchone()
+                # also saves the car in "My vehicles" (updates it if it's already there)
+                vehicle_id,error,changed=save_owner_vehicle(c,nid,data,int(garage_id) if garage_id.isdigit() else None)
+                if error:
+                    flash(error,'error'); return redirect(request.url)
+                # link this car to the case (Involves), replacing an earlier choice
+                c.execute('''DELETE FROM involves WHERE case_id=? AND vehicle_id IN
+                    (SELECT vehicle_id FROM vehicle WHERE national_id=?)''',(case_id,nid))
+                c.execute('INSERT INTO involves(case_id,vehicle_id) VALUES(?,?)',(case_id,vehicle_id))
+            if is_new: flash('أُضيفت المركبة إلى «مركباتي» لاستخدامها في البلاغات القادمة.','success')
+            elif changed: flash('تم تحديث بيانات المركبة في «مركباتي».','success')
         elif step==4:
             text=request.form.get('description','').strip()
             f=request.form
             errors=[]
             if case['accident_type']=='REAR_END':
                 meta={'pos':f.get('pos'),'rcase':f.get('rcase'),'zone':f.get('zone')}
+                # the second party's car position is always the opposite of the first party's
+                if party['position']=='B' and case['party_a_position']: meta['pos']=OPPOSITE[case['party_a_position']]
                 if meta['pos'] not in ('FRONT','REAR'): errors.append('موقع المركبة مطلوب (الأمامية أو الخلفية).')
                 if meta['rcase'] not in ('normal','sudden','cutin'): errors.append('ما حدث قبل الصدمة مطلوب.')
                 if meta['zone'] not in ('front','rear'): errors.append('مكان الصدمة مطلوب.')
@@ -1125,18 +1102,18 @@ def wizard(case_id,step):
             if errors:
                 for e in errors: flash(e,'error')
                 return redirect(request.url)
+            column='party_a_description' if party['position']=='A' else 'party_b_description'
             with conn() as c:
-                c.execute('UPDATE parties SET description=?,description_meta=? WHERE id=?',(text,json.dumps(meta),party['id']))
+                c.execute(f'UPDATE accident_case SET {column}=? WHERE case_id=?',(text,case_id))
+                c.execute('UPDATE participation_progress SET description_meta=? WHERE case_id=? AND national_id=?',(json.dumps(meta),case_id,nid))
                 if case['accident_type']=='REAR_END':
-                    c.execute('UPDATE parties SET vehicle_role=? WHERE id=?',(meta['pos'],party['id']))
-                    if party['position']=='A':
-                        # party B gets the other car (if A is front, B is rear)
-                        c.execute("UPDATE parties SET vehicle_role=? WHERE case_id=? AND position='B' AND completed=0 AND (description_meta IS NULL OR description_meta='')",
-                                  ({'FRONT':'REAR','REAR':'FRONT'}[meta['pos']],case_id))
+                    # only the first party's position is stored (party_a_position); the second party has the opposite
+                    position=meta['pos'] if party['position']=='A' else OPPOSITE[meta['pos']]
+                    c.execute('UPDATE accident_case SET party_a_position=? WHERE case_id=?',(position,case_id))
         elif step==5:
             f=request.files.get('video')
             with conn() as c:
-                existing_count=c.execute('SELECT COUNT(*) AS n FROM videos WHERE party_id=?',(party['id'],)).fetchone()['n']
+                existing_count=c.execute('SELECT COUNT(*) AS n FROM dashcam_video WHERE case_id=? AND national_id=?',(case_id,nid)).fetchone()['n']
             camera=request.form.get('camera')
             if f and f.filename and existing_count:
                 flash('يمكن رفع فيديو واحد فقط. لاستبداله يُحذف الفيديو الحالي أولًا.','error')
@@ -1158,39 +1135,43 @@ def wizard(case_id,step):
                 if ext not in ALLOWED: flash('صيغة الفيديو غير مدعومة.','error');return redirect(request.url)
                 filename=uuid.uuid4().hex+'.'+ext
                 f.save(UPLOAD/filename)
-                with conn() as c:
-                    video_id=insert_id(c,'INSERT INTO videos(case_id,party_id,original_name,stored_name,camera) VALUES(?,?,?,?,?)',(case_id,party['id'],secure_filename(f.filename),filename,camera))
-                    c.execute('INSERT INTO analysis_jobs(video_id) VALUES(?)',(video_id,))
+                with conn() as c: add_video(c,case_id,nid,filename,camera,secure_filename(f.filename))
         elif step==6:
             with conn() as c:
-                video_count=c.execute('SELECT COUNT(*) AS n FROM videos WHERE party_id=?',(party['id'],)).fetchone()['n']
+                video_count=c.execute('SELECT COUNT(*) AS n FROM dashcam_video WHERE case_id=? AND national_id=?',(case_id,nid)).fetchone()['n']
             if not video_count and party['position']=='A':
                 flash('يجب رفع فيديو الحادث أولًا قبل إرسال البيانات.','error')
                 return redirect(url_for('wizard',case_id=case_id,step=5))
             if request.form.get('consent')!='yes': flash('يجب الموافقة قبل الإرسال.','error');return redirect(request.url)
             with conn() as c:
-                c.execute('UPDATE parties SET completed=1 WHERE id=?',(party['id'],))
-                count_row=c.execute('SELECT COUNT(*) AS total FROM parties WHERE case_id=? AND completed=1',(case_id,)).fetchone()
-                count=count_row['total'] if DATABASE_URL else count_row[0]
-                c.execute('UPDATE cases SET status=? WHERE id=?',('in_progress' if count==2 else 'pending',case_id))
+                c.execute('UPDATE participation_progress SET completed=1 WHERE case_id=? AND national_id=?',(case_id,nid))
+                count=c.execute('SELECT COUNT(*) AS total FROM participation_progress WHERE case_id=? AND completed=1',(case_id,)).fetchone()['total']
+                c.execute('UPDATE accident_case SET status=? WHERE case_id=?',('in_progress' if count==2 else 'pending',case_id))
             # both parties submitted, so tell them the case is now in review
             if count==2: notify_case(case_id,'in_progress')
-            save_party_progress(party['id'],6)
+            save_party_progress(case_id,nid,6)
             flash('تم حفظ بياناتك بنجاح.','success');return redirect(url_for('wizard',case_id=case_id,step=7))
-        save_party_progress(party['id'],step)
+        save_party_progress(case_id,nid,step)
         return redirect(url_for('wizard',case_id=case_id,step=step+1))
     with conn() as c:
-        vehicle=c.execute('SELECT * FROM vehicles WHERE party_id=?',(party['id'],)).fetchone()
-        videos=c.execute('SELECT * FROM videos WHERE party_id=?',(party['id'],)).fetchall()
-    with conn() as c:
-        invited=c.execute("SELECT * FROM invitations WHERE case_id=? AND recipient_email IS NOT NULL ORDER BY id DESC LIMIT 1",(case_id,)).fetchone()
-        other_party=c.execute("SELECT user_id FROM parties WHERE case_id=? AND position='B'",(case_id,)).fetchone()
-        garage=c.execute('SELECT * FROM garage_vehicles WHERE user_id=? ORDER BY id DESC',(session['uid'],)).fetchall()
-        other=c.execute('SELECT user_id,completed FROM parties WHERE case_id=? AND position<>?',(case_id,party['position'])).fetchone()
-        first_vehicle=c.execute("SELECT v.manufacturer,v.model,v.plate FROM vehicles v JOIN parties p ON v.party_id=p.id WHERE p.case_id=? AND p.position='A'",(case_id,)).fetchone() if party['position']=='B' else None
+        vehicle=party_vehicle(c,case_id,nid)
+        videos=c.execute(VIDEO_SQL+' WHERE v.case_id=? AND v.national_id=?',(case_id,nid)).fetchall()
+        invited=c.execute("SELECT * FROM case_invitation WHERE case_id=? ORDER BY invitation_id DESC LIMIT 1",(case_id,)).fetchone()
+        party_b=party_at(c,case,'B')
+        other_party={'user_id':party_b['national_id']} if party_b else None
+        garage=c.execute(VEHICLE_SQL+' WHERE national_id=? ORDER BY vehicle_id DESC',(nid,)).fetchall()
+        other=party_at(c,case,'B' if party['position']=='A' else 'A')
+        first_vehicle=party_vehicle(c,case_id,case['creator_id']) if party['position']=='B' else None
     try: desc_meta=json.loads(party['description_meta'] or '{}')
     except ValueError: desc_meta={}
     return render_template('wizard.html',garage=garage,other=other,first_vehicle=first_vehicle,case=case,party=party,vehicle=vehicle,videos=videos,step=step,progress=progress,desc_meta=desc_meta,cameras=allowed_cameras(case,party),steps=STEPS if party['position']=='A' else STEPS[:6]+['اكتمال البلاغ'],invite=invited,other_party=other_party,cloud_upload=bool(os.getenv('VERCEL') or storage_ready() or cloudinary_ready()))
+
+def add_video(c, case_id, national_id, storage_path, camera, original_name):
+    # save an uploaded video (DASHCAM_VIDEO) and its processing record (supporting table)
+    video_id=insert_id(c,'INSERT INTO dashcam_video(storage_path,camera_type,case_id,national_id) VALUES(?,?,?,?)',(storage_path,camera,case_id,national_id),'video_id')
+    c.execute('INSERT INTO video_processing(video_id,original_name) VALUES(?,?)',(video_id,original_name))
+    return video_id
+
 ZONES=('front','front-left','front-right','left','right','rear-left','rear-right','rear')
 def allowed_cameras(case,party):
     # rear-end: the rear car needs its front camera video, the front car needs its rear camera video
@@ -1198,7 +1179,7 @@ def allowed_cameras(case,party):
     if case['accident_type']=='REAR_END' and party['vehicle_role']=='FRONT': return ('rear',)
     return ('front','rear')
 
-@app.post('/api/cases/<int:case_id>/videos/presign')
+@app.post('/api/cases/<case_id>/videos/presign')
 @login_required
 def video_presign(case_id):
     case, party = case_access(case_id)
@@ -1207,7 +1188,7 @@ def video_presign(case_id):
         return jsonify(error='خدمة رفع الفيديو غير متاحة حاليًا. يرجى المحاولة لاحقًا.'), 503
     data = request.get_json(silent=True) or {}
     with conn() as c:
-        if c.execute('SELECT 1 FROM videos WHERE party_id=?',(party['id'],)).fetchone():
+        if c.execute('SELECT 1 FROM dashcam_video WHERE case_id=? AND national_id=?',(case_id,party['national_id'])).fetchone():
             return jsonify(error='يمكن رفع فيديو واحد فقط. لاستبداله يُحذف الفيديو الحالي أولًا.'), 400
     camera = data.get('camera')
     if camera not in allowed_cameras(case, party):
@@ -1218,11 +1199,11 @@ def video_presign(case_id):
     if ext not in ALLOWED or type(size) is not int or not 0 < size <= VIDEO_MAX_BYTES:
         return jsonify(error='يرجى اختيار فيديو بصيغة مدعومة وحجم لا يتجاوز 200 ميجابايت.'), 400
     if cloudinary_ready():
-        public_id = f'siyaq/cases/{case_id}/parties/{party["id"]}/{uuid.uuid4().hex}'
+        public_id = f'siyaq/cases/{case_id}/parties/{party["national_id"]}/{uuid.uuid4().hex}'
         timestamp = int(time.time())
         params = {'public_id': public_id, 'timestamp': timestamp, 'type': 'authenticated'}
         session['pending_video'] = {'provider': 'cloudinary', 'public_id': public_id,
-                                    'case_id': case_id, 'party_id': party['id'],
+                                    'case_id': case_id, 'party_id': party['national_id'],
                                     'name': secure_filename(original) or 'video.'+ext,
                                     'size': size, 'camera': camera, 'expires': time.time()+3600}
         return jsonify(provider='cloudinary', upload_url='https://api.cloudinary.com/v1_1/' +
@@ -1230,7 +1211,7 @@ def video_presign(case_id):
                        api_key=os.environ['CLOUDINARY_API_KEY'], timestamp=timestamp,
                        signature=cloudinary_sign(params), public_id=public_id,
                        delivery_type='authenticated', content_type=VIDEO_MIME[ext])
-    key = f'cases/{case_id}/parties/{party["id"]}/{uuid.uuid4().hex}.{ext}'
+    key = f'cases/{case_id}/parties/{party["national_id"]}/{uuid.uuid4().hex}.{ext}'
     mime = VIDEO_MIME[ext]
     try:
         upload_url = storage_client().generate_presigned_url('put_object',
@@ -1238,18 +1219,18 @@ def video_presign(case_id):
     except Exception:
         app.logger.exception('Could not prepare video upload')
         return jsonify(error='تعذر بدء رفع الفيديو. يرجى المحاولة لاحقًا.'), 503
-    session['pending_video'] = {'key':key,'case_id':case_id,'party_id':party['id'],
+    session['pending_video'] = {'key':key,'case_id':case_id,'party_id':party['national_id'],
                                 'name':secure_filename(original) or 'video.'+ext,
                                 'size':size,'camera':camera,'expires':time.time()+600}
     return jsonify(upload_url=upload_url, content_type=mime)
 
-@app.post('/api/cases/<int:case_id>/videos/complete')
+@app.post('/api/cases/<case_id>/videos/complete')
 @login_required
 def video_complete(case_id):
     case, party = case_access(case_id)
     if not party: abort(403)
     pending = session.get('pending_video') or {}
-    if pending.get('case_id') != case_id or pending.get('party_id') != party['id'] or pending.get('expires',0) < time.time():
+    if pending.get('case_id') != case_id or pending.get('party_id') != party['national_id'] or pending.get('expires',0) < time.time():
         return jsonify(error='انتهت مهلة رفع الفيديو. يرجى إعادة المحاولة.'), 400
     if pending.get('provider') == 'cloudinary':
         if not cloudinary_ready():
@@ -1261,12 +1242,10 @@ def video_complete(case_id):
                 meta.get('bytes') != pending['size']):
                 return jsonify(error='لم يكتمل رفع الفيديو. يرجى إعادة المحاولة.'), 400
             with conn() as c:
-                existing = c.execute('SELECT id FROM videos WHERE stored_name=?',
+                existing = c.execute('SELECT video_id FROM dashcam_video WHERE storage_path=?',
                                      ('cloudinary://' + pending['public_id'],)).fetchone()
-                if not existing and not c.execute('SELECT 1 FROM videos WHERE party_id=?',(party['id'],)).fetchone():
-                    video_id=insert_id(c,'INSERT INTO videos(case_id,party_id,original_name,stored_name,camera) VALUES(?,?,?,?,?)',
-                                       (case_id,party['id'],pending['name'],'cloudinary://' + pending['public_id'],pending.get('camera')))
-                    c.execute('INSERT INTO analysis_jobs(video_id) VALUES(?)',(video_id,))
+                if not existing and not c.execute('SELECT 1 FROM dashcam_video WHERE case_id=? AND national_id=?',(case_id,party['national_id'])).fetchone():
+                    add_video(c,case_id,party['national_id'],'cloudinary://' + pending['public_id'],pending.get('camera'),pending['name'])
             session.pop('pending_video', None)
         except Exception:
             app.logger.exception('Could not verify video upload')
@@ -1279,11 +1258,9 @@ def video_complete(case_id):
         if meta['ContentLength'] != pending['size']:
             return jsonify(error='لم يكتمل رفع الفيديو. يرجى إعادة المحاولة.'), 400
         with conn() as c:
-            if c.execute('SELECT 1 FROM videos WHERE party_id=?',(party['id'],)).fetchone():
+            if c.execute('SELECT 1 FROM dashcam_video WHERE case_id=? AND national_id=?',(case_id,party['national_id'])).fetchone():
                 return jsonify(error='يمكن رفع فيديو واحد فقط.'), 400
-            video_id=insert_id(c,'INSERT INTO videos(case_id,party_id,original_name,stored_name,camera) VALUES(?,?,?,?,?)',
-                (case_id,party['id'],pending['name'],'s3://'+pending['key'],pending.get('camera')))
-            c.execute('INSERT INTO analysis_jobs(video_id) VALUES(?)',(video_id,))
+            add_video(c,case_id,party['national_id'],'s3://'+pending['key'],pending.get('camera'),pending['name'])
         session.pop('pending_video', None)
     except Exception:
         app.logger.exception('Could not finalize video upload')
@@ -1295,11 +1272,11 @@ def video_complete(case_id):
 def delete_video(video_id):
     # delete a video, only allowed before the case is submitted
     with conn() as c:
-        video = c.execute('SELECT * FROM videos WHERE id=?', (video_id,)).fetchone()
+        video = c.execute(VIDEO_SQL+' WHERE v.video_id=?', (video_id,)).fetchone()
     if not video:
         abort(404)
     case, party = case_access(video['case_id'])
-    if not party or video['party_id'] != party['id']:
+    if not party or video['party_id'] != party['national_id']:
         abort(403)
     if party['completed']:
         flash('لا يمكن حذف الفيديو بعد إرسال البيانات النهائية.', 'error')
@@ -1335,15 +1312,14 @@ def delete_video(video_id):
         flash('تعذر حذف الفيديو حاليًا. يرجى المحاولة مرة أخرى.', 'error')
         return redirect(url_for('wizard', case_id=video['case_id'], step=5))
     with conn() as c:
-        c.execute('DELETE FROM analysis_jobs WHERE video_id=?', (video_id,))
-        c.execute('DELETE FROM videos WHERE id=? AND party_id=?', (video_id, party['id']))
+        c.execute('DELETE FROM dashcam_video WHERE video_id=? AND national_id=?', (video_id, party['national_id']))
     flash('تم حذف الفيديو، ويمكن اختيار فيديو آخر.', 'success')
     return redirect(url_for('wizard', case_id=video['case_id'], step=5))
 
 @app.get('/videos/<int:video_id>/download')
 @login_required
 def download_video(video_id):
-    with conn() as c: v=c.execute('SELECT * FROM videos WHERE id=?',(video_id,)).fetchone()
+    with conn() as c: v=c.execute(VIDEO_SQL+' WHERE v.video_id=?',(video_id,)).fetchone()
     if not v:abort(404)
     case_access(v['case_id'])
     public_id = stored_cloudinary_id(v['processed_name'] or v['stored_name'])
@@ -1373,7 +1349,7 @@ def download_video(video_id):
 @app.post('/videos/<int:video_id>/process')
 @login_required
 def process_video(video_id):
-    with conn() as c: v=c.execute('SELECT * FROM videos WHERE id=?',(video_id,)).fetchone()
+    with conn() as c: v=c.execute(VIDEO_SQL+' WHERE v.video_id=?',(video_id,)).fetchone()
     if not v:abort(404)
     case_access(v['case_id'])
     if stored_s3_key(v['stored_name']) or stored_cloudinary_id(v['stored_name']):
@@ -1382,8 +1358,8 @@ def process_video(video_id):
     from privacy import process_privacy
     result=process_privacy(UPLOAD/v['stored_name'],UPLOAD)
     with conn() as c:
-        c.execute('UPDATE videos SET processed_name=?,privacy_status=?,processing_note=? WHERE id=?',(result.get('filename'),result['status'],result['note'],video_id))
-        c.execute('UPDATE analysis_jobs SET status=?,details=?,updated_at=CAST(CURRENT_TIMESTAMP AS TEXT) WHERE video_id=?',('privacy_processed' if result.get('filename') else 'requires_review',result['note'],video_id))
+        c.execute('UPDATE video_processing SET processed_path=?,privacy_status=?,note=? WHERE video_id=?',(result.get('filename'),result['status'],result['note'],video_id))
+        c.execute('UPDATE video_processing SET job_status=?,job_details=?,updated_at=CAST(CURRENT_TIMESTAMP AS TEXT) WHERE video_id=?',('privacy_processed' if result.get('filename') else 'requires_review',result['note'],video_id))
     flash(result['note'],'success' if result.get('filename') else 'error')
     return redirect(url_for('wizard',case_id=v['case_id'],step=5))
 
@@ -1398,7 +1374,7 @@ def profile():
             if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',new_email) or len(new_email)>254: flash('البريد الإلكتروني غير صالح.','error')
             elif new_email==current_user()['email'].strip().lower(): flash('هذا هو بريدك الحالي.','error')
             else:
-                with conn() as c: taken=c.execute('SELECT id FROM users WHERE email=?',(new_email,)).fetchone()
+                with conn() as c: taken=c.execute('SELECT 1 FROM accident_party WHERE email=?',(new_email,)).fetchone()
                 if taken: flash('هذا البريد مسجل بحساب آخر.','error')
                 else:
                     try:
@@ -1415,7 +1391,7 @@ def profile():
             else:
                 pending['attempts']+=1; session['pending_email']=pending
                 if re.fullmatch(r'\d{6}',code) and hmac.compare_digest(otp_digest(code,pending['email']),pending.get('otp_digest','')):
-                    with conn() as c: c.execute('UPDATE users SET email=? WHERE id=?',(pending['email'],session['uid']))
+                    with conn() as c: c.execute('UPDATE accident_party SET email=? WHERE national_id=?',(pending['email'],session['uid']))
                     session.pop('pending_email',None); flash('تم تحديث بريدك الإلكتروني.','success')
                 else: flash('رمز التحقق غير صحيح.','error')
         elif action=='email_cancel':
@@ -1427,14 +1403,14 @@ def profile():
             elif len(new)<8 or not re.search(r'[A-Za-z\u0600-\u06FF]',new) or not re.search(r'\d',new):flash('كلمة المرور الجديدة تتطلب ٨ أحرف وحرفًا ورقمًا.','error')
             elif new!=request.form.get('confirm',''):flash('كلمتا المرور غير متطابقتين.','error')
             else:
-                with conn() as c:c.execute('UPDATE users SET password_hash=? WHERE id=?',(generate_password_hash(new),session['uid']))
+                with conn() as c:c.execute('UPDATE accident_party SET password_hash=? WHERE national_id=?',(generate_password_hash(new),session['uid']))
                 flash('تم تغيير كلمة المرور.','success')
         elif action=='notifications':
             # save the notification setting for status updates
-            with conn() as c:c.execute('UPDATE users SET notification_status=? WHERE id=?',(int(request.form.get('status')=='on'),session['uid']))
+            with conn() as c:c.execute('UPDATE accident_party SET notify_status_change=? WHERE national_id=?',(int(request.form.get('status')=='on'),session['uid']))
             flash('تم حفظ تفضيلات الإشعارات بنجاح.','success')
         return redirect(url_for('profile',tab=tab))
-    with conn() as c: cars=c.execute('SELECT * FROM garage_vehicles WHERE user_id=? ORDER BY id DESC',(session['uid'],)).fetchall()
+    with conn() as c: cars=c.execute(VEHICLE_SQL+' WHERE national_id=? ORDER BY vehicle_id DESC',(session['uid'],)).fetchall()
     pending_email=session.get('pending_email')
     return render_template('profile.html',tab=tab,cars=cars,pending_email=pending_email,
                            demo_code=pending_email.get('demo_code') if pending_email and os.getenv('OTP_MODE','api').lower()=='demo' else None)
@@ -1448,21 +1424,20 @@ def save_vehicle():
         return redirect(url_for('profile',tab='vehicles'))
     vid=request.form.get('vehicle_id','')
     with conn() as c:
-        dup=c.execute('SELECT id FROM garage_vehicles WHERE user_id=? AND plate=?',(session['uid'],data['plate'])).fetchone()
-        if dup and str(dup['id'])!=vid:
-            flash('هذه اللوحة مسجلة مسبقًا في مركباتك.','error');return redirect(url_for('profile',tab='vehicles'))
-        if vid.isdigit():
-            cur=c.execute('UPDATE garage_vehicles SET plate=?,manufacturer=?,model=?,year=?,color=? WHERE id=? AND user_id=?',(*[data[k] for k in ('plate','manufacturer','model','year','color')],int(vid),session['uid']))
-            if not cur.rowcount:abort(404)
-        else:c.execute('INSERT INTO garage_vehicles(user_id,plate,manufacturer,model,year,color) VALUES(?,?,?,?,?,?)',(session['uid'],*[data[k] for k in ('plate','manufacturer','model','year','color')]))
+        _,error,_=save_owner_vehicle(c,session['uid'],data,int(vid) if vid.isdigit() else None)
+    if error:
+        flash(error,'error');return redirect(url_for('profile',tab='vehicles'))
     flash('تم حفظ المركبة بنجاح.','success');return redirect(url_for('profile',tab='vehicles'))
 
 @app.post('/profile/vehicles/<int:vehicle_id>/delete')
 @login_required
 def delete_vehicle(vehicle_id):
     with conn() as c:
-        cur=c.execute('DELETE FROM garage_vehicles WHERE id=? AND user_id=?',(vehicle_id,session['uid']))
-        if not cur.rowcount:abort(404)
+        car=c.execute('SELECT vehicle_id FROM vehicle WHERE vehicle_id=? AND national_id=?',(vehicle_id,session['uid'])).fetchone()
+        if not car: abort(404)
+        if c.execute('SELECT 1 FROM involves WHERE vehicle_id=?',(vehicle_id,)).fetchone():
+            flash('لا يمكن حذف هذه المركبة لأنها مرتبطة ببلاغ.','error');return redirect(url_for('profile',tab='vehicles'))
+        c.execute('DELETE FROM vehicle WHERE vehicle_id=?',(vehicle_id,))
     flash('تم حذف المركبة.','success');return redirect(url_for('profile',tab='vehicles'))
 
 @app.get('/privacy')
@@ -1475,7 +1450,7 @@ def terms_page():return render_template('legal.html',privacy=False)
 @login_required
 def cases_page():
     with conn() as c:
-        cases=c.execute('SELECT DISTINCT ca.* FROM cases ca LEFT JOIN parties p ON p.case_id=ca.id WHERE ca.creator_id=? OR p.user_id=? ORDER BY ca.id DESC',(session['uid'],session['uid'])).fetchall()
+        cases=user_cases(c,session['uid'])
     return render_template('dashboard.html',cases=cases,all_cases=True)
 
 @app.get('/health')

@@ -11,24 +11,16 @@ from app import app
 def csrf(c):
     with c.session_transaction() as s:return s['csrf']
 
+import factory
+
 def make_user(db,name,notify=1):
-    tag=uuid.uuid4().hex[:9]
-    email=name+tag+'@example.com'
-    digits=str(int(tag,16))[-8:].zfill(8)
-    db.execute('INSERT INTO users(full_name,email,phone,password_hash,national_id,notification_status) VALUES(?,?,?,?,?,?)',
-               (name,email,'05'+digits,'hash','1'+digits+'0',notify))
-    return db.execute('SELECT id FROM users WHERE email=?',(email,)).fetchone()['id'],email
+    return factory.make_party(db,name,notify=notify)
 
 def make_case(db,a_id,b_id=None):
-    ref='STATUS-'+uuid.uuid4().hex[:8]
-    db.execute('INSERT INTO cases(reference,creator_id,accident_type,accident_date,accident_time,location) VALUES(?,?,?,?,?,?)',
-               (ref,a_id,'LANE_CHANGE','2026-10-16','11:00','الرياض'))
-    cid=db.execute('SELECT id FROM cases WHERE reference=?',(ref,)).fetchone()['id']
-    db.execute("INSERT INTO parties(case_id,user_id,position,full_name,progress) VALUES(?,?,?,?,?)",(cid,a_id,'A','A',5))
-    db.execute("INSERT INTO parties(case_id,user_id,position,full_name,progress) VALUES(?,?,?,?,?)",(cid,b_id,'B','B',5))
-    party_a=db.execute("SELECT id FROM parties WHERE case_id=? AND position='A'",(cid,)).fetchone()['id']
-    db.execute('INSERT INTO videos(case_id,party_id,original_name,stored_name) VALUES(?,?,?,?)',(cid,party_a,'a.mp4',uuid.uuid4().hex+'.mp4'))
-    return cid,ref
+    # both parties are at the review step, each with a car; party A has a video
+    cid=factory.make_case(db,a_id,b_id,accident_type='LANE_CHANGE',progress=5,with_vehicles=True)
+    factory.add_video(db,cid,a_id,uuid.uuid4().hex+'.mp4')
+    return cid,cid
 
 def submit(client,uid,cid):
     with client.session_transaction() as sess: sess['uid']=uid
@@ -76,7 +68,7 @@ def test_failed_email_does_not_stop_submitting(monkeypatch):
         submit(client,a_id,cid)
         assert submit(client,b_id,cid).status_code==302
     with module.conn() as db:
-        assert db.execute('SELECT status FROM cases WHERE id=?',(cid,)).fetchone()['status']=='in_progress'
+        assert db.execute('SELECT status FROM accident_case WHERE case_id=?',(cid,)).fetchone()['status']=='in_progress'
 
 def test_first_party_gets_email_when_second_party_joins(monkeypatch):
     app.config['TESTING']=True
@@ -88,11 +80,12 @@ def test_first_party_gets_email_when_second_party_joins(monkeypatch):
     with module.conn() as db:
         a_id,a_email=make_user(db,'first')
         b_id,b_email=make_user(db,'second')
-        cid,_=make_case(db,a_id,None)
+        cid=factory.make_case(db,a_id,progress=6)
+        db.execute('UPDATE participation_progress SET completed=1 WHERE case_id=?',(cid,))
     monkeypatch.setenv('OTP_MODE','api')
     with app.test_client() as creator:
         with creator.session_transaction() as sess: sess['uid']=a_id
-        creator.get('/cases/'+str(cid)+'/steps/1')
+        creator.get('/cases/'+str(cid)+'/steps/7')
         creator.post('/cases/'+str(cid)+'/invite',data={'csrf_token':csrf(creator),'recipient_email':b_email})
     path='/'+invites[0].split('://',1)[1].split('/',1)[1]
     with app.test_client() as other:

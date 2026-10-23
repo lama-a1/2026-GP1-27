@@ -24,15 +24,11 @@ def test_uploaded_video_can_be_deleted_by_owner(monkeypatch):
         client.get('/login')
         reference='DEL-'+uuid.uuid4().hex[:12]
         email='delete'+uuid.uuid4().hex[:12]+'@example.test'
+        import factory
         with module.conn() as db:
-            uid=module.insert_id(db, 'INSERT INTO users(full_name,email,password_hash,national_id) VALUES(?,?,?,?)',
-                                 ('Video Owner', email, 'hash', '1'+str(uuid.uuid4().int)[:9]))
-            case_id=module.insert_id(db, 'INSERT INTO cases(reference,creator_id,accident_type,accident_date,accident_time,location) VALUES(?,?,?,?,?,?)',
-                                     (reference, uid, 'REAR_END', '2026-10-17', '10:00', 'Riyadh'))
-            party_id=module.insert_id(db, 'INSERT INTO parties(case_id,user_id,position,progress) VALUES(?,?,?,?)', (case_id,uid,'A',4))
-            video_id=module.insert_id(db, 'INSERT INTO videos(case_id,party_id,original_name,stored_name) VALUES(?,?,?,?)',
-                                      (case_id,party_id,'test.mp4','cloudinary://siyaq/test-delete'))
-            db.execute('INSERT INTO analysis_jobs(video_id) VALUES(?)', (video_id,))
+            uid,_=factory.make_party(db,'Video Owner',email=email)
+            case_id=factory.make_case(db,uid,progress=4,case_id=reference)
+            video_id=factory.add_video(db,case_id,uid,'cloudinary://siyaq/test-delete')
         with client.session_transaction() as sess:
             sess['uid']=uid
             sess['csrf']='csrf-test'
@@ -52,5 +48,5 @@ def test_uploaded_video_can_be_deleted_by_owner(monkeypatch):
         result=client.post(f'/videos/{video_id}/delete', data={'csrf_token':'csrf-test'})
         assert result.status_code==302 and '/steps/5' in result.location
         with module.conn() as db:
-            assert db.execute('SELECT id FROM videos WHERE id=?',(video_id,)).fetchone() is None
-            assert db.execute('SELECT id FROM analysis_jobs WHERE video_id=?',(video_id,)).fetchone() is None
+            assert db.execute('SELECT video_id FROM dashcam_video WHERE video_id=?',(video_id,)).fetchone() is None
+            assert db.execute('SELECT video_id FROM video_processing WHERE video_id=?',(video_id,)).fetchone() is None

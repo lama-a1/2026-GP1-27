@@ -20,10 +20,9 @@ def test_plate_rejects_more_than_three_letters():
 
 
 def test_compact_plate_is_saved_in_the_account():
-    tag = uuid.uuid4().hex
+    import factory
     with module.conn() as db:
-        uid = module.insert_id(db, 'INSERT INTO users(full_name,email,password_hash,national_id) VALUES(?,?,?,?)',
-                               ('Test Plate Owner', tag + '@example.test', 'hash', '1' + str(uuid.uuid4().int)[:9]))
+        uid, _ = factory.make_party(db, 'Test Plate Owner')
     with module.app.test_client() as client:
         with client.session_transaction() as session:
             session['uid'] = uid
@@ -32,4 +31,5 @@ def test_compact_plate_is_saved_in_the_account():
                 'manufacturer': 'Toyota', 'model': 'Camry', 'year': '2023', 'color': 'White'}
         assert client.post('/profile/vehicles', data=data).status_code == 302
         with module.conn() as db:
-            assert db.execute('SELECT plate FROM garage_vehicles WHERE user_id=?', (uid,)).fetchone()['plate'] == 'ب ح د 1234'
+            car = db.execute('SELECT plate_letters, plate_number FROM vehicle WHERE national_id=?', (uid,)).fetchone()
+            assert (car['plate_letters'], car['plate_number']) == ('ب ح د', '1234')

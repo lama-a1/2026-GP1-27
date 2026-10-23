@@ -7,6 +7,7 @@ os.environ['DATABASE_PATH']=str(Path(tempfile.gettempdir())/('siyaq_test_'+str(o
 os.environ['SECRET_KEY']='test-only-secret'
 os.environ['OTP_MODE']='demo'
 from app import app, local_now
+import factory
 
 def csrf(c):
     with c.session_transaction() as s:return s['csrf']
@@ -65,19 +66,14 @@ def test_email_invitation_is_targeted_single_use_and_private(monkeypatch):
     with app.test_client() as creator:
         creator.get('/login')
         with module.conn() as db:
-            email='creator'+str(os.getpid())+'@example.com'
-            db.execute('INSERT OR IGNORE INTO users(full_name,email,phone,password_hash,national_id) VALUES(?,?,?,?,?)',
-                       ('Creator',email,'057'+str(os.getpid()).zfill(7)[-7:],'hash','1'+str(os.getpid()).zfill(9)[-9:]))
-            uid=db.execute('SELECT id FROM users WHERE email=?',(email,)).fetchone()['id']
-            ref='INVITE-'+str(os.getpid())
-            db.execute('INSERT OR IGNORE INTO cases(reference,creator_id,accident_type,accident_date,accident_time,location) VALUES(?,?,?,?,?,?)',
-                       (ref,uid,'REAR_END','2026-10-16','11:00','الرياض'))
-            case_id=db.execute('SELECT id FROM cases WHERE reference=?',(ref,)).fetchone()['id']
-            db.execute("INSERT OR IGNORE INTO parties(case_id,user_id,position,full_name) VALUES(?,?,?,?)",(case_id,uid,'A','Creator'))
-            db.execute("INSERT OR IGNORE INTO parties(case_id,position) VALUES(?,?)",(case_id,'B'))
+            uid,email=factory.make_party(db,'Creator')
+            case_id=factory.make_case(db,uid,progress=6)
+            ref=case_id
+            # the first party already submitted, so the invitation can be sent
+            db.execute('UPDATE participation_progress SET completed=1 WHERE case_id=?',(case_id,))
         with creator.session_transaction() as sess: sess['uid']=uid
         page=creator.get('/cases/'+str(case_id))
-        assert page.status_code == 302 and '/steps/1' in page.location
+        assert page.status_code == 302 and '/steps/7' in page.location
         target='second'+str(os.getpid())+'@example.com'
         response=creator.post('/cases/'+str(case_id)+'/invite',data={'csrf_token':csrf(creator),'recipient_email':target.upper()})
         assert response.status_code==302
@@ -90,9 +86,7 @@ def test_email_invitation_is_targeted_single_use_and_private(monkeypatch):
     with app.test_client() as other:
         other.get('/login')
         with module.conn() as db:
-            db.execute('INSERT OR IGNORE INTO users(full_name,email,phone,password_hash,national_id) VALUES(?,?,?,?,?)',
-                       ('Second',target,'0551234568','hash','2'+str(os.getpid()).zfill(9)[-9:]))
-            second_id=db.execute('SELECT id FROM users WHERE email=?',(target,)).fetchone()['id']
+            second_id,_=factory.make_party(db,'Second',email=target)
         with other.session_transaction() as sess: sess['uid']=second_id
         other.get(link)
         result=other.post(link+'/accept',data={'csrf_token':csrf(other)})
@@ -108,20 +102,15 @@ def test_email_invitation_failure_does_not_leave_active_token(monkeypatch):
     with app.test_client() as client:
         client.get('/login')
         with module.conn() as db:
-            email='failcreator'+str(os.getpid())+'@example.com'
-            db.execute('INSERT OR IGNORE INTO users(full_name,email,phone,password_hash,national_id) VALUES(?,?,?,?,?)',('Creator',email,'058'+str(os.getpid()).zfill(7)[-7:],'hash','3'+str(os.getpid()).zfill(9)[-9:]))
-            uid=db.execute('SELECT id FROM users WHERE email=?',(email,)).fetchone()['id']
-            ref='FAIL-'+str(os.getpid())
-            db.execute('INSERT OR IGNORE INTO cases(reference,creator_id,accident_type,accident_date,accident_time,location) VALUES(?,?,?,?,?,?)',(ref,uid,'REAR_END','2026-10-16','11:00','الرياض'))
-            cid=db.execute('SELECT id FROM cases WHERE reference=?',(ref,)).fetchone()['id']
-            db.execute("INSERT OR IGNORE INTO parties(case_id,user_id,position) VALUES(?,?,?)",(cid,uid,'A'))
-            db.execute("INSERT OR IGNORE INTO parties(case_id,position) VALUES(?,?)",(cid,'B'))
+            uid,_=factory.make_party(db,'Creator')
+            cid=factory.make_case(db,uid,progress=6)
+            db.execute('UPDATE participation_progress SET completed=1 WHERE case_id=?',(cid,))
         with client.session_transaction() as sess: sess['uid']=uid
         client.get('/cases/'+str(cid))
         response=client.post('/cases/'+str(cid)+'/invite',data={'csrf_token':csrf(client),'recipient_email':'failrecipient@example.com'},follow_redirects=True)
         assert b'Delivery failed' in response.data
         with module.conn() as db:
-            assert db.execute('SELECT COUNT(*) AS n FROM invitations WHERE case_id=?',(cid,)).fetchone()['n']==0
+            assert db.execute('SELECT COUNT(*) AS n FROM case_invitation WHERE case_id=?',(cid,)).fetchone()['n']==0
 
 
 def test_brevo_rest_api_sends_otp_and_invitation(monkeypatch):

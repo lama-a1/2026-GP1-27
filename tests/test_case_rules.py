@@ -6,20 +6,14 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import parse_qs
 import app as module
+import factory
 
 
 def make_case(original, processed):
-    tag = uuid.uuid4().hex
     with module.conn() as db:
-        uid = module.insert_id(db, 'INSERT INTO users(full_name,email,password_hash,national_id) VALUES(?,?,?,?)',
-                               ('Test Case Owner', tag + '@example.test', 'hash', '1' + str(uuid.uuid4().int)[:9]))
-        cid = module.insert_id(db, 'INSERT INTO cases(reference,creator_id,accident_type,accident_date,accident_time,location) VALUES(?,?,?,?,?,?)',
-                               ('CANCEL-' + tag, uid, 'REAR_END', '2026-10-22', '10:00', 'Riyadh'))
-        pid = module.insert_id(db, 'INSERT INTO parties(case_id,user_id,position) VALUES(?,?,?)', (cid, uid, 'A'))
-        db.execute('INSERT INTO parties(case_id,position) VALUES(?,?)', (cid, 'B'))
-        vid = module.insert_id(db, 'INSERT INTO videos(case_id,party_id,original_name,stored_name,processed_name) VALUES(?,?,?,?,?)',
-                               (cid, pid, 'test.mp4', original, processed))
-        db.execute('INSERT INTO analysis_jobs(video_id) VALUES(?)', (vid,))
+        uid, _ = factory.make_party(db, 'Test Case Owner')
+        cid = factory.make_case(db, uid)
+        vid = factory.add_video(db, cid, uid, original, processed)
     return uid, cid, vid
 
 
@@ -49,9 +43,9 @@ def test_cancel_removes_original_and_processed_local_files(monkeypatch):
         assert cancel(uid, cid).status_code == 302
         assert not list(Path(folder).iterdir())
         with module.conn() as db:
-            assert db.execute('SELECT id FROM cases WHERE id=?', (cid,)).fetchone() is None
-            assert db.execute('SELECT id FROM videos WHERE id=?', (vid,)).fetchone() is None
-            assert db.execute('SELECT id FROM analysis_jobs WHERE video_id=?', (vid,)).fetchone() is None
+            assert db.execute('SELECT case_id FROM accident_case WHERE case_id=?', (cid,)).fetchone() is None
+            assert db.execute('SELECT video_id FROM dashcam_video WHERE video_id=?', (vid,)).fetchone() is None
+            assert db.execute('SELECT video_id FROM video_processing WHERE video_id=?', (vid,)).fetchone() is None
 
 
 def test_cancel_removes_both_cloudinary_files(monkeypatch):
@@ -97,5 +91,5 @@ def test_failed_file_deletion_keeps_the_case(monkeypatch):
     monkeypatch.setattr(module, 'delete_stored_file', fail)
     assert cancel(uid, cid).status_code == 302
     with module.conn() as db:
-        assert db.execute('SELECT id FROM cases WHERE id=?', (cid,)).fetchone() is not None
-        assert db.execute('SELECT id FROM videos WHERE id=?', (vid,)).fetchone() is not None
+        assert db.execute('SELECT case_id FROM accident_case WHERE case_id=?', (cid,)).fetchone() is not None
+        assert db.execute('SELECT video_id FROM dashcam_video WHERE video_id=?', (vid,)).fetchone() is not None
