@@ -444,6 +444,69 @@ def send_case_invitation(email, link, reference):
         app.logger.warning('Invitation SMTP send failed: %s',type(exc).__name__)
         raise RuntimeError('تعذّر إرسال الدعوة. يُرجى التحقق من إعدادات SMTP.') from exc
 
+# case status emails (sent only to users who turned on "status updates" in their settings)
+STATUS_EMAILS={
+    'joined':('انضمام الطرف الثاني','انضم الطرف الثاني إلى البلاغ',
+              'انضم الطرف الثاني إلى البلاغ، وسيستكمل بياناته وإفادته. سيصلك إشعار عند تغيّر حالة البلاغ.'),
+    'in_progress':('تحديث حالة البلاغ','البلاغ الآن قيد المراجعة',
+                   'أرسل الطرفان بياناتهما، وأصبح البلاغ قيد المراجعة. لا يمكن تعديل البيانات في هذه المرحلة.'),
+    'completed':('تحديث حالة البلاغ','اكتملت مراجعة البلاغ',
+                 'اكتملت مراجعة البلاغ، ويمكن الاطلاع على النتيجة من صفحة البلاغ في سياق.'),
+}
+
+def status_email_html(kind, reference, link):
+    kicker,title,description=STATUS_EMAILS[kind]
+    safe_link=html_escape(str(link),quote=True)
+    panel=(f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f8f5;border:1px solid #e1eae4;border-radius:12px;">'
+           f'<tr><td style="padding:16px 18px;text-align:right;">'
+           f'<div style="color:#718678;font-size:12px;">رقم البلاغ</div>'
+           f'<div dir="ltr" style="text-align:right;color:#153d2b;font-weight:bold;font-size:17px;margin-top:6px;">{html_escape(str(reference))}</div>'
+           f'</td></tr></table>'
+           f'<table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr><td align="center" style="padding:26px 0 14px;">'
+           f'<a href="{safe_link}" style="display:inline-block;background:#006b36;color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:16px 30px;border-radius:9px;">عرض البلاغ</a>'
+           f'</td></tr></table>')
+    return branded_email_html(kicker,title,description,panel,
+                              'يمكن إيقاف هذه الإشعارات من إعدادات الحساب في سياق.')
+
+def send_status_email(email, kind, reference, link):
+    # email one user about a change in their case
+    kicker,title,description=STATUS_EMAILS[kind]
+    subject='Siyaq | '+title
+    body=title+'\nرقم البلاغ: '+str(reference)+'\n\n'+description+'\n\n'+link+'\n\nيمكن إيقاف هذه الإشعارات من إعدادات الحساب في سياق.'
+    html=status_email_html(kind,reference,link)
+    if os.getenv('OTP_MODE','api').strip().lower()=='api':
+        return send_brevo_api_email(email,subject,body,html)
+    host=os.getenv('SMTP_HOST','').strip(); username=os.getenv('SMTP_USER','').strip()
+    password=os.getenv('SMTP_PASSWORD','').strip(); sender=os.getenv('SMTP_FROM',username).strip()
+    port=int(os.getenv('SMTP_PORT','587'))
+    if not all((host,username,password,sender)): raise RuntimeError('إعدادات البريد غير مكتملة.')
+    msg=EmailMessage(); msg['Subject']=subject; msg['From']=sender; msg['To']=email
+    msg.set_content(body); msg.add_alternative(html,subtype='html')
+    if port==465:
+        with smtplib.SMTP_SSL(host,port,timeout=20,context=ssl.create_default_context()) as smtp:
+            smtp.login(username,password); smtp.send_message(msg)
+    else:
+        with smtplib.SMTP(host,port,timeout=20) as smtp:
+            smtp.starttls(context=ssl.create_default_context()); smtp.login(username,password); smtp.send_message(msg)
+
+def notify_case(case_id, kind, only_user_id=None):
+    # send the status email to the case parties who turned notifications on
+    # (a failed email never stops the user's action, it is only logged)
+    if os.getenv('OTP_MODE','api').strip().lower()=='demo':
+        return
+    with conn() as c:
+        case=c.execute('SELECT id,reference FROM cases WHERE id=?',(case_id,)).fetchone()
+        users=c.execute('''SELECT DISTINCT u.id,u.email FROM parties p JOIN users u ON u.id=p.user_id
+                           WHERE p.case_id=? AND COALESCE(u.notification_status,1)=1''',(case_id,)).fetchall()
+    if not case: return
+    public_base=os.getenv('PUBLIC_BASE_URL','').strip().rstrip('/')
+    path=url_for('case_detail',case_id=case_id)
+    link=public_base+path if re.fullmatch(r'https://[^\s/]+(?:\:[0-9]{2,5})?',public_base) else url_for('case_detail',case_id=case_id,_external=True)
+    for u in users:
+        if only_user_id is not None and u['id']!=only_user_id: continue
+        try: send_status_email(u['email'],kind,case['reference'],link)
+        except Exception: app.logger.exception('Status email failed')
+
 def safe_invitation_next(value):
     return bool(re.fullmatch(r'/invite/[A-Za-z0-9_-]{20,100}', value or ''))
 
@@ -962,6 +1025,9 @@ def accept_invitation(token):
         claimed=c.execute('UPDATE invitations SET claimed_by=? WHERE id=? AND claimed_by IS NULL AND revoked_at IS NULL',
                           (session['uid'],inv['id']))
         if claimed.rowcount!=1: abort(403)
+        creator=c.execute('SELECT creator_id FROM cases WHERE id=?',(inv['case_id'],)).fetchone()
+    # tell the first party that the second party joined
+    if creator: notify_case(inv['case_id'],'joined',only_user_id=creator['creator_id'])
     return redirect(url_for('wizard',case_id=inv['case_id'],step=1))
 
 # Saudi plate letters and their English letters
@@ -1107,6 +1173,8 @@ def wizard(case_id,step):
                 count_row=c.execute('SELECT COUNT(*) AS total FROM parties WHERE case_id=? AND completed=1',(case_id,)).fetchone()
                 count=count_row['total'] if DATABASE_URL else count_row[0]
                 c.execute('UPDATE cases SET status=? WHERE id=?',('in_progress' if count==2 else 'pending',case_id))
+            # both parties submitted, so tell them the case is now in review
+            if count==2: notify_case(case_id,'in_progress')
             save_party_progress(party['id'],6)
             flash('تم حفظ بياناتك بنجاح.','success');return redirect(url_for('wizard',case_id=case_id,step=7))
         save_party_progress(party['id'],step)
