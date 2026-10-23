@@ -17,12 +17,12 @@ The current implementation provides the Arabic web application for collecting an
 - Rear-end collisions.
 - Lane-change accidents.
 
-The project scope covers minor, two-vehicle accidents with no injuries, recorded during daylight and in clear weather. Party A must provide one dashcam video; Party B may provide one additional video. The planned analysis treats each video independently.
+The project scope covers minor, two-vehicle accidents with no injuries, with clear weather and visibility. Party A must provide one dashcam video; Party B may provide one additional video. The planned analysis treats each video independently.
 
 ## Current Features
 
 - Accident-party registration with a required national ID and email verification.
-- Login, logout, password changes, and email-based password recovery.
+- Login, logout, password changes, and email-based password recovery; login stops for 15 minutes after 5 wrong attempts.
 - Case creation with accident details, location selection, vehicle information, and an accident description.
 - Selection of saved vehicles and management of vehicles through profile settings.
 - Email-address changes after verification of the new address.
@@ -121,7 +121,7 @@ python -m pip install -r requirements-privacy.txt
 
 ### 3. Create the environment file
 
-Copy `.env.example` to `.env` using your editor. Set `SECRET_KEY` to a long random value and set `PUBLIC_BASE_URL=http://127.0.0.1:5000` for local development. Leave `DATABASE_URL` unset to use SQLite.
+Copy `.env.example` to `.env` using your editor. Set `SECRET_KEY` to a long random value. For local development, leave `PUBLIC_BASE_URL` empty; when it is set, it must be the site's public HTTPS address. Leave `DATABASE_URL` unset to use SQLite.
 
 For real verification and invitation emails, configure:
 
