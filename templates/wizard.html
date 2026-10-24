@@ -307,6 +307,25 @@
               <a class="btn secondary" href="{{url_for('wizard',case_id=case.id,step=7,edit=1)}}"><i data-lucide="pencil"></i> إرسال إلى بريد آخر</a>
             </div>
             {% endif %}
+
+            <!-- the details this party sent, read only -->
+            <details class="submitted-summary" open>
+              <summary><i data-lucide="file-text"></i> بياناتك المرسلة</summary>
+              <div class="readonlygrid">
+                <div><span>رقم البلاغ</span><b>{{case.reference}}</b></div>
+                <div><span>نوع الحادث</span><b>{{'حادث تغيير مسار' if case.accident_type=='LANE_CHANGE' else 'حادث اصطدام خلفي'}}</b></div>
+                <div><span>تاريخ الحادث</span><b>{{case.accident_date}}</b></div>
+                <div><span>وقت الحادث</span><b>{{case.accident_time}}</b></div>
+                <div class="wide"><span>موقع الحادث</span><b>{{case.location}}</b></div>
+                {% if case.accident_type=='REAR_END' and party.vehicle_role %}
+                <div class="wide"><span>موقع مركبتك</span><b>{{'المركبة الأمامية' if party.vehicle_role=='FRONT' else 'المركبة الخلفية'}}</b></div>
+                {% endif %}
+                <div class="wide"><span>المركبة</span><b>{% if vehicle %}{{vehicle.manufacturer}} {{vehicle.model}} {{vehicle.year}} — <span dir="ltr">{{vehicle.plate}}</span>{% else %}غير مدخلة{% endif %}</b></div>
+                <div class="wide"><span>وصف الحادث</span><b class="pre">{{party.description or 'لا يوجد وصف'}}</b></div>
+                <div class="wide"><span>هل يوجد فيديو؟</span><b>{{'نعم' if videos else 'لا'}}{% if videos and videos[0].camera %} ({{'الكاميرا الأمامية' if videos[0].camera=='front' else 'الكاميرا الخلفية'}}){% endif %}</b></div>
+              </div>
+              <p class="fineprint">لا يمكن تعديل البيانات بعد الإرسال.</p>
+            </details>
           {% endif %}
         </div>
         {% endif %}

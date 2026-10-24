@@ -450,3 +450,8 @@ form[data-step="7"] .wizardfooter{display:none}
 .desc-opt:disabled {filter:grayscale(1);opacity:.42;cursor:not-allowed;box-shadow:none;transform:none;}
 .carpick .zone.unavailable {fill:#c4c8cb;opacity:.55;cursor:not-allowed;pointer-events:none;}
 .desc-lock-note {color:#52675c;line-height:1.9;}
+
+/* the details a party already sent, shown on the case status page */
+.submitted-summary{margin-top:18px;border:1.5px solid #dde6e0;border-radius:14px;background:#fff;padding:4px 16px 12px}
+.submitted-summary summary{cursor:pointer;font-weight:700;padding:10px 0;display:flex;gap:8px;align-items:center;color:#17231b}
+.submitted-summary .pre{white-space:pre-line;font-weight:500;line-height:1.8}
