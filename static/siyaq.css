@@ -445,3 +445,8 @@ input.is-invalid,select.is-invalid,textarea.is-invalid{border-color:#d4483b!impo
 form[data-step="7"] .wizardfooter{display:none}
 .camera-options .camera-option{display:flex!important;flex-direction:row!important;align-items:center}.camera-option>span{flex:1 1 auto;min-width:0;display:block}.camera-option input[type=radio]{flex:0 0 18px;margin:0!important;padding:0!important;width:18px!important;height:18px!important;min-height:0!important}
 .garage-dialog{max-height:92vh;overflow:auto}
+
+/* Unavailable choices remain visible for the second party. */
+.desc-opt:disabled {filter:grayscale(1);opacity:.42;cursor:not-allowed;box-shadow:none;transform:none;}
+.carpick .zone.unavailable {fill:#c4c8cb;opacity:.55;cursor:not-allowed;pointer-events:none;}
+.desc-lock-note {color:#52675c;line-height:1.9;}
