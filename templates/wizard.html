@@ -145,7 +145,7 @@
         <!-- step 4: picture choices that fill in the description -->
         {% set default_role = party.vehicle_role or '' %}
         <div id="desc-step" class="desc-step" data-type="{{case.accident_type}}" data-meta='{{desc_meta|tojson}}' data-role="{{default_role}}" data-constraints='{{locked_meta|tojson}}' data-locked="{{'1' if party.position=='B' and case.party_a_position else ''}}">
-          {% if locked_meta %}<p class="desc-lock-note">تم تحديد الخيارات وموضع الاصطدام وفق اختيارات الطرف الأول من منظور مركبتك. الخيارات الرمادية غير متاحة، ويمكنك توضيح روايتك في نص الوصف.</p>{% endif %}
+          {% if locked_meta %}<p class="desc-lock-note">تم تحديد بعض الخيارات وفق اختيارات الطرف الأول من منظور مركبتك، والخيارات الرمادية غير متاحة. باقي الخيارات حسب روايتك، ويمكنك كتابة الوصف وتعديله.</p>{% endif %}
           <input type="hidden" name="pos"><input type="hidden" name="rcase"><input type="hidden" name="side"><input type="hidden" name="who"><input type="hidden" name="zone">
           <div class="desc-legend"><span><i style="background:#2f7a52"></i>مركبتك</span><span><i style="background:#d9573a"></i>مركبة الطرف الآخر</span>{% if case.accident_type=='REAR_END' %}<span><i style="background:#9aa3ab"></i>مركبة أخرى</span>{% endif %}</div>
           {% if case.accident_type=='REAR_END' %}
@@ -156,8 +156,8 @@
           <div class="desc-q"><h3><i>٢</i>حدّد المركبة التي غيّرت مسارها</h3><div class="desc-opts" id="d-who"></div></div>
           {% endif %}
           <div class="desc-q">
-            <h3><i>٣</i>حدّد موضع الاصطدام في مركبتك</h3>
-            <p>يرجى تحديد موضع الاصطدام على الرسم التوضيحي.</p>
+            <h3><i>٣</i>{{'موضع الاصطدام في مركبتك' if case.accident_type=='REAR_END' else 'حدّد موضع الاصطدام في مركبتك'}}</h3>
+            <p>{{'يتحدد تلقائيًا حسب موقع مركبتك: المركبة الأمامية تُصدم من الخلف، والخلفية من الأمام.' if case.accident_type=='REAR_END' else 'يرجى تحديد موضع الاصطدام على الرسم التوضيحي.'}}</p>
             <div class="carpick">
               <svg viewBox="0 0 160 260" width="150" role="group" aria-label="عرض علوي للمركبة">
                 <text x="80" y="14" text-anchor="middle" font-size="11" fill="#6d8175">الأمام</text>

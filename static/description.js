@@ -21,7 +21,8 @@
   const constraints=JSON.parse(root.dataset.constraints||'{}');
   Object.assign(st,constraints);
   const unavailable=(key,value)=>Object.prototype.hasOwnProperty.call(constraints,key)&&constraints[key]!==value;
-  if(type==='REAR_END'&&!st.zone&&st.pos)st.zone=st.pos==='FRONT'?'rear':'front';
+  // rear-end: the front car is hit at the back and the rear car at the front, for both parties
+  if(type==='REAR_END')st.zone=st.pos?(st.pos==='FRONT'?'rear':'front'):'';
 
   const car=(x,y,c,o={})=>{
     const tl=o.brake?'#ff3b2f':'#b3271b';
@@ -103,7 +104,7 @@
       $('d-who').innerHTML=['me','other','both'].map(v=>opt('who',v,laneScene(v,st.side),WHO[v])).join('');
     }
     root.querySelectorAll('.zone').forEach(z=>{
-      const disabled=unavailable('zone',z.dataset.z);
+      const disabled=type==='REAR_END'?z.dataset.z!==st.zone:unavailable('zone',z.dataset.z);
       z.classList.toggle('on',z.dataset.z===st.zone);
       z.classList.toggle('unavailable',disabled);
       z.setAttribute('aria-disabled',String(disabled));
@@ -123,10 +124,10 @@
     const b=e.target.closest('.desc-opt[data-k]');if(!b)return;
     if(b.disabled||unavailable(b.dataset.k,b.dataset.v))return;
     st[b.dataset.k]=b.dataset.v;
-    if(b.dataset.k==='pos'&&!constraints.zone)st.zone=b.dataset.v==='FRONT'?'rear':'front';
+    if(b.dataset.k==='pos')st.zone=b.dataset.v==='FRONT'?'rear':'front';
     render();
   });
-  root.querySelectorAll('.zone').forEach(z=>{const f=()=>{if(unavailable('zone',z.dataset.z))return;st.zone=z.dataset.z;render()};z.addEventListener('click',f);z.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();f()}})});
+  root.querySelectorAll('.zone').forEach(z=>{const f=()=>{if(type==='REAR_END'||unavailable('zone',z.dataset.z))return;st.zone=z.dataset.z;render()};z.addEventListener('click',f);z.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();f()}})});
   ta.addEventListener('input',()=>{st.edited=ta.value!==sentence();$('desc-refill').hidden=!st.edited||!sentence();count()});
   $('desc-refill').addEventListener('click',()=>{st.edited=false;render()});
   form.addEventListener('submit',e=>{

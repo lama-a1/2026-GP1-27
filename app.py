@@ -1043,28 +1043,26 @@ def save_party_progress(case_id,national_id,step):
     with conn() as c: c.execute('UPDATE participation_progress SET progress=? WHERE case_id=? AND national_id=? AND progress<?',(step,case_id,national_id,step))
 
 def opposite_description(case, first):
-    # Keep the same event and express the choices from the second party's view.
+    # lock only what both parties must agree on; what happened is each party's own account
     try:
         meta=json.loads(first['description_meta'] or '{}') if first else {}
     except (ValueError, TypeError):
         meta={}
     if not isinstance(meta,dict): meta={}
-    zones={'front':'rear','rear':'front','left':'right','right':'left',
-           'front-left':'rear-right','front-right':'rear-left',
-           'rear-left':'front-right','rear-right':'front-left'}
     result={}
     if case['accident_type']=='REAR_END':
         pos=OPPOSITE.get(case['party_a_position'] or meta.get('pos'))
-        if pos: result['pos']=pos
-        if meta.get('rcase') in ('normal','sudden','cutin'): result['rcase']=meta['rcase']
+        if pos:
+            result['pos']=pos
+            # the front car is hit at the back and the rear car at the front
+            result['zone']=REAR_END_ZONE[pos]
     else:
+        # if the other car is on A's left, then A is on B's right
         side={'left':'right','right':'left'}.get(meta.get('side'))
-        who={'me':'other','other':'me','both':'both'}.get(meta.get('who'))
         if side: result['side']=side
-        if who: result['who']=who
-    if meta.get('zone') in zones: result['zone']=zones[meta['zone']]
     return result
 
+REAR_END_ZONE={'FRONT':'rear','REAR':'front'}
 STEPS=['بيانات الحادث','بيانات الطرف','بيانات المركبة','وصف الحادث','رفع الفيديو','المراجعة','دعوة الطرف الثاني']
 @app.route('/cases/<case_id>/steps/<int:step>',methods=['GET','POST'])
 @login_required
@@ -1120,7 +1118,8 @@ def wizard(case_id,step):
                 if party['position']=='B' and case['party_a_position']: meta['pos']=OPPOSITE[case['party_a_position']]
                 if meta['pos'] not in ('FRONT','REAR'): errors.append('موقع المركبة مطلوب (الأمامية أو الخلفية).')
                 if meta['rcase'] not in ('normal','sudden','cutin'): errors.append('ما حدث قبل الصدمة مطلوب.')
-                if meta['zone'] not in ('front','rear'): errors.append('مكان الصدمة مطلوب.')
+                # rear-end: the place of the hit always follows the car position, for both parties
+                meta['zone']=REAR_END_ZONE.get(meta['pos'])
             else:
                 meta={'side':f.get('side'),'who':f.get('who'),'zone':f.get('zone')}
                 meta.update(locked_meta)
