@@ -17,6 +17,9 @@
     zone:saved.zone||'',
     edited:false
   };
+  // the second party can't pick the position, it is always the opposite of the first party
+  const locked=root.dataset.locked==='1';
+  if(locked&&root.dataset.role)st.pos=root.dataset.role;
   if(type==='REAR_END'&&!st.zone&&st.pos)st.zone=st.pos==='FRONT'?'rear':'front';
 
   const car=(x,y,c,o={})=>{
@@ -92,7 +95,7 @@
   function count(){const n=ta.value.trim().length;$('desc-count').innerHTML=`<span class="${n<10||n>500?'bad':''}">${n} / 500</span>`}
   function render(){
     if(type==='REAR_END'){
-      $('d-pos').innerHTML=['REAR','FRONT'].map(v=>opt('pos',v,posScene(v),POS[v],'',1)).join('');
+      $('d-pos').innerHTML=(locked?[st.pos]:['REAR','FRONT']).map(v=>opt('pos',v,posScene(v),POS[v],'',1)).join('');
       $('d-rcase').innerHTML=['normal','sudden','cutin'].map(v=>opt('rcase',v,rearScene(v,st.pos),...RC[v])).join('');
     }else{
       $('d-side').innerHTML=['left','right'].map(v=>opt('side',v,laneScene('none',v),SIDE[v])).join('');
@@ -109,6 +112,7 @@
   }
   root.addEventListener('click',e=>{
     const b=e.target.closest('.desc-opt[data-k]');if(!b)return;
+    if(locked&&b.dataset.k==='pos')return;
     st[b.dataset.k]=b.dataset.v;
     if(b.dataset.k==='pos')st.zone=b.dataset.v==='FRONT'?'rear':'front';
     render();

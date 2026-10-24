@@ -144,11 +144,11 @@
         {% elif step==4 %}
         <!-- step 4: picture choices that fill in the description -->
         {% set default_role = party.vehicle_role or '' %}
-        <div id="desc-step" class="desc-step" data-type="{{case.accident_type}}" data-meta='{{desc_meta|tojson}}' data-role="{{default_role}}">
+        <div id="desc-step" class="desc-step" data-type="{{case.accident_type}}" data-meta='{{desc_meta|tojson}}' data-role="{{default_role}}" data-locked="{{'1' if party.position=='B' and case.party_a_position else ''}}">
           <input type="hidden" name="pos"><input type="hidden" name="rcase"><input type="hidden" name="side"><input type="hidden" name="who"><input type="hidden" name="zone">
           <div class="desc-legend"><span><i style="background:#2f7a52"></i>مركبتك</span><span><i style="background:#d9573a"></i>مركبة الطرف الآخر</span>{% if case.accident_type=='REAR_END' %}<span><i style="background:#9aa3ab"></i>مركبة أخرى</span>{% endif %}</div>
           {% if case.accident_type=='REAR_END' %}
-          <div class="desc-q"><h3><i>١</i>موقع المركبة وقت وقوع الحادث</h3><div class="desc-opts" id="d-pos"></div></div>
+          <div class="desc-q"><h3><i>١</i>موقع المركبة وقت وقوع الحادث</h3>{% if party.position=='B' and case.party_a_position %}<p>تم تحديد موقع مركبتك حسب ما اختاره الطرف الأول، ولا يمكن تغييره.</p>{% endif %}<div class="desc-opts" id="d-pos"></div></div>
           <div class="desc-q"><h3><i>٢</i>اختر الخيار الأقرب إلى ما حدث قبل الاصطدام</h3><p>يرجى تحديد الخيار الأقرب إلى تفاصيل الحادث.</p><div class="desc-opts" id="d-rcase"></div></div>
           {% else %}
           <div class="desc-q"><h3><i>١</i>جهة مركبة الطرف الآخر بالنسبة إلى مركبتك</h3><div class="desc-opts" id="d-side"></div></div>
