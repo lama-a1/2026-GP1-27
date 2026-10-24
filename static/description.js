@@ -18,8 +18,9 @@
     edited:false
   };
   // the second party can't pick the position, it is always the opposite of the first party
-  const locked=root.dataset.locked==='1';
-  if(locked&&root.dataset.role)st.pos=root.dataset.role;
+  const constraints=JSON.parse(root.dataset.constraints||'{}');
+  Object.assign(st,constraints);
+  const unavailable=(key,value)=>Object.prototype.hasOwnProperty.call(constraints,key)&&constraints[key]!==value;
   if(type==='REAR_END'&&!st.zone&&st.pos)st.zone=st.pos==='FRONT'?'rear':'front';
 
   const car=(x,y,c,o={})=>{
@@ -74,7 +75,7 @@
             cutin:['غيّرت المركبة الأمامية مسارها قبل الاصطدام مباشرة','انتقلت إلى المسار أمام المركبة الخلفية ثم وقع الاصطدام']};
   const WHO={me:'غيّرت مركبتي مسارها',other:'غيّرت مركبة الطرف الآخر مسارها',both:'غيّرت المركبتان مساريهما في الوقت نفسه'};
   const SIDE={left:'إلى يسار مركبتي',right:'إلى يمين مركبتي'};
-  const opt=(key,val,art,label,sub,you)=>`<button type="button" class="desc-opt" data-k="${key}" data-v="${val}" aria-pressed="${st[key]===val}">${art}${you?'<em class="you">مركبتك</em>':''}<span>${label}</span>${sub?`<small>${sub}</small>`:''}</button>`;
+  const opt=(key,val,art,label,sub,you)=>`<button type="button" class="desc-opt" ${unavailable(key,val)?'disabled aria-disabled="true"':''} data-k="${key}" data-v="${val}" aria-pressed="${st[key]===val}">${art}${you?'<em class="you">مركبتك</em>':''}<span>${label}</span>${sub?`<small>${sub}</small>`:''}</button>`;
   // put the selected answers into the description
   function sentence(){
     const z=ZN[st.zone];
@@ -95,13 +96,21 @@
   function count(){const n=ta.value.trim().length;$('desc-count').innerHTML=`<span class="${n<10||n>500?'bad':''}">${n} / 500</span>`}
   function render(){
     if(type==='REAR_END'){
-      $('d-pos').innerHTML=(locked?[st.pos]:['REAR','FRONT']).map(v=>opt('pos',v,posScene(v),POS[v],'',1)).join('');
+      $('d-pos').innerHTML=['REAR','FRONT'].map(v=>opt('pos',v,posScene(v),POS[v],'',1)).join('');
       $('d-rcase').innerHTML=['normal','sudden','cutin'].map(v=>opt('rcase',v,rearScene(v,st.pos),...RC[v])).join('');
     }else{
       $('d-side').innerHTML=['left','right'].map(v=>opt('side',v,laneScene('none',v),SIDE[v])).join('');
       $('d-who').innerHTML=['me','other','both'].map(v=>opt('who',v,laneScene(v,st.side),WHO[v])).join('');
     }
-    root.querySelectorAll('.zone').forEach(z=>z.classList.toggle('on',z.dataset.z===st.zone));
+    root.querySelectorAll('.zone').forEach(z=>{
+      const disabled=unavailable('zone',z.dataset.z);
+      z.classList.toggle('on',z.dataset.z===st.zone);
+      z.classList.toggle('unavailable',disabled);
+      z.setAttribute('aria-disabled',String(disabled));
+      z.setAttribute('role','button');
+      z.setAttribute('aria-label',ZN[z.dataset.z]);
+      z.setAttribute('tabindex',disabled?'-1':'0');
+    });
     $('zone-text').textContent=ZN[st.zone]||'لم يُحدَّد بعد';
     ['pos','rcase','side','who','zone'].forEach(k=>{const el=form.elements[k];if(el)el.value=st[k]||'';});
     const sen=sentence();
@@ -112,12 +121,12 @@
   }
   root.addEventListener('click',e=>{
     const b=e.target.closest('.desc-opt[data-k]');if(!b)return;
-    if(locked&&b.dataset.k==='pos')return;
+    if(b.disabled||unavailable(b.dataset.k,b.dataset.v))return;
     st[b.dataset.k]=b.dataset.v;
-    if(b.dataset.k==='pos')st.zone=b.dataset.v==='FRONT'?'rear':'front';
+    if(b.dataset.k==='pos'&&!constraints.zone)st.zone=b.dataset.v==='FRONT'?'rear':'front';
     render();
   });
-  root.querySelectorAll('.zone').forEach(z=>{const f=()=>{st.zone=z.dataset.z;render()};z.addEventListener('click',f);z.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();f()}})});
+  root.querySelectorAll('.zone').forEach(z=>{const f=()=>{if(unavailable('zone',z.dataset.z))return;st.zone=z.dataset.z;render()};z.addEventListener('click',f);z.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();f()}})});
   ta.addEventListener('input',()=>{st.edited=ta.value!==sentence();$('desc-refill').hidden=!st.edited||!sentence();count()});
   $('desc-refill').addEventListener('click',()=>{st.edited=false;render()});
   form.addEventListener('submit',e=>{
