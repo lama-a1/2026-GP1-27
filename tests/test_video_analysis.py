@@ -135,3 +135,27 @@ def test_status_page_starts_the_analysis_and_expert_list_shows_it(monkeypatch):
         login_expert(expert)
         listing = expert.get('/expert/cases').data.decode()
         assert f'/videos/{vid}/analysis' in listing and 'اكتمل' in listing
+
+
+def test_cloudinary_fetch_signs_with_timestamp_and_falls_back(monkeypatch, tmp_path):
+    # the private download API rejects a request without a timestamp (HTTP 400); if it still fails,
+    # the signed delivery URL is tried
+    import io
+    from urllib.error import HTTPError
+    import video_analysis as va
+    for k, x in {'CLOUDINARY_CLOUD_NAME': 'demo', 'CLOUDINARY_API_KEY': 'k', 'CLOUDINARY_API_SECRET': 's'}.items():
+        monkeypatch.setenv(k, x)
+    monkeypatch.setattr(module, 'cloudinary_metadata', lambda pid: {'format': 'mov'})
+    seen = []
+
+    def fake_open(req, timeout=0):
+        seen.append(req.full_url)
+        if 'api.cloudinary.com' in req.full_url:
+            raise HTTPError(req.full_url, 400, 'Bad Request', {}, None)
+        return io.BytesIO(b'video-bytes')
+    monkeypatch.setattr(va, 'urlopen', fake_open)
+    v = {'processed_name': None, 'stored_name': 'cloudinary://siyaq/x', 'original_name': 'a.mp4'}
+    path = va.fetch_video(module, v, str(tmp_path))
+    assert open(path, 'rb').read() == b'video-bytes'
+    assert 'timestamp=' in seen[0] and 'format=mov' in seen[0]
+    assert seen[1].startswith('https://res.cloudinary.com/demo/video/authenticated/s--')

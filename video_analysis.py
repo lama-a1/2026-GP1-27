@@ -7,6 +7,7 @@ import tempfile
 import time
 from datetime import datetime
 from urllib.parse import quote, urlencode
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from flask import abort, jsonify, redirect, render_template, send_from_directory, url_for
@@ -193,22 +194,39 @@ def fetch_video(h, v, folder):
     dest = os.path.join(folder, 'video.' + ext)
     public_id = h.stored_cloudinary_id(stored)
     if public_id:
-        params = {'public_id': public_id, 'format': ext, 'type': 'authenticated', 'expires_at': int(time.time()) + 600}
-        params.update(api_key=os.environ['CLOUDINARY_API_KEY'], signature=h.cloudinary_sign(params))
-        url = ('https://api.cloudinary.com/v1_1/' + quote(os.environ['CLOUDINARY_CLOUD_NAME'], safe='') +
-               '/video/download?' + urlencode(params))
-        with urlopen(Request(url), timeout=120) as r, open(dest, 'wb') as out:
-            while True:
-                chunk = r.read(1 << 20)
-                if not chunk:
-                    break
-                out.write(chunk)
-        return dest
+        # the format Cloudinary stored (it can differ from the uploaded file name), then two ways to get the file:
+        # 1) the private download API (needs a timestamp in the signature), 2) the signed delivery URL
+        try:
+            fmt = h.cloudinary_metadata(public_id).get('format') or ext
+        except Exception:
+            fmt = ext
+        errors = []
+        for url in (cloudinary_download_url(h, public_id, fmt), cloudinary_video_url(public_id, fmt)):
+            try:
+                with urlopen(Request(url), timeout=120) as r, open(dest, 'wb') as out:
+                    while True:
+                        chunk = r.read(1 << 20)
+                        if not chunk:
+                            break
+                        out.write(chunk)
+                return dest
+            except HTTPError as e:
+                errors.append(f"{e.code} {e.headers.get('X-Cld-Error') or e.reason}")
+        raise RuntimeError('Cloudinary: ' + ' | '.join(errors))
     key = h.stored_s3_key(stored)
     if key:
         h.storage_client().download_file(os.environ['S3_BUCKET'], key, dest)
         return dest
     return str(h.UPLOAD / stored)
+
+
+def cloudinary_download_url(h, public_id, fmt):
+    """Private download URL (Cloudinary Admin API), valid for 10 minutes."""
+    now = int(time.time())
+    params = {'public_id': public_id, 'format': fmt, 'type': 'authenticated', 'timestamp': now, 'expires_at': now + 600}
+    params.update(api_key=os.environ['CLOUDINARY_API_KEY'], signature=h.cloudinary_sign(params))
+    return ('https://api.cloudinary.com/v1_1/' + quote(os.environ['CLOUDINARY_CLOUD_NAME'], safe='') +
+            '/video/download?' + urlencode(params))
 
 
 def cloudinary_video_url(public_id, fmt='mp4'):

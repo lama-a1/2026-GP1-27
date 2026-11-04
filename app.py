@@ -1359,7 +1359,7 @@ def download_video(video_id):
         # make a download link that only works for 2 minutes
         expires = int(time.time()) + 120
         fmt = v['original_name'].rsplit('.', 1)[-1].lower() if '.' in v['original_name'] else 'mp4'
-        params = {'public_id': public_id, 'format': fmt, 'type': 'authenticated', 'expires_at': expires}
+        params = {'public_id': public_id, 'format': fmt, 'type': 'authenticated', 'timestamp': int(time.time()), 'expires_at': expires}
         params.update({'api_key': os.environ['CLOUDINARY_API_KEY'], 'signature': cloudinary_sign(params)})
         url = ('https://api.cloudinary.com/v1_1/' + quote(os.environ['CLOUDINARY_CLOUD_NAME'],safe='') +
                '/video/download?' + urlencode(params))
