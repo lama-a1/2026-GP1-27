@@ -10,11 +10,16 @@
     <h2><span class="pill pill-{{key|replace('_','-')}}">{{title}}</span> <small>{{hint}} · {{groups[key]|length}}</small></h2>
     <div class="expert-table-wrap">
       <table class="expert-table">
-        <thead><tr><th>رقم الحالة</th><th>نوع الحادث</th><th>تاريخ الحادث</th><th>وقت الحادث</th></tr></thead>
+        <thead><tr><th>رقم الحالة</th><th>نوع الحادث</th><th>تاريخ الحادث</th><th>وقت الحادث</th><th>التحليل الآلي</th></tr></thead>
         <tbody>
           {% for c in groups[key] %}
-          <tr><td dir="ltr">{{c.reference}}</td><td>{{'حادث تغيير مسار' if c.accident_type=='LANE_CHANGE' else 'تصادم خلفي' if c.accident_type=='REAR_END' else c.accident_type}}</td><td>{{c.accident_date}}</td><td>{{c.accident_time}}</td></tr>
-          {% else %}<tr><td colspan="4" class="expert-empty">لا توجد حالات في هذا القسم.</td></tr>{% endfor %}
+          <tr><td dir="ltr">{{c.reference}}</td><td>{{'حادث تغيير مسار' if c.accident_type=='LANE_CHANGE' else 'تصادم خلفي' if c.accident_type=='REAR_END' else c.accident_type}}</td><td>{{c.accident_date}}</td><td>{{c.accident_time}}</td>
+            <td><div class="expert-analysis">{% set ana = case_analysis(c.case_id) %}
+              {% for v in ana.videos %}
+              <a class="ana-link ana-{{v.status}}" href="{{url_for('video_analysis_page',video_id=v.video_id)}}">فيديو {{'الطرف الأول' if v.position=='A' else 'الطرف الثاني'}} · {{ {'done':'اكتمل','running':'جارٍ التحليل','failed':'تعذّر','none':'لم يبدأ'}[v.status] }}</a>
+              {% else %}<span class="muted">لا يوجد فيديو</span>{% endfor %}
+            </div></td></tr>
+          {% else %}<tr><td colspan="5" class="expert-empty">لا توجد حالات في هذا القسم.</td></tr>{% endfor %}
         </tbody>
       </table>
     </div>

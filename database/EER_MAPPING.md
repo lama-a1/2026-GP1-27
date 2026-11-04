@@ -42,5 +42,6 @@ The website needs a few tables that are not part of the EER. They only hold tech
 | `password_reset_link` | Password reset links: token, expiry and whether they were used |
 | `login_attempt` | Wrong login attempts, to stop login for 15 minutes after 5 tries |
 | `video_processing` | The uploaded file's original name and its privacy/analysis processing status |
+| `video_analysis` | Sprint 2: the full result of the automatic analysis of each video (JSON). The events themselves are saved in the EER tables `detected_event`, `detected_vehicle`, `involvement` and `bounding_box` |
 
 The tables are created by `schema.py` when the website starts. `database/postgresql.sql` and `database/sqlite.sql` show the same statements.

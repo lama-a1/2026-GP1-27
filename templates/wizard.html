@@ -227,7 +227,6 @@
           <span class="video-saved-name">{{v.original_name}}{% if v.camera %} <small class="muted">· {{'الكاميرا الأمامية' if v.camera=='front' else 'الكاميرا الخلفية'}}</small>{% endif %}</span>
           <div class="video-saved-actions">
             <span class="pill">تم الرفع</span>
-            <a class="btn secondary video-analysis-btn" href="{{url_for('video_analysis_page',video_id=v.id)}}">التحليل الآلي <i data-lucide="scan-eye"></i></a>
             {% if not party.completed %}
             <button type="submit" form="delete-video-{{v.id}}" class="btn secondary video-delete-btn" onclick="return confirm('حذف هذا الفيديو نهائيًا؟')">حذف الفيديو <i data-lucide="trash-2"></i></button>
             {% endif %}
@@ -293,7 +292,14 @@
               <li class="done"><span class="dot"><i data-lucide="check"></i></span><div><b>تم إرسال بياناتك</b><small>اكتملت بياناتك في البلاغ</small></div></li>
               {% if other_done %}
               <li class="done"><span class="dot"><i data-lucide="check"></i></span><div><b>{{'اكتملت بيانات الطرف الثاني' if is_a else 'اكتملت بيانات الطرف الأول'}}</b><small>تم استلام بيانات الطرفين</small></div></li>
-              <li class="current"><span class="dot"><i data-lucide="clock"></i></span><div><b>تحليل الحالة</b><small>في قائمة الانتظار</small></div></li>
+              {% set ana = case_analysis(case.id) %}
+              {% if ana.state == 'done' %}
+              <li class="done"><span class="dot"><i data-lucide="check"></i></span><div><b>تحليل الحالة</b><small>اكتمل التحليل الآلي للفيديو</small></div></li>
+              {% elif ana.state == 'failed' %}
+              <li class="current"><span class="dot"><i data-lucide="clock"></i></span><div><b>تحليل الحالة</b><small>تعذّر التحليل الآلي، وسيتابع الخبير الحالة</small></div></li>
+              {% else %}
+              <li class="current"><span class="dot"><i data-lucide="clock"></i></span><div><b>تحليل الحالة</b><small>جارٍ التحليل الآلي للفيديو</small></div></li>
+              {% endif %}
               {% else %}
               <li class="current"><span class="dot"><i data-lucide="clock"></i></span><div><b>بانتظار الطرف الثاني</b><small>{{'انضم إلى البلاغ ولم يُكمل بياناته بعد' if other_joined else 'أُرسل رابط الدعوة إلى ' ~ invite.recipient_email}}</small></div></li>
               <li><span class="dot">3</span><div><b>تحليل الحالة</b><small>يبدأ بعد اكتمال بيانات الطرفين</small></div></li>
@@ -373,6 +379,19 @@
     <form id="party-invite-form" method="post" action="{{url_for('invite',case_id=case.id)}}" class="siyaq-invite-form">
       <input type="hidden" name="csrf_token" value="{{csrf_token()}}">
     </form>
+    {% endif %}
+
+    <!-- Sprint 2: start the automatic analysis of this party's own video after they submit (runs in the background) -->
+    {% if step==7 and party.completed %}
+    {% set mine = case_analysis(case.id).videos|selectattr('position','equalto',party.position)|selectattr('status','equalto','none')|list %}
+    {% if mine %}
+    <script>
+    (function(){
+      var urls={{ mine|map(attribute='video_id')|map('string')|list|tojson }}.map(function(id){return '/videos/'+id+'/analyse'});
+      urls.forEach(function(u){fetch(u,{method:'POST',headers:{'X-CSRF-Token':'{{csrf_token()}}'},credentials:'same-origin',keepalive:false}).catch(function(){});});
+    })();
+    </script>
+    {% endif %}
     {% endif %}
 
   </div>

@@ -32,6 +32,12 @@ def setup_case(db):
     return a, case_id, vid
 
 
+def login_expert(client):
+    with client.session_transaction() as s:
+        s['expert_authenticated'] = True
+        s['csrf'] = 'va-csrf'
+
+
 def login(client, nid):
     with client.session_transaction() as s:
         s['uid'] = nid
@@ -50,7 +56,11 @@ def test_analyse_saves_result_and_eer_events(monkeypatch):
         r = client.post(f'/videos/{vid}/analyse', headers={'X-CSRF-Token': 'va-csrf'})
         assert r.get_json()['status'] == 'done'
         assert seen['type'] == 'LANE_CHANGE'                     # the accident type chosen in the case form
-        page = client.get(f'/videos/{vid}/analysis').data.decode()
+        # the party does not see the technical analysis page, the expert does
+        assert client.get(f'/videos/{vid}/analysis').status_code == 403
+    with app.test_client() as expert:
+        login_expert(expert)
+        page = expert.get(f'/videos/{vid}/analysis').data.decode()
         for text in ('تغيير مسار', 'لحظة الاصطدام', 'مقدار الانتقال الجانبي', 'تتبع المركبات'):
             assert text in page
     with module.conn() as db:
@@ -58,10 +68,11 @@ def test_analyse_saves_result_and_eer_events(monkeypatch):
         assert sorted(types) == ['collision', 'lane_change']
         assert db.execute('''SELECT count(*) AS n FROM involvement i JOIN detected_event e ON e.event_id=i.event_id
                              WHERE e.video_id=? AND i.vehicle_role='Vehicle B' ''', (vid,)).fetchone()['n'] == 2
-    # analysing again replaces the old events instead of adding duplicates
-    with app.test_client() as client:
-        login(client, nid)
-        client.post(f'/videos/{vid}/analyse', headers={'X-CSRF-Token': 'va-csrf'})
+        assert db.execute('SELECT job_status FROM video_processing WHERE video_id=?', (vid,)).fetchone()['job_status'] == 'done'
+    # analysing again (by the expert) replaces the old events instead of adding duplicates
+    with app.test_client() as expert:
+        login_expert(expert)
+        expert.post(f'/videos/{vid}/analyse', headers={'X-CSRF-Token': 'va-csrf'})
     with module.conn() as db:
         assert db.execute('SELECT count(*) AS n FROM detected_event WHERE video_id=?', (vid,)).fetchone()['n'] == 2
 
@@ -90,3 +101,37 @@ def test_real_engine_on_a_generated_video(tmp_path):
     from siyaq_cv.analyse import analyse_video
     r = analyse_video(p, 'REAR_END')
     assert r['video']['frames'] == 20 and 'events' in r and 'torch' not in sys.modules
+
+
+def test_second_party_cannot_reach_the_first_party_video(monkeypatch):
+    import siyaq_cv.analyse
+    monkeypatch.setattr(siyaq_cv.analyse, 'analyse_video', lambda path, typ: FAKE)
+    with module.conn() as db:
+        a, case_id, vid = setup_case(db)
+        b, _ = factory.make_party(db, 'Party B')
+        db.execute('INSERT INTO participates(national_id,case_id) VALUES(?,?)', (b, case_id))
+        db.execute('INSERT INTO participation_progress(national_id,case_id,position,progress) VALUES(?,?,?,?)', (b, case_id, 'B', 0))
+    with app.test_client() as client:
+        login(client, b)
+        assert client.post(f'/videos/{vid}/analyse', headers={'X-CSRF-Token': 'va-csrf'}).status_code == 403
+        assert client.get(f'/videos/{vid}/stream').status_code == 403
+        assert client.get(f'/videos/{vid}/analysis-status').status_code == 403
+
+
+def test_status_page_starts_the_analysis_and_expert_list_shows_it(monkeypatch):
+    import siyaq_cv.analyse
+    monkeypatch.setattr(siyaq_cv.analyse, 'analyse_video', lambda path, typ: FAKE)
+    with module.conn() as db:
+        nid, case_id, vid = setup_case(db)
+        db.execute('UPDATE participation_progress SET completed=1 WHERE case_id=?', (case_id,))
+    with app.test_client() as client:
+        login(client, nid)
+        page = client.get(f'/cases/{case_id}/steps/7').data.decode()
+        assert f'"{vid}"' in page and '/analyse' in page          # the background start for this party's video
+        client.post(f'/videos/{vid}/analyse', headers={'X-CSRF-Token': 'va-csrf'})
+        # once it is done, the page no longer starts it again
+        assert '/analyse' not in client.get(f'/cases/{case_id}/steps/7').data.decode()
+    with app.test_client() as expert:
+        login_expert(expert)
+        listing = expert.get('/expert/cases').data.decode()
+        assert f'/videos/{vid}/analysis' in listing and 'اكتمل' in listing

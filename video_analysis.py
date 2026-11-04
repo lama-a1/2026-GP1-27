@@ -48,20 +48,63 @@ VALUE_AR = {'left': 'يسار', 'right': 'يمين', 'Maintained': 'محافظ �
 
 
 def register(app, h):
-    """h = the app module (conn, VIDEO_SQL, case_access, login_required, ...)."""
+    """h = the app module (conn, VIDEO_SQL, get_case, current_user, ...)."""
+    from functools import wraps
+    from flask import session
 
-    def video_for_party(video_id):
+    def is_expert():
+        return bool(session.get('expert_authenticated'))
+
+    def load_video(video_id, owner_ok=True):
+        # experts can open every analysis; a party can only reach the analysis of their own video
+        # (the other party's video stays private, and the analysis page itself is for the expert)
         with h.conn() as c:
             v = c.execute(h.VIDEO_SQL + ' WHERE v.video_id=?', (video_id,)).fetchone()
-        if not v:
-            abort(404)
-        case, party = h.case_access(v['case_id'])          # 403 if the user is not in this case
-        return dict(v), case, party
+            if not v:
+                abort(404)
+            case = h.get_case(c, v['case_id'])
+        if is_expert():
+            return dict(v), case
+        if owner_ok and session.get('uid') and h.current_user() is not None and v['national_id'] == session.get('uid'):
+            return dict(v), case
+        abort(403)
+
+    def expert_or_party(fn):
+        @wraps(fn)
+        def wrapped(*args, **kwargs):
+            if not is_expert() and (not session.get('uid') or h.current_user() is None):
+                return redirect(url_for('expert_login'))
+            return fn(*args, **kwargs)
+        return wrapped
+
+    def case_analysis(case_id):
+        """Analysis state of all videos in a case, for the party timeline and the expert list."""
+        with h.conn() as c:
+            rows = c.execute(
+                'SELECT v.video_id, v.national_id, v.camera_type, pp.position, a.status, a.started_at '
+                'FROM dashcam_video v '
+                'LEFT JOIN participation_progress pp ON pp.case_id=v.case_id AND pp.national_id=v.national_id '
+                'LEFT JOIN video_analysis a ON a.video_id=v.video_id '
+                'WHERE v.case_id=? ORDER BY pp.position', (case_id,)).fetchall()
+        videos = []
+        for r in rows:
+            st = r['status'] or 'none'
+            if st == 'running' and _age_s(r['started_at']) >= 330:     # the run was cut off (time limit)
+                st = 'failed'
+            videos.append({'video_id': r['video_id'], 'position': r['position'], 'camera': r['camera_type'], 'status': st})
+        states = {v['status'] for v in videos}
+        state = ('none' if not videos else 'done' if states == {'done'} else 'failed' if 'failed' in states
+                 else 'running' if 'running' in states else 'none')
+        return {'videos': videos, 'state': state}
+
+    app.jinja_env.globals['case_analysis'] = case_analysis
 
     @app.get('/videos/<int:video_id>/analysis')
-    @h.login_required
+    @expert_or_party
     def video_analysis_page(video_id):
-        v, case, party = video_for_party(video_id)
+        if not is_expert():
+            abort(403)                                          # parties don't see the technical analysis
+        v, case = load_video(video_id)
         with h.conn() as c:
             row = c.execute('SELECT * FROM video_analysis WHERE video_id=?', (video_id,)).fetchone()
         row = dict(row) if row else None
@@ -70,17 +113,20 @@ def register(app, h):
                                event_ar=EVENT_AR, vehicle_ar=VEHICLE_AR, measure_ar=MEASURE_AR, value_ar=VALUE_AR)
 
     @app.post('/videos/<int:video_id>/analyse')
-    @h.login_required
+    @expert_or_party
     def video_analyse(video_id):
-        v, case, party = video_for_party(video_id)
+        v, case = load_video(video_id)
         with h.conn() as c:
             row = c.execute('SELECT status, started_at FROM video_analysis WHERE video_id=?', (video_id,)).fetchone()
+            if row and row['status'] == 'done' and not is_expert():
+                return jsonify(status='done')                   # a party never re-runs a finished analysis
             if row and row['status'] == 'running' and row['started_at'] and _age_s(row['started_at']) < 330:
                 return jsonify(status='running')
             if row:
                 c.execute("UPDATE video_analysis SET status='running', error=NULL, started_at=? WHERE video_id=?", (_now(), video_id))
             else:
                 c.execute("INSERT INTO video_analysis(video_id,status,started_at) VALUES(?,?,?)", (video_id, 'running', _now()))
+            c.execute("UPDATE video_processing SET job_status='running', updated_at=? WHERE video_id=?", (_now(), video_id))
         try:
             with tempfile.TemporaryDirectory(prefix='siyaq_') as tmp:
                 path = fetch_video(h, v, tmp)
@@ -88,26 +134,29 @@ def register(app, h):
                 result = analyse_video(path, case['accident_type'])      # accident type = the user's choice
             with h.conn() as c:
                 save_result(h, c, video_id, result)
+                c.execute("UPDATE video_processing SET job_status='done', job_details=NULL, updated_at=? WHERE video_id=?", (_now(), video_id))
             return jsonify(status='done')
         except Exception as e:
             app.logger.exception('Video analysis failed')
             with h.conn() as c:
                 c.execute("UPDATE video_analysis SET status='failed', error=?, finished_at=? WHERE video_id=?",
                           (type(e).__name__ + ': ' + str(e)[:300], _now(), video_id))
+                c.execute("UPDATE video_processing SET job_status='failed', job_details=?, updated_at=? WHERE video_id=?",
+                          (type(e).__name__, _now(), video_id))
             return jsonify(status='failed'), 500
 
     @app.get('/videos/<int:video_id>/analysis-status')
-    @h.login_required
+    @expert_or_party
     def video_analysis_status(video_id):
-        video_for_party(video_id)
+        load_video(video_id)
         with h.conn() as c:
             row = c.execute('SELECT status FROM video_analysis WHERE video_id=?', (video_id,)).fetchone()
         return jsonify(status=row['status'] if row else None)
 
     @app.get('/videos/<int:video_id>/stream')
-    @h.login_required
+    @expert_or_party
     def video_stream(video_id):
-        v, case, party = video_for_party(video_id)
+        v, case = load_video(video_id)
         stored = v['processed_name'] or v['stored_name']
         public_id = h.stored_cloudinary_id(stored)
         if public_id:

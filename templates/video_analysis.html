@@ -8,7 +8,7 @@
 <div class="container va-page" data-analyse-url="{{ url_for('video_analyse', video_id=v.video_id) }}"
      data-status-url="{{ url_for('video_analysis_status', video_id=v.video_id) }}"
      data-state="{{ row.status if row else 'none' }}">
-  <a class="va-back" href="{{ url_for('wizard', case_id=case.case_id, step=5) }}"><i data-lucide="arrow-right"></i> العودة إلى خطوة الفيديو</a>
+  <a class="va-back" href="{{ url_for('expert_cases') }}"><i data-lucide="arrow-right"></i> العودة إلى الحالات</a>
 
   <section class="va-hero">
     <div>
