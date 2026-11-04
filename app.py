@@ -698,7 +698,8 @@ def expert_login():
     if request.method == 'POST':
         username = request.form.get('username', '').strip().lower()
         password = request.form.get('password', '')
-        key = 'expert:' + username
+        # one lockout counter whether the prefix is typed or not
+        key = 'expert:' + (username if username.startswith(EXPERT_PREFIX) else EXPERT_PREFIX + username)
         if login_locked(key):
             flash(LOCKED_MSG, 'error')
             return render_template('expert_login.html')
@@ -1350,6 +1351,8 @@ def download_video(video_id):
     with conn() as c: v=c.execute(VIDEO_SQL+' WHERE v.video_id=?',(video_id,)).fetchone()
     if not v:abort(404)
     case_access(v['case_id'])
+    # each party can download only the video they uploaded
+    if v['national_id']!=session.get('uid'): abort(403)
     public_id = stored_cloudinary_id(v['processed_name'] or v['stored_name'])
     if public_id:
         if not cloudinary_ready(): abort(503)
