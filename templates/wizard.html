@@ -227,6 +227,7 @@
           <span class="video-saved-name">{{v.original_name}}{% if v.camera %} <small class="muted">· {{'الكاميرا الأمامية' if v.camera=='front' else 'الكاميرا الخلفية'}}</small>{% endif %}</span>
           <div class="video-saved-actions">
             <span class="pill">تم الرفع</span>
+            <a class="btn secondary video-analysis-btn" href="{{url_for('video_analysis_page',video_id=v.id)}}">التحليل الآلي <i data-lucide="scan-eye"></i></a>
             {% if not party.completed %}
             <button type="submit" form="delete-video-{{v.id}}" class="btn secondary video-delete-btn" onclick="return confirm('حذف هذا الفيديو نهائيًا؟')">حذف الفيديو <i data-lucide="trash-2"></i></button>
             {% endif %}

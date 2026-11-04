@@ -1,0 +1,201 @@
+# Sprint 2: automatic analysis of each uploaded dashcam video (detection, tracking, movement, traffic events).
+# Runs inside the website (also on Vercel): the engine in siyaq_cv/ uses ONNX + OpenCV optical flow, no PyTorch.
+# No traffic rule and no fault percentage here - those belong to Sprint 3.
+import json
+import os
+import tempfile
+import time
+from datetime import datetime
+from urllib.parse import quote, urlencode
+from urllib.request import Request, urlopen
+
+from flask import abort, jsonify, redirect, render_template, send_from_directory, url_for
+
+EVENT_AR = {
+    'collision': 'لحظة الاصطدام', 'lane_change': 'تغيير مسار', 'sudden_stop': 'توقف مفاجئ للمركبة الأمامية',
+    'following_distance': 'مسافة التتابع', 'overtaking': 'تجاوز',
+}
+VEHICLE_AR = {'A': 'مركبة صاحب الفيديو', 'B': 'المركبة الأخرى في الحادث', 'other': 'مركبة أخرى'}
+# measure -> (Arabic label, unit)
+MEASURE_AR = {
+    'time_s': ('وقت الحدث', 'ث'), 'jolt_score': ('شدة الاهتزاز (z)', ''),
+    'b_box_height_frac': ('حجم المركبة في الصورة (ارتفاع/عرض)', ''),
+    'b_distance_at_impact_m': ('المسافة عند الاصطدام', 'م'), 'b_distance_1s_before_m': ('المسافة قبل الاصطدام بثانية', 'م'),
+    'closing_speed_last_1s_mps': ('سرعة الاقتراب في آخر ثانية', 'م/ث'), 'closing_speed_last_1s_kmh': ('سرعة الاقتراب في آخر ثانية', 'كم/س'),
+    'min_ttc_last_1s_s': ('أقل زمن متبقٍ للاصطدام (TTC) في آخر ثانية', 'ث'), 'b_lateral_at_impact_m': ('الإزاحة الجانبية عند الاصطدام', 'م'),
+    'a_heading_change_last_1s_deg': ('تغير اتجاه مركبة صاحب الفيديو في آخر ثانية', '°'),
+    'direction': ('الاتجاه', ''), 'duration_s': ('المدة', 'ث'),
+    'offset_start': ('البعد عن منتصف الصورة في البداية', ''), 'offset_end': ('البعد عن منتصف الصورة في النهاية', ''),
+    'lateral_start_m': ('الموقع الجانبي في البداية', 'م'), 'lateral_end_m': ('الموقع الجانبي في النهاية', 'م'),
+    'lateral_shift_m': ('مقدار الانتقال الجانبي', 'م'), 'max_lateral_speed_mps': ('أعلى سرعة جانبية', 'م/ث'),
+    'mean_box_flow_dx_px': ('الحركة الجانبية بالتدفق البصري (متوسط)', 'بكسل/إطار'),
+    'b_distance_start_m': ('المسافة في البداية', 'م'), 'b_distance_end_m': ('المسافة في النهاية', 'م'),
+    'seconds_before_collision': ('قبل الاصطدام بـ', 'ث'),
+    'heading_change_deg': ('مقدار تغير الاتجاه', '°'), 'max_heading_rate_deg_s': ('أعلى معدل لتغير الاتجاه', '°/ث'),
+    'background_shift_px': ('انزياح الخلفية بالتدفق البصري', 'بكسل'), 'b_lateral_start_m': ('موقع المركبة الأخرى الجانبي', 'م'),
+    'ttc_at_start_s': ('زمن الاصطدام المتبقي عند البداية', 'ث'), 'min_ttc_s': ('أقل زمن متبقٍ للاصطدام', 'ث'),
+    'closing_speed_before_mps': ('سرعة الاقتراب قبل التوقف', 'م/ث'), 'closing_speed_after_mps': ('سرعة الاقتراب بعد التوقف', 'م/ث'),
+    'max_closing_speed_mps': ('أعلى سرعة اقتراب', 'م/ث'), 'relative_deceleration_mps2': ('التباطؤ النسبي للمركبة الأمامية', 'م/ث²'),
+    'b_distance_m': ('المسافة بين المركبتين', 'م'), 'closing_speed_mps': ('سرعة الاقتراب', 'م/ث'), 'ttc_s': ('الزمن المتبقي للاصطدام', 'ث'),
+    'gap_closing_time_s': ('زمن انغلاق المسافة', 'ث'), 'safe_distance': ('مسافة الأمان', ''),
+    'side': ('الجانب', ''), 'distance_start_m': ('المسافة في البداية', 'م'), 'distance_end_m': ('المسافة في النهاية', 'م'),
+    'mean_rel_speed_mps': ('متوسط السرعة النسبية', 'م/ث'), 'mean_rel_speed_kmh': ('متوسط السرعة النسبية', 'كم/س'),
+}
+VALUE_AR = {'left': 'يسار', 'right': 'يمين', 'Maintained': 'محافظ عليها', 'Not maintained': 'غير محافظ عليها',
+            'approaching': 'تقترب', 'moving away': 'تبتعد', 'steady gap': 'مسافة ثابتة', 'moving left': 'تتحرك يسارًا',
+            'moving right': 'تتحرك يمينًا', 'same position': 'لا حركة جانبية', 'car': 'سيارة', 'bus': 'حافلة', 'truck': 'شاحنة',
+            'dark_or_night': 'إضاءة منخفضة أو ليل', 'blurred': 'صورة غير واضحة'}
+
+
+def register(app, h):
+    """h = the app module (conn, VIDEO_SQL, case_access, login_required, ...)."""
+
+    def video_for_party(video_id):
+        with h.conn() as c:
+            v = c.execute(h.VIDEO_SQL + ' WHERE v.video_id=?', (video_id,)).fetchone()
+        if not v:
+            abort(404)
+        case, party = h.case_access(v['case_id'])          # 403 if the user is not in this case
+        return dict(v), case, party
+
+    @app.get('/videos/<int:video_id>/analysis')
+    @h.login_required
+    def video_analysis_page(video_id):
+        v, case, party = video_for_party(video_id)
+        with h.conn() as c:
+            row = c.execute('SELECT * FROM video_analysis WHERE video_id=?', (video_id,)).fetchone()
+        row = dict(row) if row else None
+        result = json.loads(row['result_json']) if row and row.get('result_json') else None
+        return render_template('video_analysis.html', v=v, case=case, row=row, result=result,
+                               event_ar=EVENT_AR, vehicle_ar=VEHICLE_AR, measure_ar=MEASURE_AR, value_ar=VALUE_AR)
+
+    @app.post('/videos/<int:video_id>/analyse')
+    @h.login_required
+    def video_analyse(video_id):
+        v, case, party = video_for_party(video_id)
+        with h.conn() as c:
+            row = c.execute('SELECT status, started_at FROM video_analysis WHERE video_id=?', (video_id,)).fetchone()
+            if row and row['status'] == 'running' and row['started_at'] and _age_s(row['started_at']) < 330:
+                return jsonify(status='running')
+            if row:
+                c.execute("UPDATE video_analysis SET status='running', error=NULL, started_at=? WHERE video_id=?", (_now(), video_id))
+            else:
+                c.execute("INSERT INTO video_analysis(video_id,status,started_at) VALUES(?,?,?)", (video_id, 'running', _now()))
+        try:
+            with tempfile.TemporaryDirectory(prefix='siyaq_') as tmp:
+                path = fetch_video(h, v, tmp)
+                from siyaq_cv.analyse import analyse_video
+                result = analyse_video(path, case['accident_type'])      # accident type = the user's choice
+            with h.conn() as c:
+                save_result(h, c, video_id, result)
+            return jsonify(status='done')
+        except Exception as e:
+            app.logger.exception('Video analysis failed')
+            with h.conn() as c:
+                c.execute("UPDATE video_analysis SET status='failed', error=?, finished_at=? WHERE video_id=?",
+                          (type(e).__name__ + ': ' + str(e)[:300], _now(), video_id))
+            return jsonify(status='failed'), 500
+
+    @app.get('/videos/<int:video_id>/analysis-status')
+    @h.login_required
+    def video_analysis_status(video_id):
+        video_for_party(video_id)
+        with h.conn() as c:
+            row = c.execute('SELECT status FROM video_analysis WHERE video_id=?', (video_id,)).fetchone()
+        return jsonify(status=row['status'] if row else None)
+
+    @app.get('/videos/<int:video_id>/stream')
+    @h.login_required
+    def video_stream(video_id):
+        v, case, party = video_for_party(video_id)
+        stored = v['processed_name'] or v['stored_name']
+        public_id = h.stored_cloudinary_id(stored)
+        if public_id:
+            if not h.cloudinary_ready():
+                abort(503)
+            return redirect(cloudinary_video_url(public_id))
+        key = h.stored_s3_key(stored)
+        if key:
+            if not h.storage_ready():
+                abort(503)
+            return redirect(h.storage_client().generate_presigned_url(
+                'get_object', Params={'Bucket': os.environ['S3_BUCKET'], 'Key': key}, ExpiresIn=600))
+        if os.getenv('VERCEL'):
+            abort(404)
+        return send_from_directory(h.UPLOAD, stored, conditional=True)
+
+
+def _now():
+    return datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+
+
+def _age_s(text):
+    try:
+        return (datetime.utcnow() - datetime.strptime(text, '%Y-%m-%d %H:%M:%S')).total_seconds()
+    except (TypeError, ValueError):
+        return 1e9
+
+
+def fetch_video(h, v, folder):
+    """Copy the stored video to a temporary file (the API secret is only used here, on the server)."""
+    stored = v['processed_name'] or v['stored_name']
+    name = v['original_name'] or 'video.mp4'
+    ext = name.rsplit('.', 1)[-1].lower() if '.' in name else 'mp4'
+    dest = os.path.join(folder, 'video.' + ext)
+    public_id = h.stored_cloudinary_id(stored)
+    if public_id:
+        params = {'public_id': public_id, 'format': ext, 'type': 'authenticated', 'expires_at': int(time.time()) + 600}
+        params.update(api_key=os.environ['CLOUDINARY_API_KEY'], signature=h.cloudinary_sign(params))
+        url = ('https://api.cloudinary.com/v1_1/' + quote(os.environ['CLOUDINARY_CLOUD_NAME'], safe='') +
+               '/video/download?' + urlencode(params))
+        with urlopen(Request(url), timeout=120) as r, open(dest, 'wb') as out:
+            while True:
+                chunk = r.read(1 << 20)
+                if not chunk:
+                    break
+                out.write(chunk)
+        return dest
+    key = h.stored_s3_key(stored)
+    if key:
+        h.storage_client().download_file(os.environ['S3_BUCKET'], key, dest)
+        return dest
+    return str(h.UPLOAD / stored)
+
+
+def cloudinary_video_url(public_id, fmt='mp4'):
+    """Signed delivery URL for an authenticated video, converted to mp4 so every browser can play it."""
+    import base64
+    import hashlib
+    to_sign = public_id + '.' + fmt
+    sig = base64.urlsafe_b64encode(hashlib.sha1((to_sign + os.environ['CLOUDINARY_API_SECRET']).encode()).digest())[:8].decode()
+    return ('https://res.cloudinary.com/' + quote(os.environ['CLOUDINARY_CLOUD_NAME'], safe='') +
+            '/video/authenticated/s--' + sig + '--/' + quote(public_id) + '.' + fmt)
+
+
+def save_result(h, c, video_id, result):
+    """Save the full result, and the events in the EER tables (DETECTED_EVENT, DETECTED_VEHICLE, INVOLVEMENT,
+    BOUNDING_BOX) so later sprints can use them."""
+    old = c.execute('SELECT event_id FROM detected_event WHERE video_id=?', (video_id,)).fetchall()
+    for e in old:
+        dv = c.execute('SELECT detected_vehicle_id FROM involvement WHERE event_id=?', (e['event_id'],)).fetchall()
+        c.execute('DELETE FROM detected_event WHERE event_id=?', (e['event_id'],))
+        for d in dv:
+            c.execute('DELETE FROM detected_vehicle WHERE detected_vehicle_id=?', (d['detected_vehicle_id'],))
+    tracks = result.get('tracks', {})
+    for e in result['events']:
+        event_id = h.insert_id(c, '''INSERT INTO detected_event(event_type,event_value,start_time,end_time,video_id)
+                                     VALUES(?,?,?,?,?)''',
+                               (e['type'], json.dumps(e['measures'], ensure_ascii=False), e['start_t'], e['end_t'], video_id),
+                               key='event_id')
+        tid = e.get('track_id')
+        boxes = [b for b in tracks.get(str(tid), []) if e['start'] <= b[0] <= e['end']] if tid is not None else []
+        if boxes:
+            dv = h.insert_id(c, 'INSERT INTO detected_vehicle(vehicle_id) VALUES(NULL)', (), key='detected_vehicle_id')
+            role = 'Vehicle B' if e['vehicle'] == 'B' else 'Other vehicle'
+            c.execute('INSERT INTO involvement(event_id,detected_vehicle_id,vehicle_role,track_id) VALUES(?,?,?,?)',
+                      (event_id, dv, role, str(tid)))
+            for b in (boxes[0], boxes[-1]) if len(boxes) > 1 else boxes:
+                c.execute('INSERT INTO bounding_box(event_id,vehicle_role,bounding_box) VALUES(?,?,?)',
+                          (event_id, role, json.dumps({'frame': b[0], 'box': b[1:]})))
+    c.execute("UPDATE video_analysis SET status='done', result_json=?, engine_version=?, error=NULL, finished_at=? WHERE video_id=?",
+              (json.dumps(result, ensure_ascii=False), result.get('version'), _now(), video_id))

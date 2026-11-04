@@ -31,13 +31,13 @@ The project scope covers minor, two-vehicle accidents with no injuries, with cle
 - Case lists and progress statuses for accident parties.
 - Authorized expert registration and login with read-only case lists and a rules page.
 - Local face-blurring support through the optional OpenCV dependency.
+- Sprint 2 automatic video analysis (`siyaq_cv/`, no PyTorch): vehicle detection (YOLOv8n ONNX + onnxruntime) and tracking, Farneback optical-flow motion, and detected events (collision, lane change, sudden stop, following distance, overtaking) with their measures, shown on a demo page with a tracking overlay. Details in `siyaq_cv/README_AR.md`.
 
 Expert case review, editing, and approval are not yet available. Case-status emails are sent to users who turn them on; final-result emails are not implemented yet. Local face blurring requires manual review and does not include license-plate blurring or cloud-video processing. Automatic retention cleanup is also pending.
 
 ## Planned Features
 
-- Vehicle detection and tracking from dashcam recordings.
-- Movement, traffic-event, and violation analysis.
+- Violation analysis on top of the Sprint 2 events.
 - Rule-based suggested fault percentages of 0%, 25%, 50%, 75%, or 100%.
 - Evidence frames and explanations accompanying the suggested result.
 - Expert review, modification, and approval of reports.

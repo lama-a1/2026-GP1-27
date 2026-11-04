@@ -1486,5 +1486,10 @@ def health():
     with conn() as c: c.execute('SELECT 1')
     return jsonify(status='ok',database='connected')
 
+# Sprint 2: automatic video analysis (see video_analysis.py and siyaq_cv/)
+import sys as _sys
+import video_analysis
+video_analysis.register(app, _sys.modules[__name__])
+
 init_db()
 if __name__=='__main__': app.run(debug=os.getenv('FLASK_DEBUG')=='1',port=int(os.getenv('PORT','5000')))

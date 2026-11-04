@@ -101,6 +101,12 @@ CREATE TABLE IF NOT EXISTS video_processing (
             job_status TEXT NOT NULL DEFAULT 'queued', job_details TEXT,
             updated_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP));
 
+CREATE TABLE IF NOT EXISTS video_analysis (
+            video_id BIGINT PRIMARY KEY REFERENCES dashcam_video(video_id) ON DELETE CASCADE,
+            status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running','done','failed')),
+            result_json TEXT, engine_version TEXT, error TEXT,
+            started_at TEXT, finished_at TEXT);
+
 CREATE INDEX IF NOT EXISTS participates_case_idx ON participates(case_id);
 
 CREATE INDEX IF NOT EXISTS vehicle_owner_idx ON vehicle(national_id);

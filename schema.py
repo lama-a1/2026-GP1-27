@@ -8,7 +8,7 @@ TABLES = ENTITY_TABLES | RELATION_TABLES
 # not in the EER: the website needs them to run (invitation links, password reset links,
 # login lockout, each party's step in a case, and the video processing state)
 SUPPORT_TABLES = {'participation_progress', 'case_invitation', 'password_reset_link',
-                  'login_attempt', 'video_processing'}
+                  'login_attempt', 'video_processing', 'video_analysis'}
 # tables from the old design (before matching the EER)
 LEGACY_TABLES = {'users', 'cases', 'parties', 'vehicles', 'videos', 'invitations',
                  'garage_vehicles', 'analysis_jobs', 'expert_accounts', 'expert_logins',
@@ -104,6 +104,12 @@ def statements(postgres=False):
             privacy_status TEXT NOT NULL DEFAULT 'pending', note TEXT,
             job_status TEXT NOT NULL DEFAULT 'queued', job_details TEXT,
             updated_at TEXT NOT NULL DEFAULT ({now}))''',
+        # Sprint 2: the automatic analysis of each video (full result as JSON; events also go to DETECTED_EVENT)
+        f'''CREATE TABLE IF NOT EXISTS video_analysis (
+            video_id BIGINT PRIMARY KEY REFERENCES dashcam_video(video_id) ON DELETE CASCADE,
+            status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running','done','failed')),
+            result_json TEXT, engine_version TEXT, error TEXT,
+            started_at TEXT, finished_at TEXT)''',
         'CREATE INDEX IF NOT EXISTS participates_case_idx ON participates(case_id)',
         'CREATE INDEX IF NOT EXISTS vehicle_owner_idx ON vehicle(national_id)',
         'CREATE INDEX IF NOT EXISTS dashcam_case_idx ON dashcam_video(case_id)',
