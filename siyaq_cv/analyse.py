@@ -14,11 +14,17 @@ import json
 import time
 
 import cv2
+import numpy as np
 
-from . import config, detect_track, events, motion, video
+from . import config, detect_track, events, lanes, motion, video
 
-def _thumb(frame, tracks, f, highlight, width=480):
+LINE_COLOUR = {"Solid": (40, 40, 230), "Dashed": (230, 140, 30), "Unclear": (0, 190, 255)}
+
+
+def _thumb(frame, tracks, f, highlight, width=480, lines=None):
     im = frame.copy()
+    for ln in lines or []:
+        cv2.polylines(im, [np.array(ln["points"], np.int32)], False, LINE_COLOUR[ln["line_type"]], 2)
     for tid, t in tracks.items():
         if f in t:
             x1, y1, x2, y2 = map(int, t[f][:4])
@@ -31,6 +37,28 @@ def _thumb(frame, tracks, f, highlight, width=480):
     return base64.b64encode(buf.tobytes()).decode()
 
 
+def _lane_summary(evs, votes):
+    """Type of the recording car's two lane lines, and of the line crossed in the lane change."""
+    left, li = lanes.side_type(votes, "left")
+    right, ri = lanes.side_type(votes, "right")
+    out = {"model": "TwinLiteNet (BDD100K)", "left_line": left, "right_line": right,
+           "visible": bool(li["frames_seen"] or ri["frames_seen"]), "crossed_line_type": None}
+    lc = next((e for e in evs if e["type"] == "lane_change"), None)
+    if lc:
+        d = lc["measures"]["direction"]
+        if lc["vehicle"] == "B":
+            # B moving left came from the right lane, so it crossed the recording car's right line (and the other way round)
+            side, f0, f1 = ("right" if d == "left" else "left"), lc["start"] - 10, lc["end"]
+        else:
+            # the recording car crosses its own line on the side it turns to; read it before the car is over it
+            side, f0, f1 = d, lc["start"] - 10, lc["start"] + 2
+        typ, info = lanes.side_type(votes, side, f0, f1)
+        lc["measures"].update({"crossed_line_side": side, "crossed_line_type": typ,
+                               "crossed_line_frames": info["frames_typed"], "crossed_line_solid_share": info.get("solid_share")})
+        out["crossed_line_type"] = typ
+    return out
+
+
 def analyse_video(path, accident_type=None, thumbnails=True):
     t0 = time.time()
     v = video.load(path)
@@ -41,9 +69,19 @@ def analyse_video(path, accident_type=None, thumbnails=True):
     meas = {tid: motion.vehicle_measures(tr, classes[tid], W, H, flow["box_flow"].get(tid)) for tid, tr in tracks.items()}
     b = events.pick_vehicle_b(tracks, W, H, len(frames))
     evs, crash = events.analyse(meas, b, flow, times)
+    t1 = time.time()
+    lane_frames, lane_info = {}, None
+    try:
+        lane_frames, votes, _ = lanes.analyse(frames, tracks, lanes.masks(frames, lanes.frames_to_check(len(frames), crash)))
+        lane_info = _lane_summary(evs, votes)
+    except Exception as exc:                       # the lane model is an extra: the analysis goes on without it
+        lane_info = {"error": str(exc)[:200]}
+    t_lane = time.time() - t1
     if thumbnails:
         for e in evs:
-            e["thumbnail_jpeg"] = _thumb(frames[e["start"]], tracks, e["start"], b if e["vehicle"] == "B" else e.get("track_id"))
+            near = min(lane_frames, key=lambda k: abs(k - e["start"])) if lane_frames and e["type"] == "lane_change" else None
+            e["thumbnail_jpeg"] = _thumb(frames[e["start"]], tracks, e["start"], b if e["vehicle"] == "B" else e.get("track_id"),
+                                         lines=lane_frames.get(near) if near is not None else None)
     mb = meas.get(b, {})
     series = {"t": times,
               "a_heading_rate_deg_s": [round(x, 2) for x in flow["yaw_rate"]],
@@ -68,7 +106,13 @@ def analyse_video(path, accident_type=None, thumbnails=True):
         "measures_b": {str(k): mb[k] for k in sorted(mb)},
         "series": series,
         "events": evs,
-        "timing_s": {"detection_tracking": round(t_det, 1), "total": round(time.time() - t0, 1)},
+        "lane_markings": lane_info,
+        "crossed_line_type": (lane_info or {}).get("crossed_line_type"),
+        # lane lines on the frames the lane model read, points normalised to 0..1 like the boxes
+        "lanes": [{"frame": f, "points": [[round(x / W, 4), round(y / H, 4)] for x, y in ln["points"]],
+                   "line_type": ln["line_type"], "ego_side": ln["ego_side"]}
+                  for f in sorted(lane_frames) for ln in lane_frames[f]],
+        "timing_s": {"detection_tracking": round(t_det, 1), "lanes": round(t_lane, 1), "total": round(time.time() - t0, 1)},
     }
 
 

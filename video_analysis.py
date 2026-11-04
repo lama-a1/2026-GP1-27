@@ -41,10 +41,15 @@ MEASURE_AR = {
     'gap_closing_time_s': ('زمن انغلاق المسافة', 'ث'), 'safe_distance': ('مسافة الأمان', ''),
     'side': ('الجانب', ''), 'distance_start_m': ('المسافة في البداية', 'م'), 'distance_end_m': ('المسافة في النهاية', 'م'),
     'mean_rel_speed_mps': ('متوسط السرعة النسبية', 'م/ث'), 'mean_rel_speed_kmh': ('متوسط السرعة النسبية', 'كم/س'),
+    'crossed_line_side': ('خط المسار الذي قُطع (من جهة مركبة صاحب الفيديو)', ''),
+    'crossed_line_type': ('نوع الخط المقطوع', ''),
+    'crossed_line_frames': ('عدد الإطارات التي حُدد فيها نوع الخط', ''),
+    'crossed_line_solid_share': ('نسبة الإطارات التي ظهر فيها الخط متصلًا', ''),
 }
 VALUE_AR = {'left': 'يسار', 'right': 'يمين', 'Maintained': 'محافظ عليها', 'Not maintained': 'غير محافظ عليها',
             'approaching': 'تقترب', 'moving away': 'تبتعد', 'steady gap': 'مسافة ثابتة', 'moving left': 'تتحرك يسارًا',
             'moving right': 'تتحرك يمينًا', 'same position': 'لا حركة جانبية', 'car': 'سيارة', 'bus': 'حافلة', 'truck': 'شاحنة',
+            'Solid': 'متصل', 'Dashed': 'متقطع', 'Unclear': 'غير واضح',
             'dark_or_night': 'إضاءة منخفضة أو ليل', 'blurred': 'صورة غير واضحة'}
 
 

@@ -44,3 +44,19 @@ EGO_YAW_DEG = 20.0            # (tuned on train) recording car heading change (f
 TTC_SUDDEN_STOP_S = 1.6      # (tuned on train) time-to-collision of the vehicle ahead below this = sudden stop / hard braking
 HEADWAY_FRAC = 0.26          # (tuned on train) box height / width above this = too close
 OVERTAKE_MIN_FRAMES = 5
+
+# ---- lane lines (TwinLiteNet, lane-line segmentation trained on BDD100K, MIT licence)
+LANE_MODEL_PATH = os.path.join(HERE, "models", "twinlitenet.onnx")
+LANE_SECONDS = 5              # lane lines are read in the last 5 s before the impact ...
+LANE_STEP = 2                 # ... on every 2nd frame (the model takes about 0.5 s a frame on a CPU)
+LANE_MIN_PIXELS = 25          # smaller mask pieces are noise
+LANE_JOIN_PX = 12             # pieces within this many mask pixels of one straight line = one lane line
+LANE_BAND_FRAC = 0.28         # road band above the bonnet used to judge the line (share of image height)
+LANE_MIN_BAND_ROWS = 25       # the line must be visible on at least this many rows of the band
+LANE_PAINT_W = 8             # half-width of a lane line at the bottom of the 640x360 image (px)
+LANE_PAINT_CONTRAST = 18      # paint is at least this much brighter (0-255) than the road beside it
+LANE_MIN_COVER = 0.15         # less paint than this in the band = cannot judge
+LANE_SOLID_COVER = 0.90       # paint on at least this share of the rows and no real gap = solid
+LANE_GAP_ROWS = 6             # a gap this long (mask rows) with paint on both sides = dashed
+LANE_MIN_VOTES = 3            # frames with a typed line needed before saying solid / dashed
+LANE_VOTE = 0.65              # share of those frames that must agree

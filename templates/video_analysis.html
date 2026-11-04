@@ -63,6 +63,20 @@
     {% if result.video.window_start_s > 0 %}<p class="va-muted">الفيديو أطول من {{ (result.video.frames / result.video.fps)|int }} ثانية، فحُلل الجزء المحيط بلحظة الاصطدام فقط (من الثانية {{ result.video.window_start_s }}).</p>{% endif %}
   </section>
 
+  <!-- lane lines of the recording car's lane (TwinLiteNet) -->
+  {% set lm = result.lane_markings %}
+  {% if lm and not lm.error %}
+  <section class="va-card">
+    <h2>خطوط المسار</h2>
+    {% if lm.visible %}
+    <p>خطا مسار مركبة صاحب الفيديو: الأيسر <strong>{{ value_ar.get(lm.left_line) }}</strong>، والأيمن <strong>{{ value_ar.get(lm.right_line) }}</strong>{% if lm.crossed_line_type %}. الخط الذي قُطع في تغيير المسار: <strong>{{ value_ar.get(lm.crossed_line_type) }}</strong>{% endif %}.</p>
+    <p class="va-muted">من نموذج <span dir="ltr">TwinLiteNet</span> لخطوط المسار، ونوع الخط يُقرأ من الطلاء على الطريق في الثواني التي تسبق الاصطدام. «غير واضح» تعني أن الخط مخفي أو باهت ويحتاج تحقق الخبير.</p>
+    {% else %}
+    <p class="va-muted">لم تظهر خطوط مسار واضحة في الفيديو.</p>
+    {% endif %}
+  </section>
+  {% endif %}
+
   <!-- events -->
   <section class="va-card">
     <h2>الأحداث المكتشفة والقياسات</h2>
