@@ -1,4 +1,7 @@
-"""Vehicle detection (YOLOv8 exported to ONNX, no PyTorch) and a light ByteTrack-style IoU tracker."""
+"""Vehicle detection (YOLOv8 exported to ONNX, no PyTorch) and tracking.
+
+Tracking uses ByteTrack (bytetrack.py) by default. The light IoU tracker of the first Sprint 2 version is
+kept as config.TRACKER = "iou" so the two can be compared on the same detections."""
 import cv2
 import numpy as np
 
@@ -38,7 +41,8 @@ class _Detector:
         scores = p[:, 4:][:, cls_ids]
         best = scores.argmax(1)
         conf = scores[np.arange(len(p)), best]
-        keep = conf >= config.CONF_LOW
+        floor = _floor()
+        keep = conf >= floor
         p, conf, best = p[keep], conf[keep], best[keep]
         if not len(p):
             return []
@@ -46,13 +50,24 @@ class _Detector:
         x1 = (cx - bw / 2 - left) / s
         y1 = (cy - bh / 2 - top) / s
         boxes = np.stack([x1, y1, bw / s, bh / s], 1)
-        idx = cv2.dnn.NMSBoxes(boxes.tolist(), conf.tolist(), config.CONF_LOW, config.NMS_IOU)
+        idx = cv2.dnn.NMSBoxes(boxes.tolist(), conf.tolist(), floor, config.NMS_IOU)
         dets = []
         for i in np.array(idx).flatten():
             x, y, ww, hh = boxes[i]
             dets.append((max(0.0, float(x)), max(0.0, float(y)), min(float(w), float(x + ww)), min(float(h), float(y + hh)), float(conf[i]),
                          config.CLASSES[cls_ids[best[i]]]))
         return dets
+
+
+def _floor():
+    # ByteTrack also uses low-score boxes (0.1 and up); the IoU tracker only 0.2 and up
+    return min(config.CONF_LOW, config.BT_LOW_THRESH) if config.TRACKER == "bytetrack" else config.CONF_LOW
+
+
+def detect_all(frames):
+    """Vehicle boxes for every frame: [[(x1, y1, x2, y2, score, class), ...], ...]"""
+    det = detector()
+    return [det(f) for f in frames]
 
 
 def detector():
@@ -70,12 +85,22 @@ def _iou(a, b):
     return inter / u if u > 0 else 0.0
 
 
-def track(frames):
+def track(frames, detections=None):
     """Returns ({track_id: {frame: (x1, y1, x2, y2, score)}}, {track_id: class})."""
-    det = detector()
+    dets_all = detections if detections is not None else detect_all(frames)
+    if config.TRACKER == "bytetrack":
+        from . import bytetrack
+        tracks, classes = bytetrack.track(dets_all, config.FPS)
+        tracks = {t: b for t, b in tracks.items() if len(b) >= config.MIN_TRACK_LEN}
+        return tracks, {t: classes[t] for t in tracks}
+    return iou_track(dets_all)
+
+
+def iou_track(dets_all):
+    """The light tracker of the first Sprint 2 version (IoU matching + low-score extension + gap linking)."""
+    dets_all = [[d for d in ds if d[4] >= config.CONF_LOW] for ds in dets_all]
     active, tracks, classes, next_id = {}, {}, {}, 1
-    for f, frame in enumerate(frames):
-        dets = det(frame)
+    for f, dets in enumerate(dets_all):
         # predicted position = last box + last velocity
         pred = {}
         for tid, a in active.items():

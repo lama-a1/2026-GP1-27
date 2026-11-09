@@ -60,3 +60,11 @@ LANE_SOLID_COVER = 0.90       # paint on at least this share of the rows and no 
 LANE_GAP_ROWS = 6             # a gap this long (mask rows) with paint on both sides = dashed
 LANE_MIN_VOTES = 3            # frames with a typed line needed before saying solid / dashed
 LANE_VOTE = 0.65              # share of those frames that must agree
+
+# ---- tracker: "bytetrack" (official algorithm, Kalman filter + Hungarian matching) or "iou" (the light Sprint 2 tracker)
+TRACKER = os.getenv("SIYAQ_TRACKER", "bytetrack")
+BT_TRACK_THRESH = 0.5         # ByteTrack defaults (official repo): high-score detections
+BT_LOW_THRESH = 0.1           # low-score detections used in the second association
+BT_MATCH_THRESH = 0.8         # first association: 1 - IoU (fused with the score) must be at most this
+BT_BOX = os.getenv("SIYAQ_BT_BOX", "kalman")   # box reported per frame: "kalman" (official) or "detection"
+BT_TRACK_BUFFER = 30          # frames at 30 fps a lost track is kept (scaled to 10 fps = 10 frames)
