@@ -74,3 +74,79 @@ Finding: no. ByteTrack tracks Vehicle B in frames 10–19 only; the impact is fr
 | following closing speed 0.35 m/s | estimated over frames 16–19 |
 
 Change: every event now carries `sources` (`observed` / `estimated` / `inferred`, source frame(s) and time; `reported_for_frame` when carried). The collision event carries `b_last_tracked_frame`. `detected_event.event_value` stores them under `_sources`. The page shows a badge per measure and a note when an event moment or its numbers are inferred. All measure values, ByteTrack, collision detection and lane-change logic and thresholds are unchanged. Tests: `tests/test_measure_sources.py`.
+
+## EXP-005 — Wrong Vehicle B Selection (open, not solved)
+
+**Issue.** CCD `000023` (train, lane change, annotated crash frame 38 = 3.8 s). The engine picks track 1 (truck) as Vehicle B, finds the collision at 0.3 s and no lane change. The team's visual review: Vehicle B is the car on the left.
+
+**Ground truth used.** Approved: Vehicle B identity in `000023` (team visual review, this issue) and `dada_training_type11_53` (human-reviewed, EXP-004), plus the crash frames in `dataset_index.csv` (dataset annotations). Not ground truth: `draft_labels_with_rules.xlsx` and the CVAT review files (`build/review*`, `gtchk*`). Their `role = Vehicle B` is the engine's own pick (see `build_review_annotations.py`), so they mark the truck in `000023`. They were not used for scoring. The test split was not used.
+
+### 1. Which track is the left car
+
+The left car is **track 4**: one ByteTrack ID, frames 2–29. It is not fragmented into several IDs.
+- **Class.** Labelled `truck` because the detector alternates car/truck on the partial, edge-cut view.
+- **Frames 16–23.** The detector misses the car (no box, or confidence ≤ 0.19). ByteTrack keeps the ID and re-attaches it at frame 24.
+- **After frame 29.** Lost for good. Frames 31–38 have only weak boxes (confidence 0.11–0.14) cut at the image side, about half as wide (IoU ≈ 0.37 with the last box), so neither stage of ByteTrack matches them. Frames 40–47 have no detection at all.
+- **Contact.** Image jolt z = 4.9 / 7.0 at frames 39 / 40, with the recording car's heading changing +29 and +52 °/s (turning left) at the same frames. That is 10–11 frames after track 4's last box.
+
+### 2. Why `pick_vehicle_b()` picks track 1
+
+The score is the maximum over any frame of `box height × (1.2 − distance from image centre) × (0.5 + 0.5 × frame/n)`.
+
+| Track | Box height | Frames | Score |
+|---|---|---|---|
+| 1 (truck) | 0.9 of the image | 0–9, about 3 s before the impact | 0.314 |
+| 5 (grey car, right) | — | — | 0.174 |
+| 4 (left car) | — | penalised for being at the image side | 0.147 |
+
+The rule overweights **size**. It does not use **when** the vehicle is present relative to the impact. It penalises vehicles beside the recording car (a side impact) through the centre term. The time weight (≥ 0.5) is too weak to offset size.
+
+### 3. Diagnostic with the reviewed Vehicle B forced (track 4); nothing else changed
+
+| | B | Collision | Lane change |
+|---|---|---|---|
+| Current | 1 (truck) | 0.3 s (frame 3) | none |
+| Forced reviewed B | 4 (left car) | 1.6 s (frame 16, a smaller jolt z 4.1) | none |
+| Annotated | left car | 3.8 s (contact jolt 3.9–4.0 s) | — |
+
+The correct B does not fix the result. The impact search only looks within 3 frames of B's boxes, and track 4 has none after frame 29. Track 4's sideways position stays at −3.8…−4.3 m while tracked, so no lane change of B can be measured. The sideways movement at the impact is the recording car's sharp left turn (frames 39–40). **A second cause, separate from selection, is proven:** losing an edge-cut vehicle close to the recording car (detector and tracker).
+
+### 4. Candidate improvement, evaluated (not adopted)
+
+**Idea (generalizable, no side or ID rule).** Anchor on the strongest image jolt, which does not depend on B. Score each track by:
+- its box size over its last 10 frames up to the jolt;
+- `exp(−gap/10)`, where gap = frames between the track's last box and the jolt;
+- closing speed;
+- continuity.
+
+Collision, lane-change and ByteTrack code were unchanged.
+
+**Results on train/val.** Crash frame vs annotation, within 5 frames:
+
+| Variant | Train (101) | Val (22) | B changed |
+|---|---|---|---|
+| Current | 69 | 18 | — |
+| Best candidate | 72 | **16 (regression)** | 22 train + 5 val clips, unreviewed |
+
+Other variants (size + jolt + continuity at the track's own impact) were unstable. They picked tracks 6, 4 or 1 on `000023`, and train got worse (63–69).
+
+**On the reviewed clips:**
+- `dada_53`: B = 4 in every variant (correct).
+- `000023`: the candidate picks **track 5** (the grey car on the right, closing at about 5 m/s, last box at frame 36). Its collision is 3.9 s, close to the annotated 3.8 s, but it is **not the reviewed B (track 4)**.
+
+So the candidate is right on 1 of 2 reviewed clips, the same as the current rule, and regresses on validation. It is not adopted.
+
+**Clips where the candidate changes B (for review, not ground truth).**
+- Train: 000023, 000036, 000177, 000324, 000335, 000371, 000465, 000632, 000932, 001264, 001267, 001355, 001461, dada_testing_type11_107, dada_training_type11_11, dada_training_type11_12, dada_training_type11_17, dada_training_type11_45, dada_training_type11_5, dada_training_type11_52, dada_training_type11_66, dada_validation_type11_90.
+- Val: 000358, 000854, 001062, dada_training_type11_37, dada_validation_type11_81.
+
+### 5. Status and next steps
+
+- **Status.** No engine change. ByteTrack, collision and lane-change thresholds are unchanged.
+- **Tests.** `tests/test_vehicle_b_selection.py`, using track fixtures in `tests/data/`.
+  - Passing guards: reviewed `dada_53` B = 4; a cutting-in car that ends close is picked over an early truck.
+  - `xfail(strict)`, open on purpose: an early huge truck beats a smaller maneuvering car; `000023` should pick track 4; with track 4 the impact should be found.
+- **Next.**
+  1. Review B on more clips, starting with the list above. One reviewed clip with a known failure cannot validate a rule.
+  2. EXP-006: keep an edge-cut vehicle that is lost while beside the recording car (weak side-cut boxes in frames 31–38), so the impact and B's last movement can be measured.
+  3. Revisit the selection only when there are enough reviewed B labels.
