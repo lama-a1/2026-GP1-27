@@ -39,6 +39,9 @@ FARNEBACK = dict(pyr_scale=0.5, levels=3, winsize=15, iterations=3, poly_n=5, po
 # ---- events
 LANE_SIDE_M = 2.2            # (tuned on train) other vehicle at least this far to the side (m, ground plane) = in a neighbouring lane
 LANE_SHIFT_M = 0.4           # (tuned on train) it moved at least this much towards the recording car's lane = lane change
+LANE_VEL_HALF = 2             # (EXP-004) inward speed from positions +-2 frames apart
+LANE_ONSET_MPS = 0.4         # (EXP-004, chosen on train: 0.4-0.5 gave the same tIoU) inward speed = moving into the lane
+EDGE_PX = 2                   # a box this close to the left/right image side is cut by the picture
 LANE_IN_M = 0.8              # (tuned on train) within this sideways distance it is in front of the recording car
 EGO_YAW_DEG = 20.0            # (tuned on train) recording car heading change (from background flow) for its own lane change
 COLLISION_SIZE_MIN = 0.85    # impact candidates: B at least this share of its largest size in the clip

@@ -73,6 +73,49 @@ def _closing(ms):
     return [-m["rel_speed_mps"] for m in ms if m["rel_speed_mps"] is not None]
 
 
+def _lane_change_bounds(mb, fr, xs, p, e, crash):
+    """Start and end frame of Vehicle B's lane change (EXP-004).
+
+    Start - when B starts moving sideways towards the recording car's lane, not where B is widest:
+      the inward speed is the change of B's smoothed sideways position towards the lane over
+      +-LANE_VEL_HALF frames (frames where B's box touches the side of the image are left out: part of B
+      is outside the picture there and its centre is biased). From the frame of the fastest inward movement
+      between p (widest) and e (closest to the lane), the start goes back while the inward speed stays at
+      or above LANE_ONSET_MPS. Without a usable speed (short or edge-cut tracks) the start stays at p.
+    End - where B is closest to (or inside) the lane, as before; but if that is B's last tracked frame,
+      B is still outside the lane, and the impact follows within the tracker's buffer (the time ByteTrack
+      still looks for a lost vehicle), the lane change was cut by the impact and ends there.
+    """
+    side = np.sign(xs[p]) or 1.0
+    k = config.LANE_VEL_HALF
+    ok = [not mb[f].get("at_edge", False) for f in fr]
+    vin = [None] * len(fr)
+    for i in range(len(fr)):
+        a, z = max(0, i - k), min(len(fr) - 1, i + k)
+        while a < i and not ok[a]:
+            a += 1
+        while z > i and not ok[z]:
+            z -= 1
+        if z - a >= 2 and fr[z] - fr[a] <= 3 * k:
+            vin[i] = -side * (xs[z] - xs[a]) / ((fr[z] - fr[a]) / config.FPS)
+
+    start = fr[p]
+    core = [i for i in range(p, e + 1) if vin[i] is not None]
+    if core:
+        m = max(core, key=lambda i: vin[i])
+        if vin[m] >= config.LANE_ONSET_MPS:
+            s = m
+            while s - 1 >= p and vin[s - 1] is not None and vin[s - 1] >= config.LANE_ONSET_MPS and fr[s] - fr[s - 1] <= 2:
+                s -= 1
+            start = fr[s]
+
+    end = fr[e]
+    buffer = int(config.FPS / 30.0 * config.BT_TRACK_BUFFER)
+    if e == len(fr) - 1 and abs(xs[e]) > config.LANE_IN_M and 0 < crash - fr[e] <= buffer:
+        end = crash
+    return start, end
+
+
 def analyse(meas, b, flow, times):
     n = len(times)
     mb = meas.get(b, {}) if b is not None else {}
@@ -116,16 +159,17 @@ def analyse(meas, b, flow, times):
             inside = [i for i in after if ax[i] <= config.LANE_IN_M and np.sign(xs[i]) in (np.sign(xs[p]), 0)]
             e = inside[0] if inside else (min(after, key=lambda i: ax[i]) if after else p)
             if ax[p] - ax[e] >= config.LANE_SHIFT_M and crash - fr[p] >= 3:
-                start, end = fr[p], fr[e]
+                start, end = _lane_change_bounds(mb, fr, xs, p, e, crash)
                 seg = [mb[k] for k in fr if start <= k <= end]
                 lat = [abs(m["lateral_speed_mps"]) for m in seg if m["lateral_speed_mps"] is not None]
                 flow_dx = [m["flow_dx_px"] for m in seg if m["flow_dx_px"] is not None]
-                ms, me = mb[start], mb[end]
+                ms, me = mb[start], mb[end] if end in mb else mb[fr[-1]]
                 lc = {"type": "lane_change", "vehicle": "B", "track_id": b, "start": start, "end": end, "measures": {
                     "direction": "left" if xs[p] > 0 else "right",
                     "duration_s": _r((end - start) / config.FPS, 1),
                     "offset_start": ms["centre_offset"], "offset_end": me["centre_offset"],
-                    "lateral_start_m": _r(xs[p]), "lateral_end_m": _r(xs[e]),
+                    "lateral_start_m": _r(xs[fr.index(start)]) if start in fr else _r(xs[p]),
+                    "lateral_end_m": _r(xs[fr.index(end)]) if end in fr else _r(xs[-1]),
                     "lateral_shift_m": _r(ax[p] - ax[e]),
                     "max_lateral_speed_mps": _r(max(lat)) if lat else None,
                     "mean_box_flow_dx_px": _r(_mean(flow_dx), 1),

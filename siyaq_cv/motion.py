@@ -113,5 +113,8 @@ def vehicle_measures(boxes, cls, width, height, box_flow=None):
             "lateral_speed_mps": None if lat_v is None else round(float(lat_v), 2),
             "ttc_s": None if ttc is None else round(float(ttc), 2),
             "flow_dx_px": None if bf is None else bf[0],
+            # the box touches the left or right side of the image: part of the vehicle is outside the picture,
+            # so its centre (and the sideways position) is biased towards the image
+            "at_edge": bool(x1 <= config.EDGE_PX or x2 >= width - config.EDGE_PX),
         }
     return out
