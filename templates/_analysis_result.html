@@ -1,0 +1,101 @@
+{# The analysis result of one video: shared by the case page (video_analysis.html) and the expert's trial page.
+   Needs: result, video_src, event_ar, vehicle_ar, measure_ar, value_ar. #}
+{% macro val(k, x) -%}
+  {%- if x is none -%}—{%- elif x is string -%}{{ value_ar.get(x, x) }}{%- else -%}{{ x }}{%- endif -%}
+{%- endmacro %}
+  {% set q = result.quality %}
+  {% if q.flags %}<div class="va-note va-note-warn"><i data-lucide="triangle-alert"></i> جودة الفيديو: {% for f in q.flags %}{{ value_ar.get(f, f) }}{% if not loop.last %}، {% endif %}{% endfor %}. قد تكون النتائج أقل دقة.</div>{% endif %}
+
+  <!-- video + tracking overlay -->
+  <section class="va-card">
+    <div class="va-card-head">
+      <h2>تتبع المركبات</h2>
+      <label class="va-toggle"><input type="checkbox" id="va-show-boxes" checked> إظهار المربعات</label>
+    </div>
+    <div class="va-player">
+      <video id="va-video" controls playsinline preload="metadata" src="{{ video_src }}"></video>
+      <canvas id="va-overlay" aria-hidden="true"></canvas>
+    </div>
+    <div class="va-legend"><span class="lg-b"></span> المركبة الأخرى في الحادث (B) <span class="lg-o"></span> مركبات أخرى متتبعة</div>
+    <div class="va-timeline" id="va-timeline" dir="ltr" aria-label="الأحداث على خط الزمن">
+      <div class="va-timeline-bar"><div id="va-playhead"></div></div>
+      {% set dur = (result.video.frames / result.video.fps) %}
+      {% for e in result.events %}
+      <button type="button" class="va-mark mark-{{ e.type }}" style="left:{{ ((e.start_t - result.video.window_start_s) / dur * 100)|round(1) }}%"
+              data-t="{{ e.start_t }}" title="{{ event_ar[e.type] }} — {{ e.start_t }} ث"></button>
+      {% endfor %}
+    </div>
+    {% if result.video.window_start_s > 0 %}<p class="va-muted">الفيديو أطول من {{ (result.video.frames / result.video.fps)|int }} ثانية، فحُلل الجزء المحيط بلحظة الاصطدام فقط (من الثانية {{ result.video.window_start_s }}).</p>{% endif %}
+  </section>
+
+  <!-- lane lines of the recording car's lane (TwinLiteNet) -->
+  {% set lm = result.lane_markings %}
+  {% if lm and not lm.error %}
+  <section class="va-card">
+    <h2>خطوط المسار</h2>
+    {% if lm.visible %}
+    <p>خطا مسار مركبة صاحب الفيديو: الأيسر <strong>{{ value_ar.get(lm.left_line) }}</strong>، والأيمن <strong>{{ value_ar.get(lm.right_line) }}</strong>{% if lm.crossed_line_type %}. الخط الذي قُطع في تغيير المسار: <strong>{{ value_ar.get(lm.crossed_line_type) }}</strong>{% endif %}.</p>
+    <p class="va-muted">من نموذج <span dir="ltr">TwinLiteNet</span> لخطوط المسار، ونوع الخط يُقرأ من الطلاء على الطريق في الثواني التي تسبق الاصطدام. «غير واضح» تعني أن الخط مخفي أو باهت ويحتاج تحقق الخبير.</p>
+    {% else %}
+    <p class="va-muted">لم تظهر خطوط مسار واضحة في الفيديو.</p>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  <!-- events -->
+  <section class="va-card">
+    <h2>الأحداث المكتشفة والقياسات</h2>
+    {% for e in result.events %}
+    <article class="va-event ev-{{ e.type }}">
+      <div class="va-event-head">
+        <div>
+          <h3>{{ event_ar[e.type] }}{% if e.measures.direction %} — {{ value_ar.get(e.measures.direction) }}{% endif %}</h3>
+          <p class="va-muted">{{ vehicle_ar[e.vehicle] }}{% if e.track_id %} · رقم التتبع {{ e.track_id }}{% endif %} ·
+            <span dir="ltr">{{ e.start_t }}{% if e.end_t != e.start_t %} – {{ e.end_t }}{% endif %} s</span></p>
+        </div>
+        <button type="button" class="va-seek" data-t="{{ e.start_t }}"><i data-lucide="play"></i> عرض في الفيديو</button>
+      </div>
+      <div class="va-event-body">
+        {% if e.thumbnail_jpeg %}<img src="data:image/jpeg;base64,{{ e.thumbnail_jpeg }}" alt="{{ event_ar[e.type] }}" loading="lazy">{% endif %}
+        <table class="va-measures">
+          {% for k, x in e.measures.items() %}{% if k != 'direction' %}
+          <tr><th>{{ measure_ar.get(k, (k,''))[0] }}</th><td>{{ val(k, x) }} {% if x is not none %}<small>{{ measure_ar.get(k, ('',''))[1] }}</small>{% endif %}</td></tr>
+          {% endif %}{% endfor %}
+        </table>
+      </div>
+    </article>
+    {% else %}
+    <p class="va-muted">لم يُكتشف حدث واضح في هذا الفيديو.</p>
+    {% endfor %}
+  </section>
+
+  <!-- vehicles -->
+  <section class="va-card">
+    <h2>المركبات المتتبعة وسلوك حركتها</h2>
+    <p class="va-muted">المركبات التي ظهرت نصف ثانية أو أكثر، مرتبة حسب مدة ظهورها.</p>
+    <div class="va-table-wrap">
+      <table class="va-vehicles">
+        <thead><tr><th>رقم التتبع</th><th>الدور</th><th>النوع</th><th>الظهور</th><th>أقرب مسافة</th><th>متوسط السرعة النسبية</th><th>الحركة الطولية</th><th>الحركة الجانبية</th></tr></thead>
+        <tbody>
+        {% for x in result.vehicles|sort(attribute='frames', reverse=True) if x.frames >= 5 or x.role == 'B' %}
+          <tr class="{{ 'is-b' if x.role == 'B' }}"><td>{{ x.track_id }}</td><td>{{ 'B' if x.role == 'B' else '—' }}</td><td>{{ value_ar.get(x['class'], x['class']) }}</td>
+            <td dir="ltr">{{ (x.frames / result.video.fps)|round(1) }} s</td><td>{{ val('', x.min_distance_m) }} م</td>
+            <td>{{ val('', x.mean_rel_speed_mps) }} م/ث</td><td>{{ value_ar.get(x.longitudinal, '—') }}</td><td>{{ value_ar.get(x.lateral, '—') }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="va-card va-method">
+    <h2>كيف قيست هذه الأرقام؟</h2>
+    <ul>
+      <li><b>المركبات:</b> نموذج ذكاء اصطناعي (YOLO) يحدد كل مركبة في كل لقطة ويتابعها حتى نهاية الفيديو.</li>
+      <li><b>المسافة:</b> كلما كبرت المركبة في الصورة كانت أقرب.</li>
+      <li><b>الوقت المتبقي للاصطدام:</b> من سرعة كِبر المركبة في الصورة.</li>
+      <li><b>الحركة:</b> من حركة الصورة نعرف إن انعطفت سيارة صاحب الفيديو، وإن تحركت المركبة الأخرى يمينًا أو يسارًا، ولحظة الاصطدام.</li>{% if result.lane_markings %}
+      <li><b>خطوط المسار:</b> نموذج ذكاء اصطناعي ثانٍ (TwinLiteNet) يحدد الخطوط، ونعرف المتصل من المتقطع من الطلاء على الطريق.</li>{% endif %}
+      <li>كاميرات السيارات تختلف، لذلك المسافات والسرعات <b>تقريبية</b>.</li>
+    </ul>
+  </section>
+  <script id="va-data" type="application/json">{{ {'tracks': result.tracks, 'series': result.series, 'b': result.vehicle_b|string, 'start': result.video.window_start_s, 'fps': result.video.fps}|tojson }}</script>

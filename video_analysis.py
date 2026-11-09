@@ -5,12 +5,14 @@ import json
 import os
 import tempfile
 import time
+import uuid
 from datetime import datetime
 from urllib.parse import quote, urlencode
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from flask import abort, jsonify, redirect, render_template, send_from_directory, url_for
+from flask import abort, jsonify, redirect, render_template, request, send_from_directory, url_for
+from werkzeug.utils import secure_filename
 
 EVENT_AR = {
     'collision': 'لحظة الاصطدام', 'lane_change': 'تغيير مسار', 'sudden_stop': 'توقف مفاجئ للمركبة الأمامية',
@@ -105,6 +107,83 @@ def register(app, h):
 
     app.jinja_env.globals['case_analysis'] = case_analysis
 
+    # ---- expert trial: analyse any dashcam video without opening a case. Nothing is kept: the uploaded copy
+    #      is deleted right after the analysis, and the result exists only in the expert's open page.
+    TRIAL_DIR = 'siyaq/expert-trials/'
+    TYPES = ('REAR_END', 'LANE_CHANGE')
+
+    def forget_trial():
+        old = session.pop('expert_trial', None)
+        if old:
+            try:
+                h.delete_stored_file('cloudinary://' + old['public_id'])
+            except Exception:
+                app.logger.exception('Could not delete an earlier trial video')
+
+    @app.get('/expert/try')
+    def expert_try():
+        if not is_expert():
+            return redirect(url_for('expert_login'))
+        return render_template('expert_try.html', cloud=h.cloudinary_ready(), max_mb=h.VIDEO_MAX_BYTES // (1024 * 1024),
+                               accept=','.join('.' + x for x in sorted(h.ALLOWED)))
+
+    @app.post('/expert/try/presign')
+    def expert_try_presign():
+        if not is_expert():
+            abort(403)
+        data = request.get_json(silent=True) or {}
+        name, size = str(data.get('filename', '')), data.get('size')
+        ext = name.rsplit('.', 1)[-1].lower() if '.' in name else ''
+        if ext not in h.ALLOWED or type(size) is not int or not 0 < size <= h.VIDEO_MAX_BYTES:
+            return jsonify(error='يرجى اختيار فيديو بصيغة مدعومة وحجم لا يتجاوز {} ميجابايت.'.format(h.VIDEO_MAX_BYTES // (1024 * 1024))), 400
+        if not h.cloudinary_ready():
+            return jsonify(provider='direct')          # local runs: the file goes with the analyse request
+        forget_trial()                                  # an earlier upload that was never analysed
+        public_id = TRIAL_DIR + uuid.uuid4().hex
+        timestamp = int(time.time())
+        params = {'public_id': public_id, 'timestamp': timestamp, 'type': 'authenticated'}
+        session['expert_trial'] = {'public_id': public_id, 'name': secure_filename(name) or 'video.' + ext}
+        return jsonify(provider='cloudinary', public_id=public_id, timestamp=timestamp, api_key=os.environ['CLOUDINARY_API_KEY'],
+                       signature=h.cloudinary_sign(params), delivery_type='authenticated',
+                       upload_url='https://api.cloudinary.com/v1_1/' + quote(os.environ['CLOUDINARY_CLOUD_NAME'], safe='') + '/video/upload')
+
+    @app.post('/expert/try/analyse')
+    def expert_try_analyse():
+        if not is_expert():
+            abort(403)
+        kind = request.form.get('accident_type') or (request.get_json(silent=True) or {}).get('accident_type')
+        if kind not in TYPES:
+            return jsonify(error='يرجى اختيار نوع الحادث.'), 400
+        pending = session.pop('expert_trial', None)
+        from siyaq_cv.analyse import analyse_video
+        try:
+            with tempfile.TemporaryDirectory(prefix='siyaq_trial_') as tmp:
+                if pending:
+                    name = pending['name']
+                    path = fetch_video(h, {'processed_name': None, 'stored_name': 'cloudinary://' + pending['public_id'],
+                                           'original_name': name}, tmp)
+                else:
+                    f = request.files.get('video')
+                    ext = f.filename.rsplit('.', 1)[-1].lower() if f and '.' in f.filename else ''
+                    if not f or ext not in h.ALLOWED:
+                        return jsonify(error='يرجى اختيار فيديو بصيغة مدعومة.'), 400
+                    name = secure_filename(f.filename) or 'video.' + ext
+                    path = os.path.join(tmp, 'video.' + ext)
+                    f.save(path)
+                result = analyse_video(path, kind)
+        except Exception as e:
+            app.logger.exception('Expert trial analysis failed')
+            return jsonify(error='تعذر تحليل الفيديو ({}). يرجى المحاولة مرة أخرى.'.format(type(e).__name__)), 500
+        finally:
+            if pending:
+                try:
+                    h.delete_stored_file('cloudinary://' + pending['public_id'])
+                except Exception:
+                    app.logger.exception('Could not delete the trial video')
+        html = render_template('_analysis_result.html', result=result, video_src='', event_ar=EVENT_AR,
+                               vehicle_ar=VEHICLE_AR, measure_ar=MEASURE_AR, value_ar=VALUE_AR)
+        return jsonify(html=html, name=name, events=len(result['events']), seconds=result['timing_s']['total'])
+
     @app.get('/videos/<int:video_id>/analysis')
     @expert_or_party
     def video_analysis_page(video_id):
@@ -115,17 +194,7 @@ def register(app, h):
             row = c.execute('SELECT * FROM video_analysis WHERE video_id=?', (video_id,)).fetchone()
         row = dict(row) if row else None
         result = json.loads(row['result_json']) if row and row.get('result_json') else None
-        story = None
-        if result:
-            # what the "what happened before the impact" charts need (events without their thumbnails)
-            keep = ('direction', 'side', 'safe_distance', 'b_distance_m', 'crossed_line_type')
-            story = {'events': [dict({k: e.get(k) for k in ('type', 'vehicle', 'start_t', 'end_t')},
-                                     m={k: v for k, v in (e.get('measures') or {}).items() if k in keep})
-                                for e in result.get('events', [])],
-                     'chart': result.get('chart') or {}, 'labels': EVENT_AR, 'vehicles': VEHICLE_AR,
-                     'lanes': {k: (result.get('lane_markings') or {}).get(k) for k in ('left_line', 'right_line')},
-                     'lateral': {k: m.get('lateral_m') for k, m in result.get('measures_b', {}).items()}}
-        return render_template('video_analysis.html', v=v, case=case, row=row, result=result, story=story,
+        return render_template('video_analysis.html', v=v, case=case, row=row, result=result,
                                event_ar=EVENT_AR, vehicle_ar=VEHICLE_AR, measure_ar=MEASURE_AR, value_ar=VALUE_AR)
 
     @app.post('/videos/<int:video_id>/analyse')

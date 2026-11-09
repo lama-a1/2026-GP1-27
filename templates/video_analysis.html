@@ -2,9 +2,6 @@
 {% block title %}التحليل الآلي للفيديو | سياق{% endblock %}
 {% block content %}{# Sprint 2: automatic event-detection output for one uploaded video (no rules or fault percentage) #}
 {% set type_ar = 'حادث تغيير مسار' if case.accident_type=='LANE_CHANGE' else 'تصادم خلفي' %}
-{% macro val(k, x) -%}
-  {%- if x is none -%}—{%- elif x is string -%}{{ value_ar.get(x, x) }}{%- else -%}{{ x }}{%- endif -%}
-{%- endmacro %}
 <div class="container va-page" data-analyse-url="{{ url_for('video_analyse', video_id=v.video_id) }}"
      data-status-url="{{ url_for('video_analysis_status', video_id=v.video_id) }}"
      data-state="{{ row.status if row else 'none' }}">
@@ -38,185 +35,11 @@
     {% endif %}
   </section>
   {% else %}
-  {% set q = result.quality %}
-  {% if q.flags %}<div class="va-note va-note-warn"><i data-lucide="triangle-alert"></i> جودة الفيديو: {% for f in q.flags %}{{ value_ar.get(f, f) }}{% if not loop.last %}، {% endif %}{% endfor %}. قد تكون النتائج أقل دقة.</div>{% endif %}
-
-  <!-- video + tracking overlay -->
-  <section class="va-card">
-    <div class="va-card-head">
-      <h2>تتبع المركبات</h2>
-      <label class="va-toggle"><input type="checkbox" id="va-show-boxes" checked> إظهار المربعات</label>
-    </div>
-    <div class="va-player">
-      <video id="va-video" controls playsinline preload="metadata" src="{{ url_for('video_stream', video_id=v.video_id) }}"></video>
-      <canvas id="va-overlay" aria-hidden="true"></canvas>
-    </div>
-    <div class="va-legend"><span class="lg-b"></span> المركبة الأخرى في الحادث (B) <span class="lg-o"></span> مركبات أخرى متتبعة</div>
-    <div class="va-timeline" id="va-timeline" dir="ltr" aria-label="الأحداث على خط الزمن">
-      <div class="va-timeline-bar"><div id="va-playhead"></div></div>
-      {% set dur = (result.video.frames / result.video.fps) %}
-      {% for e in result.events %}
-      <button type="button" class="va-mark mark-{{ e.type }}" style="left:{{ ((e.start_t - result.video.window_start_s) / dur * 100)|round(1) }}%"
-              data-t="{{ e.start_t }}" title="{{ event_ar[e.type] }} — {{ e.start_t }} ث"></button>
-      {% endfor %}
-    </div>
-    {% if result.video.window_start_s > 0 %}<p class="va-muted">الفيديو أطول من {{ (result.video.frames / result.video.fps)|int }} ثانية، فحُلل الجزء المحيط بلحظة الاصطدام فقط (من الثانية {{ result.video.window_start_s }}).</p>{% endif %}
-  </section>
-
-  <!-- reconstruction of the accident from above, synced with the video; detailed charts folded underneath -->
-  {% set coll = (result.events|selectattr('type', 'equalto', 'collision')|list or [none])[0] %}
-  {% set fdist = (result.events|selectattr('type', 'equalto', 'following_distance')|list or [none])[0] %}
-  <section class="va-card va-story" id="va-story">
-    <h2>إعادة بناء الحادث</h2>
-    <p class="va-muted">منظر من فوق لمكان المركبة B من سيارة صاحب الفيديو، يتحرك مع الفيديو. شغّلي الفيديو أو اسحبي المؤشر أو اضغطي على أي خطوة. المسافات تقريبية وتُقاس من كاميرا صاحب الفيديو، ومقدمة سيارته أمام الكاميرا بنحو 1.6 م.</p>
-
-    <div class="va-recon">
-      <figure class="va-road-wrap">
-        <svg id="va-road" viewBox="0 0 240 340" role="img" aria-label="منظر من فوق لموقع المركبتين"></svg>
-        <figcaption class="va-road-key"><i><span class="k-a"></span>سيارة صاحب الفيديو</i><i><span class="k-b"></span>المركبة B</i><i><span class="k-z"></span>أقرب من مسافة الأمان</i><i><span class="k-c"></span>الكاميرا</i></figcaption>
-      </figure>
-      <div class="va-now" aria-live="polite">
-        <div class="va-now-time" id="va-now-time">—</div>
-        <dl class="va-now-facts">
-          <div><dt>المسافة من الكاميرا إلى B</dt><dd id="va-now-dist">—</dd></div>
-          <div><dt>مكان B</dt><dd id="va-now-side">—</dd></div>
-          <div><dt>حركة B</dt><dd id="va-now-move">—</dd></div>
-          <div><dt>يحدث الآن</dt><dd id="va-now-event">—</dd></div>
-        </dl>
-      </div>
-    </div>
-
-    <div class="va-scrub">
-      <button type="button" class="va-play" id="va-play" aria-label="تشغيل">&#9654;</button>
-      <input type="range" id="va-scrub" min="0" max="1000" value="0" step="1" aria-label="الوقت في الفيديو">
-    </div>
-
-    <h3 class="va-steps-title">خطوات الحادث</h3>
-    <ol class="va-steps" id="va-steps"></ol>
-
-    {% if coll %}
-    <div class="va-kpis">
-      <div class="va-kpi"><span>المسافة قبل الاصطدام بثانية</span><b dir="ltr">{{ val('', coll.measures.b_distance_1s_before_m) }}<small> م</small></b></div>
-      <div class="va-kpi"><span>أقل وقت متبقٍ للاصطدام في آخر ثانية</span><b dir="ltr">{{ val('', coll.measures.min_ttc_last_1s_s) }}<small> ث</small></b></div>
-      <div class="va-kpi"><span>سرعة الاقتراب في آخر ثانية</span><b dir="ltr">{{ val('', coll.measures.closing_speed_last_1s_kmh) }}<small> كم/س</small></b></div>
-      {% if fdist %}
-      {% set kept = fdist.measures.safe_distance == 'Maintained' %}
-      <div class="va-kpi"><span>مسافة الأمان</span>
-        <b class="va-status {{ 'ok' if kept else 'bad' }}"><i data-lucide="{{ 'circle-check' if kept else 'triangle-alert' }}"></i>{{ value_ar.get(fdist.measures.safe_distance) }}</b></div>
-      {% endif %}
-    </div>
-    {% endif %}
-
-    <details class="va-detail" id="va-detail">
-      <summary>رسوم تفصيلية بالأرقام</summary>
-      <div class="va-card-head">
-        <p class="va-muted">كل الرسوم على خط زمن واحد. الخط الأحمر لحظة الاصطدام، والأخضر الغامق مكان الفيديو الآن.</p>
-        <div class="va-range" role="group" aria-label="المدة المعروضة">
-          <button type="button" class="is-on" data-range="impact" aria-pressed="true">حول الاصطدام</button>
-          <button type="button" data-range="all" aria-pressed="false">الفيديو كامل</button>
-        </div>
-      </div>
-      <div class="va-rows" id="va-rows" dir="ltr">
-        <figure class="va-row" data-row="events">
-          <figcaption dir="rtl"><b>الأحداث</b><span>متى بدأ كل حدث ومتى انتهى</span></figcaption>
-          <svg aria-label="الأحداث على خط الزمن" role="img"></svg>
-        </figure>
-        <figure class="va-row" data-row="distance">
-          <figcaption dir="rtl"><b>المسافة إلى المركبة B</b><span>كلما نزل الخط اقتربت B. المنطقة الصفراء: أقرب من مسافة الأمان</span></figcaption>
-          <svg aria-label="المسافة إلى المركبة B عبر الزمن" role="img"></svg>
-        </figure>
-        <figure class="va-row" data-row="ttc">
-          <figcaption dir="rtl"><b>الوقت المتبقي للاصطدام</b><span>كل نقطة لقطة تقترب فيها B، لو استمرت السرعتان كما هما. المنطقة الحمراء: أقل من {{ (result.chart or {}).get('ttc_danger_s', 1.6) }} ث</span></figcaption>
-          <svg aria-label="الوقت المتبقي للاصطدام عبر الزمن" role="img"></svg>
-        </figure>
-        <figure class="va-row" data-row="lateral">
-          <figcaption dir="rtl"><b>مكان B من مسار صاحب الفيديو</b><span>المنطقة الرمادية مسار صاحب الفيديو. الخط داخلها يعني أن B أمامه في المسار نفسه</span></figcaption>
-          <svg aria-label="موقع المركبة B الجانبي عبر الزمن" role="img"></svg>
-        </figure>
-      </div>
-      <div class="va-tip" id="va-tip" hidden></div>
-      <details class="va-values">
-        <summary>عرض القيم كجدول</summary>
-        <div class="va-table-wrap"><table class="va-vehicles" id="va-values"></table></div>
-      </details>
-    </details>
-  </section>
-
-  <!-- lane lines of the recording car's lane (TwinLiteNet) -->
-  {% set lm = result.lane_markings %}
-  {% if lm and not lm.error %}
-  <section class="va-card">
-    <h2>خطوط المسار</h2>
-    {% if lm.visible %}
-    <p>خطا مسار مركبة صاحب الفيديو: الأيسر <strong>{{ value_ar.get(lm.left_line) }}</strong>، والأيمن <strong>{{ value_ar.get(lm.right_line) }}</strong>{% if lm.crossed_line_type %}. الخط الذي قُطع في تغيير المسار: <strong>{{ value_ar.get(lm.crossed_line_type) }}</strong>{% endif %}.</p>
-    <p class="va-muted">من نموذج <span dir="ltr">TwinLiteNet</span> لخطوط المسار، ونوع الخط يُقرأ من الطلاء على الطريق في الثواني التي تسبق الاصطدام. «غير واضح» تعني أن الخط مخفي أو باهت ويحتاج تحقق الخبير.</p>
-    {% else %}
-    <p class="va-muted">لم تظهر خطوط مسار واضحة في الفيديو.</p>
-    {% endif %}
-  </section>
-  {% endif %}
-
-  <!-- events -->
-  <section class="va-card">
-    <h2>الأحداث المكتشفة والقياسات</h2>
-    {% for e in result.events %}
-    <article class="va-event ev-{{ e.type }}">
-      <div class="va-event-head">
-        <div>
-          <h3>{{ event_ar[e.type] }}{% if e.measures.direction %} — {{ value_ar.get(e.measures.direction) }}{% endif %}</h3>
-          <p class="va-muted">{{ vehicle_ar[e.vehicle] }}{% if e.track_id %} · رقم التتبع {{ e.track_id }}{% endif %} ·
-            <span dir="ltr">{{ e.start_t }}{% if e.end_t != e.start_t %} – {{ e.end_t }}{% endif %} s</span></p>
-        </div>
-        <button type="button" class="va-seek" data-t="{{ e.start_t }}"><i data-lucide="play"></i> عرض في الفيديو</button>
-      </div>
-      <div class="va-event-body">
-        {% if e.thumbnail_jpeg %}<img src="data:image/jpeg;base64,{{ e.thumbnail_jpeg }}" alt="{{ event_ar[e.type] }}" loading="lazy">{% endif %}
-        <table class="va-measures">
-          {% for k, x in e.measures.items() %}{% if k != 'direction' %}
-          <tr><th>{{ measure_ar.get(k, (k,''))[0] }}</th><td>{{ val(k, x) }} {% if x is not none %}<small>{{ measure_ar.get(k, ('',''))[1] }}</small>{% endif %}</td></tr>
-          {% endif %}{% endfor %}
-        </table>
-      </div>
-    </article>
-    {% else %}
-    <p class="va-muted">لم يُكتشف حدث واضح في هذا الفيديو.</p>
-    {% endfor %}
-  </section>
-
-  <!-- vehicles -->
-  <section class="va-card">
-    <h2>المركبات المتتبعة وسلوك حركتها</h2>
-    <p class="va-muted">المركبات التي ظهرت نصف ثانية أو أكثر، مرتبة حسب مدة ظهورها.</p>
-    <div class="va-table-wrap">
-      <table class="va-vehicles">
-        <thead><tr><th>رقم التتبع</th><th>الدور</th><th>النوع</th><th>الظهور</th><th>أقرب مسافة</th><th>متوسط السرعة النسبية</th><th>الحركة الطولية</th><th>الحركة الجانبية</th></tr></thead>
-        <tbody>
-        {% for x in result.vehicles|sort(attribute='frames', reverse=True) if x.frames >= 5 or x.role == 'B' %}
-          <tr class="{{ 'is-b' if x.role == 'B' }}"><td>{{ x.track_id }}</td><td>{{ 'B' if x.role == 'B' else '—' }}</td><td>{{ value_ar.get(x['class'], x['class']) }}</td>
-            <td dir="ltr">{{ (x.frames / result.video.fps)|round(1) }} s</td><td>{{ val('', x.min_distance_m) }} م</td>
-            <td>{{ val('', x.mean_rel_speed_mps) }} م/ث</td><td>{{ value_ar.get(x.longitudinal, '—') }}</td><td>{{ value_ar.get(x.lateral, '—') }}</td></tr>
-        {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="va-card va-method">
-    <h2>كيف قيست هذه الأرقام؟</h2>
-    <ul>
-      <li><b>المركبات:</b> نموذج ذكاء اصطناعي (YOLO) يحدد كل مركبة في كل لقطة ويتابعها حتى نهاية الفيديو.</li>
-      <li><b>المسافة:</b> كلما كبرت المركبة في الصورة كانت أقرب.</li>
-      <li><b>الوقت المتبقي للاصطدام:</b> من سرعة كِبر المركبة في الصورة.</li>
-      <li><b>الحركة:</b> من حركة الصورة نعرف إن انعطفت سيارة صاحب الفيديو، وإن تحركت المركبة الأخرى يمينًا أو يسارًا، ولحظة الاصطدام.</li>{% if result.lane_markings %}
-      <li><b>خطوط المسار:</b> نموذج ذكاء اصطناعي ثانٍ (TwinLiteNet) يحدد الخطوط، ونعرف المتصل من المتقطع من الطلاء على الطريق.</li>{% endif %}
-      <li>كاميرات السيارات تختلف، لذلك المسافات والسرعات <b>تقريبية</b>.</li>
-    </ul>
-  </section>
-  <script id="va-data" type="application/json">{{ {'tracks': result.tracks, 'series': result.series, 'b': result.vehicle_b|string, 'start': result.video.window_start_s, 'fps': result.video.fps, 'story': story}|tojson }}</script>
+  {% set video_src = url_for('video_stream', video_id=v.video_id) %}
+  {% include '_analysis_result.html' %}
   {% endif %}
 </div>
-<script src="{{ url_for('static', filename='va-story.js') }}"></script>
-<script src="{{ url_for('static', filename='va-recon.js') }}"></script>
+<script src="{{ url_for('static', filename='va-page.js') }}"></script>
 <script>
 (function () {
   var page = document.querySelector('.va-page');
@@ -236,45 +59,7 @@
   if (page.dataset.state === 'none') start();
   else if (page.dataset.state === 'running') poll();
 
-  var dataEl = document.getElementById('va-data');
-  if (!dataEl) return;
-  var D = JSON.parse(dataEl.textContent);
-  var video = document.getElementById('va-video'), canvas = document.getElementById('va-overlay'), ctx = canvas.getContext('2d');
-  var show = document.getElementById('va-show-boxes'), playhead = document.getElementById('va-playhead');
-  var byFrame = {};
-  Object.keys(D.tracks).forEach(function (tid) {
-    D.tracks[tid].forEach(function (b) { (byFrame[b[0]] = byFrame[b[0]] || []).push([tid].concat(b.slice(1))); });
-  });
-  var nFrames = D.series.t.length;
-  function draw() {
-    var w = video.clientWidth, h = video.clientHeight, vw = video.videoWidth || 16, vh = video.videoHeight || 9;
-    var dpr = window.devicePixelRatio || 1;
-    if (canvas.width !== Math.round(w * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); }
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
-    // the video is letter-boxed inside the element: find the drawn picture
-    var s = Math.min(w / vw, h / vh), pw = vw * s, ph = vh * s, ox = (w - pw) / 2, oy = (h - ph) / 2;
-    var f = Math.round((video.currentTime - D.start) * D.fps);
-    if (playhead) playhead.style.width = Math.max(0, Math.min(100, f / nFrames * 100)) + '%';
-    if (!show.checked) return;
-    (byFrame[f] || byFrame[f - 1] || []).forEach(function (b) {
-      var isB = b[0] === D.b;
-      ctx.strokeStyle = isB ? '#d93025' : '#2fae66'; ctx.lineWidth = isB ? 3 : 1.5;
-      var x = ox + b[1] * pw, y = oy + b[2] * ph, bw = (b[3] - b[1]) * pw, bh = (b[4] - b[2]) * ph;
-      ctx.strokeRect(x, y, bw, bh);
-      ctx.fillStyle = isB ? '#d93025' : '#2fae66'; ctx.font = 'bold 12px Tajawal, system-ui, sans-serif';
-      ctx.fillText(isB ? 'B' : b[0], x + 3, Math.max(12, y - 4));
-    });
-  }
-  (function loop() { draw(); requestAnimationFrame(loop); })();
-  document.querySelectorAll('[data-t]').forEach(function (el) {
-    el.addEventListener('click', function () {
-      var go = function () { video.currentTime = parseFloat(el.dataset.t) || 0; video.pause(); };
-      video.scrollIntoView({behavior: 'smooth', block: 'center'});
-      if (video.readyState >= 1) go(); else video.addEventListener('loadedmetadata', go, {once: true});
-    });
-  });
-  if (window.siyaqStory) window.siyaqStory(D, video);
-  if (window.siyaqRecon) window.siyaqRecon(D, video);
+  if (window.siyaqAnalysisView) window.siyaqAnalysisView(document);
 })();
 </script>
 {% endblock %}

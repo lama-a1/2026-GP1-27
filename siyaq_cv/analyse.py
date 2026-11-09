@@ -11,7 +11,6 @@ The accident type is NOT predicted: it comes from the case form and is only stor
 import argparse
 import base64
 import json
-import math
 import time
 
 import cv2
@@ -36,10 +35,6 @@ def _thumb(frame, tracks, f, highlight, width=480, lines=None):
     im = cv2.resize(im, None, fx=s, fy=s, interpolation=cv2.INTER_AREA)
     ok, buf = cv2.imencode(".jpg", im, [cv2.IMWRITE_JPEG_QUALITY, 72])
     return base64.b64encode(buf.tobytes()).decode()
-
-
-def _t_at(times, f):
-    return None if f is None else times[min(max(int(f), 0), len(times) - 1)]
 
 
 def _lane_summary(evs, votes):
@@ -88,31 +83,13 @@ def analyse_video(path, accident_type=None, thumbnails=True):
             e["thumbnail_jpeg"] = _thumb(frames[e["start"]], tracks, e["start"], b if e["vehicle"] == "B" else e.get("track_id"),
                                          lines=lane_frames.get(near) if near is not None else None)
     mb = meas.get(b, {})
-    n = len(frames)
-
-    def b_series(key, fn=lambda x: x):
-        # one value per frame for Vehicle B, None where B is not seen
-        return [fn(mb[k][key]) if k in mb and mb[k][key] is not None else None for k in range(n)]
-
     series = {"t": times,
               "a_heading_rate_deg_s": [round(x, 2) for x in flow["yaw_rate"]],
               "a_pitch_px": [round(x, 2) for x in flow["pitch_px"]],
               "jolt": [round(x, 2) for x in flow["jolt"]],
-              "b_distance_m": b_series("distance_m"),
-              "b_ttc_s": b_series("ttc_s"),
-              "b_rel_speed_mps": b_series("rel_speed_mps"),
-              # for the expert's charts: how fast the gap closes (positive = getting closer) and where B is
-              # sideways from the middle of the recording car's lane (positive = to the right)
-              "b_closing_mps": b_series("rel_speed_mps", lambda x: round(-x, 2)),
-              "b_lateral_m": b_series("lateral_m")}
-    chart = {
-        "impact_t": _t_at(times, crash),
-        # the safe-distance rule (B's box taller than HEADWAY_FRAC of the image width) as a distance for a car
-        "too_close_m": round(config.REAL_HEIGHT_M["car"] / (2 * math.tan(math.radians(config.CAMERA_FOV_DEG) / 2)
-                                                            * config.HEADWAY_FRAC), 1),
-        "ttc_danger_s": config.TTC_SUDDEN_STOP_S,
-        "lane_half_width_m": config.LANE_WIDTH_M / 2,
-    }
+              "b_distance_m": [mb[k]["distance_m"] if k in mb else None for k in range(len(frames))],
+              "b_ttc_s": [mb[k]["ttc_s"] if k in mb else None for k in range(len(frames))],
+              "b_rel_speed_mps": [mb[k]["rel_speed_mps"] if k in mb else None for k in range(len(frames))]}
     return {
         "version": config.VERSION, "detector": config.MODEL, "accident_type": accident_type,
         "video": {"fps": config.FPS, "frames": len(frames), "duration_s": v["duration_s"],
@@ -128,7 +105,6 @@ def analyse_video(path, accident_type=None, thumbnails=True):
                               for f, (x1, y1, x2, y2, _) in sorted(tr.items())] for tid, tr in tracks.items()},
         "measures_b": {str(k): mb[k] for k in sorted(mb)},
         "series": series,
-        "chart": chart,
         "events": evs,
         "lane_markings": lane_info,
         "crossed_line_type": (lane_info or {}).get("crossed_line_type"),

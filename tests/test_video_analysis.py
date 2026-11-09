@@ -160,26 +160,3 @@ def test_cloudinary_fetch_signs_with_timestamp_and_falls_back(monkeypatch, tmp_p
     assert 'timestamp=' in seen[0] and 'format=mov' in seen[0]
     assert seen[1].startswith('https://res.cloudinary.com/demo/video/authenticated/s--')
 
-
-def test_expert_page_shows_the_story_charts(monkeypatch):
-    # "what happened before the impact": key numbers, the four chart rows and the data they are drawn from
-    app.config['TESTING'] = True
-    import siyaq_cv.analyse
-    result = dict(FAKE, chart={'impact_t': 3.7, 'too_close_m': 2.1, 'ttc_danger_s': 1.6, 'lane_half_width_m': 1.8},
-                  measures_b={'25': {'lateral_m': 2.4}, '37': {'lateral_m': 0.3}})
-    monkeypatch.setattr(siyaq_cv.analyse, 'analyse_video', lambda path, typ: result)
-    with module.conn() as db:
-        nid, case_id, vid = setup_case(db)
-    with app.test_client() as client:
-        login(client, nid)
-        client.post(f'/videos/{vid}/analyse', headers={'X-CSRF-Token': 'va-csrf'})
-    with app.test_client() as client:
-        login_expert(client)
-        page = client.get(f'/videos/{vid}/analysis').get_data(as_text=True)
-    assert 'إعادة بناء الحادث' in page and 'va-recon.js' in page and 'id="va-road"' in page
-    for row in ('events', 'distance', 'ttc', 'lateral'):
-        assert f'data-row="{row}"' in page
-    data = json.loads(page.split('<script id="va-data" type="application/json">')[1].split('</script>')[0])
-    assert data['story']['chart']['impact_t'] == 3.7
-    assert {e['type'] for e in data['story']['events']} == {'lane_change', 'collision'}
-    assert 'thumbnail_jpeg' not in json.dumps(data['story']['events'])

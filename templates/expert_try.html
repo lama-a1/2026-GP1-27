@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}تجربة التحليل الآلي | سياق{% endblock %}
+{% block content %}{# Expert only: analyse any dashcam video without opening a case. Nothing is saved. #}
+<div class="container va-page">
+  <a class="va-back" href="{{ url_for('expert_cases') }}"><i data-lucide="arrow-right"></i> العودة إلى الحالات</a>
+
+  <section class="va-hero">
+    <div>
+      <span class="eyebrow">للخبير فقط</span>
+      <h1>تجربة التحليل الآلي</h1>
+      <p>ارفع أي فيديو داش كام وشاهد نتيجة التحليل مباشرة، بدون إنشاء بلاغ.</p>
+    </div>
+  </section>
+
+  <section class="va-card">
+    <form id="try-form" class="try-form" data-cloud="{{ '1' if cloud else '0' }}" data-max-mb="{{ max_mb }}" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="try-file" for="try-video">
+        <i data-lucide="upload"></i>
+        <span id="try-file-name">اختر فيديو الحادث</span>
+        <small>{{ accept|replace(',', '، ') }} · حتى {{ max_mb }} ميجابايت</small>
+        <input type="file" id="try-video" name="video" accept="video/*,{{ accept }}" required>
+      </label>
+      <fieldset class="try-type">
+        <legend>نوع الحادث</legend>
+        <label><input type="radio" name="accident_type" value="REAR_END" checked> تصادم خلفي</label>
+        <label><input type="radio" name="accident_type" value="LANE_CHANGE"> حادث تغيير مسار</label>
+      </fieldset>
+      <button class="btn primary" type="submit" id="try-go">حلّل الفيديو</button>
+    </form>
+    <div id="try-status" class="upload-progress" role="status" aria-live="polite" hidden>
+      <div class="upload-progress-track"><div id="try-progress"></div></div>
+      <span id="try-message"></span>
+    </div>
+    <p class="va-muted try-privacy"><i data-lucide="shield-check"></i> لا يُحفظ شيء: الفيديو يُحذف من الخادم بعد التحليل مباشرة، والنتيجة تبقى في هذه الصفحة فقط وتختفي عند إغلاقها.</p>
+  </section>
+
+  <div id="try-result"></div>
+</div>
+<script src="{{ url_for('static', filename='va-page.js') }}"></script>
+<script src="{{ url_for('static', filename='expert-try.js') }}"></script>
+{% endblock %}
