@@ -41,6 +41,8 @@ LANE_SIDE_M = 2.2            # (tuned on train) other vehicle at least this far 
 LANE_SHIFT_M = 0.4           # (tuned on train) it moved at least this much towards the recording car's lane = lane change
 LANE_IN_M = 0.8              # (tuned on train) within this sideways distance it is in front of the recording car
 EGO_YAW_DEG = 20.0            # (tuned on train) recording car heading change (from background flow) for its own lane change
+COLLISION_SIZE_MIN = 0.85    # impact candidates: B at least this share of its largest size in the clip
+                              # (149 clips with ByteTrack: 71.1% within 0.5 s of the annotated impact, 11.4% later)
 TTC_SUDDEN_STOP_S = 1.6      # (tuned on train) time-to-collision of the vehicle ahead below this = sudden stop / hard braking
 HEADWAY_FRAC = 0.26          # (tuned on train) box height / width above this = too close
 OVERTAKE_MIN_FRAMES = 5
