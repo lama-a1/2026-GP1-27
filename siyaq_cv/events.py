@@ -52,7 +52,11 @@ def collision(meas_b, jolt, n):
         size = m["height_frac"] / hmax
         if size < 0.6:
             continue
-        s = 2.0 * size + 0.35 * min(jz[f], 8) + (0.5 if f >= frames[-1] - 1 else 0)
+        # no bonus for the last frames of B's track: in a video that goes on after the impact the track can end
+        # later (ByteTrack keeps a vehicle through low-score and missed frames), and a later jolt such as hitting
+        # the kerb then won (SIYAQ-BUG-001). Without it: 72.5% / 71.1% of the 149 clips within 0.5 s of the
+        # annotated impact (IoU tracker / ByteTrack), against 71.1% / 69.8% with it.
+        s = 2.0 * size + 0.35 * min(jz[f], 8)
         if s > best_s:
             best, best_s = f, s
     if best is None:
