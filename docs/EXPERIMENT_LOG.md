@@ -148,5 +148,87 @@ So the candidate is right on 1 of 2 reviewed clips, the same as the current rule
   - `xfail(strict)`, open on purpose: an early huge truck beats a smaller maneuvering car; `000023` should pick track 4; with track 4 the impact should be found.
 - **Next.**
   1. Review B on more clips, starting with the list above. One reviewed clip with a known failure cannot validate a rule.
-  2. EXP-006: keep an edge-cut vehicle that is lost while beside the recording car (weak side-cut boxes in frames 31–38), so the impact and B's last movement can be measured.
+  2. A later experiment: keep an edge-cut vehicle that is lost while beside the recording car (weak side-cut boxes in frames 31–38), so the impact and B's last movement can be measured.
   3. Revisit the selection only when there are enough reviewed B labels.
+
+## EXP-006 — Early Lane Change Onset in 000152 (diagnosed; no engine change)
+
+**Issue.** CCD `000152` (train). Human-reviewed: Vehicle B = white hatchback on the right moving left; lane change frames 16–37; collision frame 37. Siyaq: B = track 1, lane change 2–34 (left), collision 34, lateral shift 6.53 m, distance 14.88 → 2.61 m. The predicted start is 14 frames early. (`dataset_index.csv` gives crash frame 32 for this clip, not 37.)
+
+### 1. Vehicle B
+Track 1 is the white hatchback: one ByteTrack ID, frames 0–49, checked on the overlay frame by frame. From frame 24 its box also takes in part of the parked car next to it (track 5), so it is a little too wide. B is correct.
+
+### 2. Why `_lane_change_bounds()` started at frame 2
+- `p` is the frame where B is widest from the lane: frame 0, smoothed lateral 8.1 m.
+- Inward speed (smoothed lateral, ±2 frames) is 1.9–3.8 m/s from frame 2 onwards. The peak is at frame 5 (3.75 m/s). It never drops below `LANE_ONSET_MPS` = 0.4 before frame 16 (lowest 1.8 m/s).
+- Going back from the peak while speed ≥ 0.4 stops at frame 2. Frames 0–1 have no speed yet (±2 window).
+
+So the rule worked as written: B's sideways position shrinks steadily from the start of the clip.
+
+### 3. Perspective and approach vs real sideways movement (track 1, frames 0–31)
+
+| Check | Frames 0–15 | Frames 16–31 |
+|---|---|---|
+| Box left (inner) edge x1, px | 436 → 435 (flat) | 431 → 347 |
+| Box right (outer) edge x2, px | 496 → 555 | 560 → 626 |
+| Box height, px | 28 → 60 | 64 → 163 |
+| Box centre, px | 466 → 495 (moves **outwards**) | 496 → 486 |
+| Optical flow inside box (dx, px/frame) | +0.5…+2.8 (outwards) | +3.3 → −8 (inwards from frame 23) |
+| Lateral (box-size metric), m | 8.03 → 4.54 | 4.23 → 1.59 |
+| Edge flag | none | none (from frame 32: right side) |
+| Ego motion (yaw, background dx) | ~0 | ~0 |
+| Ego lane lines (TwinLiteNet), x at row 0.6 | stable (0.39 / 0.70); vanishing point x≈313, y≈130 | right line hidden by B after frame 14 |
+| B's inner edge, lane widths outside ego's right line (box bottom row) | 0.89 → 0.15 | 0.07 (f16), 0.01 (f17), −0.05 (f18) … −0.32 |
+
+- **The trend is not an approach/perspective artefact.** A car keeping the same sideways position would move outwards in the image in step with its box height. Its offset from the vanishing point would grow ×2.1 between frames 0 and 15, putting the box centre at about x=641, off the image. The real centre goes only from 466 to 495. Measured against the ego lane lines, with no camera height, FOV or car-height assumption, B's inner edge closes on the lane line from frame 3. The recording car is not drifting: its lane lines are stable and yaw is about 0. Either B drifts left slowly from the start, or its lane converges towards ours. Monocular geometry cannot tell these two apart.
+- **The size is inflated by the distance estimate.** The box-size lateral overstates the shift at long range (8.1 m at about 14 m, against about 5.9 m from the lane lines). The reported 6.53 m shift and the early speeds (up to 3.75 m/s) are therefore too large. This affects magnitudes, not the onset frame.
+
+### 4. Onset definition vs human annotation
+- The written protocol (Part 1 README) only names the tags `lane_change_start` / `lane_change_end`. It does not define them. EXP-004 assumed start = "B starts moving in".
+- On both human-reviewed clips, the human start is about one frame before B's near edge reaches the ego lane line:
+
+| Clip | Engine (motion onset) | Near edge reaches ego line | Human start |
+|---|---|---|---|
+| `dada_training_type11_53` | 14 | between 15 and 16 | 15 |
+| `000152` | 2 | between 17 and 18 | 16 |
+
+  - On `dada_53` motion onset and lane entry coincide, so the current rule agrees.
+  - On `000152` B creeps towards the lane for 1.5 s before entering it. The engine marks the creep; the human marks the entry.
+- **Defect:** a definition mismatch, generalizable to any slow approach before a cut-in. It is not a perspective bug.
+
+### 5. Candidate correction, tested (not adopted)
+**Rule.** Start = the last frame B's near box edge is still outside the ego lane line on its side (TwinLiteNet lines, nearest analysed frame within 20 frames). Used only when it is later than the motion onset; otherwise the current rule. No offsets, no clip-specific rule. End, ByteTrack, collision and thresholds are unchanged.
+
+**Human-approved, train only (n = 2).** Both clips were used to form the hypothesis, so this is in-sample, not validation.
+
+| Version | Start MAE | tIoU |
+|---|---|---|
+| Current | 7.5 | 0.653 |
+| Candidate | 0.5 (`dada_53` 15, `000152` 17) | 0.847 |
+
+**Draft labels (not reviewed; reported separately).** The rule could only apply where lane lines exist on B's side: 7 of 36 B lane changes.
+
+| Split | Version | n | Start MAE | tIoU |
+|---|---|---|---|---|
+| Train | Current | 22 | 10.09 | 0.510 |
+| Train | Candidate | 22 (7 changed) | 9.36 | 0.499 (slightly lower) |
+| Val | Current | 4 | 4.25 | 0.407 |
+| Val | Candidate | 4 (0 changed) | 4.25 | 0.407 |
+
+Changed train clips (start current → candidate, draft start):
+- Closer to the draft: `000454` (0 → 11, draft 24), `000734` (13 → 15, 20).
+- Further from the draft: `000195` (17 → 25, 20), `dada_validation_type10_51` (6 → 18, 8).
+- Same error size: `dada_training_type11_63` (16 → 31, 24).
+
+**Held-out reviewed validation:** none exists yet. No validation clip has a human-reviewed lane change, so the single held-out evaluation could not be run.
+
+**Decision.** Not merged.
+- The only supporting evidence is the 2 clips that produced the hypothesis.
+- Draft results are mixed.
+- The start definition is a protocol decision.
+- `dada_training_type11_53` stays at 14–21.
+
+### 6. Next
+1. The team writes the start definition into the labelling protocol, for example "first frame B's wheels/near edge reach the line of the recording car's lane", and reviews lane changes on validation clips.
+2. Then run the candidate once on those clips. Lane lines must exist over B's whole approach; today they are read only in the last 5 s before the impact, every 2nd frame.
+3. Separately, the box-size lateral scale is inflated at long range. Reporting the shift in lane widths (from the lane lines) would be more reliable than metres.
