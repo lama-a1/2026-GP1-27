@@ -37,7 +37,7 @@ def _thumb(frame, tracks, f, highlight, width=480, lines=None):
     return base64.b64encode(buf.tobytes()).decode()
 
 
-def _lane_summary(evs, votes):
+def _lane_summary(evs, votes, times=None):
     """Type of the recording car's two lane lines, and of the line crossed in the lane change."""
     left, li = lanes.side_type(votes, "left")
     right, ri = lanes.side_type(votes, "right")
@@ -55,6 +55,13 @@ def _lane_summary(evs, votes):
         typ, info = lanes.side_type(votes, side, f0, f1)
         lc["measures"].update({"crossed_line_side": side, "crossed_line_type": typ,
                                "crossed_line_frames": info["frames_typed"], "crossed_line_solid_share": info.get("solid_share")})
+        typed = sorted(x[0] for x in votes.get(side, []) if x[1] and f0 <= x[0] <= f1)
+        if typed:                       # a vote over the lane-model frames of that stretch
+            w = {"basis": "estimated", "frames": [typed[0], typed[-1]]}
+            if times:
+                w["time_s"] = [events._t(typed[0], times), events._t(typed[-1], times)]
+            lc.setdefault("sources", {}).update({k: w for k in ("crossed_line_type", "crossed_line_frames",
+                                                                 "crossed_line_solid_share")})
         out["crossed_line_type"] = typ
     return out
 
@@ -73,7 +80,7 @@ def analyse_video(path, accident_type=None, thumbnails=True):
     lane_frames, lane_info = {}, None
     try:
         lane_frames, votes, _ = lanes.analyse(frames, tracks, lanes.masks(frames, lanes.frames_to_check(len(frames), crash)))
-        lane_info = _lane_summary(evs, votes)
+        lane_info = _lane_summary(evs, votes, times)
     except Exception as exc:                       # the lane model is an extra: the analysis goes on without it
         lane_info = {"error": str(exc)[:200]}
     t_lane = time.time() - t1

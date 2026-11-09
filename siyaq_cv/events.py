@@ -17,9 +17,42 @@ def _mean(vals):
     return float(np.mean(vals)) if vals else None
 
 
-def _near(meas, f, tol=3):
+def _near_f(meas, f, tol=3):
+    """(measures, frame) of the tracked frame nearest to f, within tol frames; (None, None) if there is none."""
     ks = [k for k in meas if abs(k - f) <= tol]
-    return meas[min(ks, key=lambda k: abs(k - f))] if ks else None
+    if not ks:
+        return None, None
+    k = min(ks, key=lambda k: abs(k - f))
+    return meas[k], k
+
+
+def _near(meas, f, tol=3):
+    return _near_f(meas, f, tol)[0]
+
+
+# Where each number of an event comes from (event["sources"][measure]):
+#   observed  - read from Vehicle B's tracked box (or the image) in the very frame the number is reported for
+#   estimated - computed over a window of observed frames (a mean, a minimum, a rate, a smoothed position)
+#   inferred  - reported for a frame where the number was not measured: carried over from the nearest tracked
+#               frame (e.g. B is no longer tracked at the impact), or a moment deduced from another event
+# The values themselves are unchanged; this only says how far each one can be trusted at the time shown.
+def _src_at(ref, src, times):
+    if src is None:
+        return None
+    d = {"basis": "observed" if src == ref else "inferred", "frame": int(src), "time_s": _t(src, times)}
+    if src != ref:
+        d["reported_for_frame"], d["reported_for_s"] = int(ref), _t(ref, times)
+    return d
+
+
+def _src_win(frames, times, inferred_from=None):
+    frames = sorted(int(f) for f in frames)
+    if not frames:
+        return None
+    d = {"basis": "estimated", "frames": [frames[0], frames[-1]], "time_s": [_t(frames[0], times), _t(frames[-1], times)]}
+    if inferred_from is not None:              # the window uses a number carried over from another frame
+        d["basis"], d["uses_frame"] = "inferred", int(inferred_from)
+    return d
 
 
 def pick_vehicle_b(tracks, width, height, n):
@@ -129,9 +162,20 @@ def analyse(meas, b, flow, times):
     before = [mb[k] for k in sorted(mb) if crash - 10 <= k < crash]
     ttcs = [m["ttc_s"] for m in before if m["ttc_s"] is not None]
     closing = _closing(before)
-    m_c = mb.get(crash) or _near(mb, crash)
-    m_1s = _near(mb, crash - 10)
-    events.append({"type": "collision", "vehicle": "B", "track_id": b, "start": crash, "end": crash, "measures": {
+    m_c, f_c = (mb[crash], crash) if crash in mb else _near_f(mb, crash)
+    m_1s, f_1s = _near_f(mb, crash - 10)
+    at_c, win = _src_at(crash, f_c, times), lambda fs: _src_win(fs, times)
+    seen = {"basis": "observed", "frame": int(crash), "time_s": _t(crash, times)}
+    events.append({"type": "collision", "vehicle": "B", "track_id": b, "start": crash, "end": crash,
+                   "b_last_tracked_frame": max(mb), "b_last_tracked_s": _t(max(mb), times), "sources": {
+        "time_s": seen, "jolt_score": seen,
+        "b_box_height_frac": at_c, "b_distance_at_impact_m": at_c, "b_lateral_at_impact_m": at_c,
+        "b_distance_1s_before_m": _src_at(crash - 10, f_1s, times),
+        "closing_speed_last_1s_mps": win([k for k in mb if crash - 10 <= k < crash and mb[k]["rel_speed_mps"] is not None]),
+        "closing_speed_last_1s_kmh": win([k for k in mb if crash - 10 <= k < crash and mb[k]["rel_speed_mps"] is not None]),
+        "min_ttc_last_1s_s": win([k for k in mb if crash - 10 <= k < crash and mb[k]["ttc_s"] is not None]),
+        "a_heading_change_last_1s_deg": win(range(max(0, crash - 10), crash)),
+    }, "measures": {
         "time_s": _t(crash, times),
         "jolt_score": _r(jz, 1),
         "b_box_height_frac": m_c and m_c["height_frac"],
@@ -163,8 +207,34 @@ def analyse(meas, b, flow, times):
                 seg = [mb[k] for k in fr if start <= k <= end]
                 lat = [abs(m["lateral_speed_mps"]) for m in seg if m["lateral_speed_mps"] is not None]
                 flow_dx = [m["flow_dx_px"] for m in seg if m["flow_dx_px"] is not None]
-                ms, me = mb[start], mb[end] if end in mb else mb[fr[-1]]
-                lc = {"type": "lane_change", "vehicle": "B", "track_id": b, "start": start, "end": end, "measures": {
+                f_me = end if end in mb else fr[-1]
+                ms, me = mb[start], mb[f_me]
+                end_src = ({"basis": "observed", "frame": int(end), "time_s": _t(end, times), "from": "track"} if end in mb else
+                           {"basis": "inferred", "frame": int(end), "time_s": _t(end, times), "from": "collision",
+                            "last_tracked_frame": int(fr[-1]), "last_tracked_s": _t(fr[-1], times)})
+
+                def smooth(i):              # the sideways position is a median over +-2 tracked frames
+                    return _src_win(fr[max(0, i - 2): i + 3], times)
+                i_s = fr.index(start)
+                at_s, at_e = _src_at(start, start, times), _src_at(end, f_me, times)
+                segf = [k for k in fr if start <= k <= end]
+                lc = {"type": "lane_change", "vehicle": "B", "track_id": b, "start": start, "end": end, "sources": {
+                    "event_start": {"basis": "observed", "frame": int(start), "time_s": _t(start, times), "from": "track"},
+                    "event_end": end_src,
+                    "duration_s": dict(end_src, basis="inferred") if end_src["basis"] == "inferred" else
+                                  _src_win([start, end], times),
+                    "offset_start": at_s, "b_distance_start_m": at_s,
+                    "offset_end": at_e, "b_distance_end_m": at_e,
+                    "lateral_start_m": smooth(i_s),
+                    "lateral_end_m": smooth(fr.index(end)) if end in fr else
+                                     dict(_src_win(fr[-3:], times), basis="inferred", uses_frame=int(fr[-1]),
+                                          reported_for_frame=int(end), reported_for_s=_t(end, times)),
+                    "lateral_shift_m": _src_win([fr[p], fr[e]], times),
+                    "max_lateral_speed_mps": _src_win([k for k in segf if mb[k]["lateral_speed_mps"] is not None], times),
+                    "mean_box_flow_dx_px": _src_win([k for k in segf if mb[k]["flow_dx_px"] is not None], times),
+                    "seconds_before_collision": {"basis": "observed", "frames": [int(start), int(crash)],
+                                                 "time_s": [_t(start, times), _t(crash, times)]},
+                }, "measures": {
                     "direction": "left" if xs[p] > 0 else "right",
                     "duration_s": _r((end - start) / config.FPS, 1),
                     "offset_start": ms["centre_offset"], "offset_end": me["centre_offset"],
@@ -186,8 +256,15 @@ def analyse(meas, b, flow, times):
                 sign = np.sign(total)
                 moving = np.where(np.sign(per_frame) == sign)[0]
                 start = lo + int(moving[0]) if moving.size else lo
-                m_s = _near(mb, start)
-                lc = {"type": "lane_change", "vehicle": "A", "track_id": None, "start": start, "end": crash, "measures": {
+                m_s, f_s = _near_f(mb, start)
+                w = _src_win(range(lo, crash), times)
+                lc = {"type": "lane_change", "vehicle": "A", "track_id": None, "start": start, "end": crash, "sources": {
+                    "event_end": {"basis": "inferred", "frame": int(crash), "time_s": _t(crash, times), "from": "collision"},
+                    "duration_s": w, "heading_change_deg": w, "max_heading_rate_deg_s": w, "background_shift_px": w,
+                    "b_lateral_start_m": _src_at(start, f_s, times),
+                    "seconds_before_collision": {"basis": "observed", "frames": [int(start), int(crash)],
+                                                 "time_s": [_t(start, times), _t(crash, times)]},
+                }, "measures": {
                     # the background flowing right means the recording car turns left
                     "direction": "left" if sign > 0 else "right",
                     "duration_s": _r((crash - start) / config.FPS, 1),
@@ -210,7 +287,15 @@ def analyse(meas, b, flow, times):
             post = _closing([mb[k] for k in ahead if k >= s0])
             dur = (crash - s0) / config.FPS
             c_pre, c_post = _mean(pre), _mean(post)
-            events.append({"type": "sudden_stop", "vehicle": "B", "track_id": b, "start": s0, "end": crash, "measures": {
+            at0 = _src_at(s0, s0, times)
+            w_pre = _src_win([k for k in ahead if s0 - 10 <= k < s0 and mb[k]["rel_speed_mps"] is not None], times)
+            w_post = _src_win([k for k in ahead if k >= s0 and mb[k]["rel_speed_mps"] is not None], times)
+            events.append({"type": "sudden_stop", "vehicle": "B", "track_id": b, "start": s0, "end": crash, "sources": {
+                "ttc_at_start_s": at0, "b_distance_start_m": at0, "min_ttc_s": _src_win(lows, times),
+                "closing_speed_before_mps": w_pre, "closing_speed_after_mps": w_post, "max_closing_speed_mps": w_post,
+                "relative_deceleration_mps2": _src_win([k for k in ahead if s0 - 10 <= k], times),
+                "duration_s": {"basis": "observed", "frames": [int(s0), int(crash)], "time_s": [_t(s0, times), _t(crash, times)]},
+            }, "measures": {
                 "ttc_at_start_s": mb[s0]["ttc_s"],
                 "min_ttc_s": _r(min(mb[k]["ttc_s"] for k in lows)),
                 "closing_speed_before_mps": _r(c_pre), "closing_speed_after_mps": _r(c_post),
@@ -223,11 +308,23 @@ def analyse(meas, b, flow, times):
 
     # 5) following distance, 1 s before the impact (or when Vehicle B finished its lane change)
     ref = lc["end"] if lc and lc["vehicle"] == "B" else crash - 10
-    m = _near(mb, ref)
+    m, f_m = _near_f(mb, ref)
     if m:
         cl = _closing([x for k, x in mb.items() if ref - 5 <= k <= ref])
         c = _mean(cl)
-        events.append({"type": "following_distance", "vehicle": "B", "track_id": b, "start": ref, "end": ref, "measures": {
+        at_m = _src_at(ref, f_m, times)
+        w_c = _src_win([k for k in mb if ref - 5 <= k <= ref and mb[k]["rel_speed_mps"] is not None], times)
+        lc_end = lc["sources"]["event_end"] if lc and lc["vehicle"] == "B" else None
+        moment = (dict(lc_end, from_event="lane_change_end") if lc_end else
+                  {"basis": "observed", "frame": int(ref), "time_s": _t(ref, times), "from": "1 s before the collision"})
+        events.append({"type": "following_distance", "vehicle": "B", "track_id": b, "start": ref, "end": ref, "sources": {
+            "event_start": moment,
+            "b_distance_m": at_m, "b_box_height_frac": at_m, "ttc_s": at_m, "safe_distance": at_m,
+            "closing_speed_mps": w_c,
+            "gap_closing_time_s": None if w_c is None else
+                                  _src_win(list(range(w_c["frames"][0], w_c["frames"][1] + 1)) + [f_m], times,
+                                           inferred_from=f_m if f_m != ref else None),
+        }, "measures": {
             "b_distance_m": m["distance_m"], "b_box_height_frac": m["height_frac"],
             "closing_speed_mps": _r(c), "ttc_s": m["ttc_s"],
             # seconds until the gap closes at the current closing speed (distance / closing speed)
@@ -244,8 +341,13 @@ def analyse(meas, b, flow, times):
         if (abs(a["centre_offset"]) >= 0.25 and a["height_frac"] >= 0.12 and z["distance_m"] > a["distance_m"] * 1.5
                 and abs(z["centre_offset"]) < abs(a["centre_offset"])):
             rel = _mean([mt[k]["rel_speed_mps"] for k in ks])
+            a0, z0 = _src_at(ks[0], ks[0], times), _src_at(ks[-1], ks[-1], times)
+            wr = _src_win([k for k in ks if mt[k]["rel_speed_mps"] is not None], times)
             events.append({"type": "overtaking", "vehicle": "B" if tid == b else "other", "track_id": tid,
-                           "start": ks[0], "end": ks[-1], "measures": {
+                           "start": ks[0], "end": ks[-1], "sources": {
+                               "side": a0, "duration_s": _src_win(ks, times), "distance_start_m": a0, "distance_end_m": z0,
+                               "mean_rel_speed_mps": wr, "mean_rel_speed_kmh": wr,
+                           }, "measures": {
                                "side": "left" if a["centre_offset"] < 0 else "right",
                                "duration_s": _r((ks[-1] - ks[0]) / config.FPS, 1),
                                "distance_start_m": a["distance_m"], "distance_end_m": z["distance_m"],

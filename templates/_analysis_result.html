@@ -3,6 +3,19 @@
 {% macro val(k, x) -%}
   {%- if x is none -%}—{%- elif x is string -%}{{ value_ar.get(x, x) }}{%- else -%}{{ x }}{%- endif -%}
 {%- endmacro %}
+{% macro src_badge(src) -%}
+  {%- if src -%}
+    {%- set t = src.time_s -%}
+    {%- set last = (t[-1] if t is sequence else t) -%}
+    {%- if src.basis == 'observed' -%}
+      <span class="va-src src-observed" title="مقاس مباشرة من الإطار {{ src.frame if src.frame is defined else src.frames|join('–') }}">مقاس</span>
+    {%- elif src.basis == 'estimated' -%}
+      <span class="va-src src-estimated" title="محسوب من الإطارات {{ src.frames|join('–') }}">تقديري · {% if t is sequence and t[0] != t[-1] %}من {{ t[0] }} إلى {{ t[-1] }} ث{% else %}{{ last }} ث{% endif %}</span>
+    {%- else -%}
+      <span class="va-src src-inferred" title="لم يُقس في هذا الوقت{% if src.reported_for_s is defined %} ({{ src.reported_for_s }} ث){% endif %}؛ مأخوذ من آخر إطار ظهرت فيه المركبة">مستنتج · آخر قياس {{ src.last_tracked_s if src.last_tracked_s is defined else last }} ث</span>
+    {%- endif -%}
+  {%- endif -%}
+{%- endmacro %}
   {% set q = result.quality %}
   {% if q.flags %}<div class="va-note va-note-warn"><i data-lucide="triangle-alert"></i> جودة الفيديو: {% for f in q.flags %}{{ value_ar.get(f, f) }}{% if not loop.last %}، {% endif %}{% endfor %}. قد تكون النتائج أقل دقة.</div>{% endif %}
 
@@ -45,6 +58,9 @@
   <!-- events -->
   <section class="va-card">
     <h2>الأحداث المكتشفة والقياسات</h2>
+    <p class="va-muted va-src-legend"><span class="va-src src-observed">مقاس</span> من الإطار نفسه ·
+      <span class="va-src src-estimated">تقديري</span> محسوب من عدة إطارات ·
+      <span class="va-src src-inferred">مستنتج</span> لم يُقس في الوقت المعروض، ومأخوذ من آخر إطار ظهرت فيه المركبة</p>
     {% for e in result.events %}
     <article class="va-event ev-{{ e.type }}">
       <div class="va-event-head">
@@ -52,6 +68,16 @@
           <h3>{{ event_ar[e.type] }}{% if e.measures.direction %} — {{ value_ar.get(e.measures.direction) }}{% endif %}</h3>
           <p class="va-muted">{{ vehicle_ar[e.vehicle] }}{% if e.track_id %} · رقم التتبع {{ e.track_id }}{% endif %} ·
             <span dir="ltr">{{ e.start_t }}{% if e.end_t != e.start_t %} – {{ e.end_t }}{% endif %} s</span></p>
+          {% set S = e.sources or {} %}
+          {% if S.event_end and S.event_end.basis == 'inferred' and S.event_end.last_tracked_s is defined %}
+          <p class="va-src-note">نهاية الحدث ({{ S.event_end.time_s }} ث) مستنتجة من لحظة الاصطدام؛ آخر ظهور للمركبة في التتبع عند {{ S.event_end.last_tracked_s }} ث.</p>
+          {% endif %}
+          {% if S.event_start and S.event_start.basis == 'inferred' %}
+          <p class="va-src-note">وقت الحدث مستنتج من نهاية تغيير المسار{% if S.event_start.last_tracked_s is defined %}؛ القياسات من آخر ظهور للمركبة عند {{ S.event_start.last_tracked_s }} ث{% endif %}.</p>
+          {% endif %}
+          {% if e.type == 'collision' and e.b_last_tracked_frame is defined and e.b_last_tracked_frame < e.start %}
+          <p class="va-src-note">المركبة الأخرى لم تعد متتبَّعة لحظة الاصطدام (آخر ظهور عند {{ e.b_last_tracked_s }} ث)، فالقياسات المعلَّمة «مستنتج» من ذلك الإطار.</p>
+          {% endif %}
         </div>
         <button type="button" class="va-seek" data-t="{{ e.start_t }}"><i data-lucide="play"></i> عرض في الفيديو</button>
       </div>
@@ -59,7 +85,7 @@
         {% if e.thumbnail_jpeg %}<img src="data:image/jpeg;base64,{{ e.thumbnail_jpeg }}" alt="{{ event_ar[e.type] }}" loading="lazy">{% endif %}
         <table class="va-measures">
           {% for k, x in e.measures.items() %}{% if k != 'direction' %}
-          <tr><th>{{ measure_ar.get(k, (k,''))[0] }}</th><td>{{ val(k, x) }} {% if x is not none %}<small>{{ measure_ar.get(k, ('',''))[1] }}</small>{% endif %}</td></tr>
+          <tr><th>{{ measure_ar.get(k, (k,''))[0] }}</th><td>{{ val(k, x) }} {% if x is not none %}<small>{{ measure_ar.get(k, ('',''))[1] }}</small> {{ src_badge((e.sources or {}).get(k)) }}{% endif %}</td></tr>
           {% endif %}{% endfor %}
         </table>
       </div>

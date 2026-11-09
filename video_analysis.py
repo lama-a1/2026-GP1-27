@@ -334,9 +334,11 @@ def save_result(h, c, video_id, result):
             c.execute('DELETE FROM detected_vehicle WHERE detected_vehicle_id=?', (d['detected_vehicle_id'],))
     tracks = result.get('tracks', {})
     for e in result['events']:
+        # the measures, and where each one comes from (observed / estimated / inferred, with its frame)
+        value = dict(e['measures'], _sources=e['sources']) if e.get('sources') else e['measures']
         event_id = h.insert_id(c, '''INSERT INTO detected_event(event_type,event_value,start_time,end_time,video_id)
                                      VALUES(?,?,?,?,?)''',
-                               (e['type'], json.dumps(e['measures'], ensure_ascii=False), e['start_t'], e['end_t'], video_id),
+                               (e['type'], json.dumps(value, ensure_ascii=False), e['start_t'], e['end_t'], video_id),
                                key='event_id')
         tid = e.get('track_id')
         boxes = [b for b in tracks.get(str(tid), []) if e['start'] <= b[0] <= e['end']] if tid is not None else []

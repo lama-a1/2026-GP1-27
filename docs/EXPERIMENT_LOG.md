@@ -55,3 +55,22 @@ Unchanged (checked on all 123 train/val clips): impact frames, which clips get a
 - Both rules help on train and on the small validation set. The gain is not only the example clip.
 - **Not yet verified:** the train/val numbers use draft labels, and validation has only 4 matched clips. Re-run this experiment with the team's CVAT labels before quoting the numbers in the report.
 - The end rule depends on the impact frame. Errors in collision detection carry over to the lane-change end.
+
+## EXP-004a — provenance of event measurements (no change to any value or threshold)
+
+Question: on `dada_training_type11_53` the page showed following distance 2.86 m "at 2.1 s" and collision distance 2.86 m. Are these measured at frame 21?
+
+Finding: no. ByteTrack tracks Vehicle B in frames 10–19 only; the impact is frame 21 (image jolt). `_near(mb, f, tol=3)` filled frame 21 with frame 19's measurements.
+
+| Displayed value | Source |
+|---|---|
+| collision time 2.1 s, jolt 7.1 | observed, frame 21 |
+| distance at impact 2.86 m, box size 0.2807, lateral −2.04 m | frame 19 carried to 21 → inferred |
+| distance 1 s before 3.43 m | observed, frame 11 |
+| closing speed 0.21 m/s, min TTC 1.98 s | estimated over frames 12–19 |
+| lane change end 2.1 s | inferred from the impact (last track frame 19) |
+| lane change end distance 2.86 m, offset, lateral −2.14 m | frame 19 (lateral: median of 17–19) → inferred |
+| following distance 2.86 m, TTC 1.98 s, size 0.2807, "Not maintained" | frame 19 → inferred |
+| following closing speed 0.35 m/s | estimated over frames 16–19 |
+
+Change: every event now carries `sources` (`observed` / `estimated` / `inferred`, source frame(s) and time; `reported_for_frame` when carried). The collision event carries `b_last_tracked_frame`. `detected_event.event_value` stores them under `_sources`. The page shows a badge per measure and a note when an event moment or its numbers are inferred. All measure values, ByteTrack, collision detection and lane-change logic and thresholds are unchanged. Tests: `tests/test_measure_sources.py`.
