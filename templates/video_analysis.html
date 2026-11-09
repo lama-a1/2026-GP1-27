@@ -63,6 +63,55 @@
     {% if result.video.window_start_s > 0 %}<p class="va-muted">الفيديو أطول من {{ (result.video.frames / result.video.fps)|int }} ثانية، فحُلل الجزء المحيط بلحظة الاصطدام فقط (من الثانية {{ result.video.window_start_s }}).</p>{% endif %}
   </section>
 
+  <!-- what happened before the impact: key numbers + charts on one time axis, synced with the video -->
+  {% set coll = (result.events|selectattr('type', 'equalto', 'collision')|list or [none])[0] %}
+  {% set fdist = (result.events|selectattr('type', 'equalto', 'following_distance')|list or [none])[0] %}
+  <section class="va-card va-story" id="va-story">
+    <div class="va-card-head">
+      <h2>ماذا حدث قبل الاصطدام؟</h2>
+      <div class="va-range" role="group" aria-label="المدة المعروضة">
+        <button type="button" class="is-on" data-range="impact" aria-pressed="true">حول الاصطدام</button>
+        <button type="button" data-range="all" aria-pressed="false">الفيديو كامل</button>
+      </div>
+    </div>
+    {% if coll %}
+    <div class="va-kpis">
+      <div class="va-kpi"><span>المسافة قبل الاصطدام بثانية</span><b dir="ltr">{{ val('', coll.measures.b_distance_1s_before_m) }}<small> م</small></b></div>
+      <div class="va-kpi"><span>أقل وقت متبقٍ للاصطدام في آخر ثانية</span><b dir="ltr">{{ val('', coll.measures.min_ttc_last_1s_s) }}<small> ث</small></b></div>
+      <div class="va-kpi"><span>سرعة الاقتراب في آخر ثانية</span><b dir="ltr">{{ val('', coll.measures.closing_speed_last_1s_kmh) }}<small> كم/س</small></b></div>
+      {% if fdist %}
+      {% set kept = fdist.measures.safe_distance == 'Maintained' %}
+      <div class="va-kpi"><span>مسافة الأمان</span>
+        <b class="va-status {{ 'ok' if kept else 'bad' }}"><i data-lucide="{{ 'circle-check' if kept else 'triangle-alert' }}"></i>{{ value_ar.get(fdist.measures.safe_distance) }}</b></div>
+      {% endif %}
+    </div>
+    {% endif %}
+    <p class="va-muted">كل الرسوم على نفس خط الزمن. الخط الأحمر هو لحظة الاصطدام، والخط الأخضر الغامق مكان الفيديو الآن. اضغطي على أي نقطة لتنتقلي إليها في الفيديو.</p>
+    <div class="va-rows" id="va-rows" dir="ltr">
+      <figure class="va-row" data-row="events">
+        <figcaption dir="rtl"><b>الأحداث</b><span>متى بدأ كل حدث ومتى انتهى</span></figcaption>
+        <svg aria-label="الأحداث على خط الزمن" role="img"></svg>
+      </figure>
+      <figure class="va-row" data-row="distance">
+        <figcaption dir="rtl"><b>المسافة إلى المركبة B</b><span>كلما نزل الخط اقتربت B. المنطقة الصفراء: أقرب من مسافة الأمان</span></figcaption>
+        <svg aria-label="المسافة إلى المركبة B عبر الزمن" role="img"></svg>
+      </figure>
+      <figure class="va-row" data-row="ttc">
+        <figcaption dir="rtl"><b>الوقت المتبقي للاصطدام</b><span>كل نقطة لقطة تقترب فيها B، لو استمرت السرعتان كما هما. المنطقة الحمراء: أقل من {{ (result.chart or {}).get('ttc_danger_s', 1.6) }} ث</span></figcaption>
+        <svg aria-label="الوقت المتبقي للاصطدام عبر الزمن" role="img"></svg>
+      </figure>
+      <figure class="va-row" data-row="lateral">
+        <figcaption dir="rtl"><b>مكان B من مسار صاحب الفيديو</b><span>المنطقة الرمادية مسار صاحب الفيديو. الخط داخلها يعني أن B أمامه في المسار نفسه</span></figcaption>
+        <svg aria-label="موقع المركبة B الجانبي عبر الزمن" role="img"></svg>
+      </figure>
+    </div>
+    <div class="va-tip" id="va-tip" hidden></div>
+    <details class="va-values">
+      <summary>عرض القيم كجدول</summary>
+      <div class="va-table-wrap"><table class="va-vehicles" id="va-values"></table></div>
+    </details>
+  </section>
+
   <!-- lane lines of the recording car's lane (TwinLiteNet) -->
   {% set lm = result.lane_markings %}
   {% if lm and not lm.error %}
@@ -104,16 +153,6 @@
     {% endfor %}
   </section>
 
-  <!-- movement of the other vehicle -->
-  <section class="va-card">
-    <h2>حركة المركبة الأخرى (B) عبر الزمن</h2>
-    <div class="va-charts">
-      <figure><figcaption>المسافة التقديرية (م)</figcaption><svg id="chart-distance" viewBox="0 0 320 140" role="img" aria-label="المسافة عبر الزمن"></svg></figure>
-      <figure><figcaption>الزمن المتبقي للاصطدام TTC (ث)</figcaption><svg id="chart-ttc" viewBox="0 0 320 140" role="img" aria-label="TTC عبر الزمن"></svg></figure>
-      <figure><figcaption>تغير اتجاه مركبة صاحب الفيديو (°/ث) — تدفق بصري</figcaption><svg id="chart-heading" viewBox="0 0 320 140" role="img" aria-label="تغير الاتجاه عبر الزمن"></svg></figure>
-    </div>
-  </section>
-
   <!-- vehicles -->
   <section class="va-card">
     <h2>المركبات المتتبعة وسلوك حركتها</h2>
@@ -143,9 +182,10 @@
       <li>كاميرات السيارات تختلف، لذلك المسافات والسرعات <b>تقريبية</b>.</li>
     </ul>
   </section>
-  <script id="va-data" type="application/json">{{ {'tracks': result.tracks, 'series': result.series, 'b': result.vehicle_b|string, 'start': result.video.window_start_s, 'fps': result.video.fps}|tojson }}</script>
+  <script id="va-data" type="application/json">{{ {'tracks': result.tracks, 'series': result.series, 'b': result.vehicle_b|string, 'start': result.video.window_start_s, 'fps': result.video.fps, 'story': story}|tojson }}</script>
   {% endif %}
 </div>
+<script src="{{ url_for('static', filename='va-story.js') }}"></script>
 <script>
 (function () {
   var page = document.querySelector('.va-page');
@@ -202,27 +242,7 @@
       if (video.readyState >= 1) go(); else video.addEventListener('loadedmetadata', go, {once: true});
     });
   });
-  function chart(id, ys, color, zeroLine) {
-    var svg = document.getElementById(id), pts = [];
-    var vals = ys.filter(function (y) { return y !== null; });
-    if (!vals.length) { svg.innerHTML = '<text x="160" y="75" text-anchor="middle" class="va-chart-empty">لا توجد بيانات</text>'; return; }
-    var lo = Math.min.apply(null, vals.concat(zeroLine ? [0] : [])), hi = Math.max.apply(null, vals);
-    if (hi - lo < 1e-6) hi = lo + 1;
-    var path = '', pen = false;
-    ys.forEach(function (y, i) {
-      if (y === null) { pen = false; return; }
-      var x = 30 + i / Math.max(1, ys.length - 1) * 280, yy = 125 - (y - lo) / (hi - lo) * 110;
-      path += (pen ? 'L' : 'M') + x.toFixed(1) + ' ' + yy.toFixed(1); pen = true;
-    });
-    var z = zeroLine && lo < 0 ? '<line x1="30" x2="310" y1="' + (125 + lo / (hi - lo) * 110).toFixed(1) + '" y2="' + (125 + lo / (hi - lo) * 110).toFixed(1) + '" class="va-zero"/>' : '';
-    svg.innerHTML = '<line x1="30" x2="310" y1="125" y2="125" class="va-axis"/>' + z +
-      '<text x="26" y="20" text-anchor="end" class="va-tick">' + hi.toFixed(1) + '</text>' +
-      '<text x="26" y="127" text-anchor="end" class="va-tick">' + lo.toFixed(1) + '</text>' +
-      '<path d="' + path + '" fill="none" stroke="' + color + '" stroke-width="2"/>';
-  }
-  chart('chart-distance', D.series.b_distance_m, '#006c35');
-  chart('chart-ttc', D.series.b_ttc_s.map(function (v) { return v === null ? null : Math.min(v, 10); }), '#d93025');
-  chart('chart-heading', D.series.a_heading_rate_deg_s, '#1f5c99', true);
+  if (window.siyaqStory) window.siyaqStory(D, video);
 })();
 </script>
 {% endblock %}

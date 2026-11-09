@@ -115,7 +115,13 @@ def register(app, h):
             row = c.execute('SELECT * FROM video_analysis WHERE video_id=?', (video_id,)).fetchone()
         row = dict(row) if row else None
         result = json.loads(row['result_json']) if row and row.get('result_json') else None
-        return render_template('video_analysis.html', v=v, case=case, row=row, result=result,
+        story = None
+        if result:
+            # what the "what happened before the impact" charts need (events without their thumbnails)
+            story = {'events': [{k: e.get(k) for k in ('type', 'vehicle', 'start_t', 'end_t')} for e in result.get('events', [])],
+                     'chart': result.get('chart') or {}, 'labels': EVENT_AR, 'vehicles': VEHICLE_AR,
+                     'lateral': {k: m.get('lateral_m') for k, m in result.get('measures_b', {}).items()}}
+        return render_template('video_analysis.html', v=v, case=case, row=row, result=result, story=story,
                                event_ar=EVENT_AR, vehicle_ar=VEHICLE_AR, measure_ar=MEASURE_AR, value_ar=VALUE_AR)
 
     @app.post('/videos/<int:video_id>/analyse')

@@ -502,12 +502,38 @@ form[data-step="7"] .wizardfooter{display:none}
 .va-measures th{text-align:start;font-weight:400;color:#4d6457;padding:5px 8px;border-bottom:1px solid #eef3f0}
 .va-measures td{font-weight:800;padding:5px 8px;border-bottom:1px solid #eef3f0;white-space:nowrap;font-variant-numeric:tabular-nums}
 .va-measures td small{font-weight:400;color:#6b7f73}
-.va-charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
-.va-charts figure{margin:0;border:1px solid #e3ede7;border-radius:10px;padding:10px}
-.va-charts figcaption{font-size:13px;font-weight:700;color:#284434;margin-bottom:4px}
-.va-charts svg{width:100%;height:auto;display:block}
-.va-axis{stroke:#cfdcd4}.va-zero{stroke:#cfdcd4;stroke-dasharray:3 3}
-.va-tick,.va-chart-empty{font-size:10px;fill:#6b7f73}
+.va-story{position:relative}
+.va-range{display:inline-flex;border:1px solid #cfe0d6;border-radius:8px;overflow:hidden}
+.va-range button{border:0;background:#fff;color:#33493d;font:inherit;font-size:13px;font-weight:700;padding:6px 12px;cursor:pointer}
+.va-range button+button{border-inline-start:1px solid #cfe0d6}
+.va-range button.is-on{background:#006c35;color:#fff}
+.va-range button:focus-visible,.va-rows:focus-visible{outline:2px solid #006c35;outline-offset:2px}
+.va-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:4px 0 10px}
+@media(max-width:520px){.va-kpis{grid-template-columns:1fr 1fr}.va-kpi b{font-size:19px}}
+.va-kpi{border:1px solid #e3ede7;border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.va-kpi span{font-size:13px;color:#4d6457}
+.va-kpi b{font-size:22px;font-weight:800;color:#17211d;font-variant-numeric:tabular-nums;text-align:start}
+.va-kpi b small{font-size:13px;font-weight:400;color:#6b7f73}
+.va-status{display:inline-flex;align-items:center;gap:6px;font-size:16px!important}
+.va-status svg{width:18px;height:18px}
+.va-status.ok{color:#0a7a32!important}.va-status.bad{color:#a12c22!important}
+.va-rows{display:flex;flex-direction:column;gap:2px;margin-top:8px;cursor:crosshair;touch-action:pan-y}
+.va-row{margin:0;min-width:0}
+.va-row figcaption{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:13px;margin:8px 0 2px}
+.va-row figcaption b{color:#143c2b;font-size:14px}
+.va-row figcaption span{color:#6b7f73}
+.va-row svg{display:block;width:100%;overflow:visible}
+.va-st-tick{font-size:11px;fill:#6b7f73;font-variant-numeric:tabular-nums}
+.va-st-band{font-size:11px;font-weight:700}
+.va-st-ev{font-size:12px;font-weight:700;fill:#17211d}
+.va-st-note{font-size:12px;font-weight:700;fill:#17211d;paint-order:stroke;stroke:#fff;stroke-width:3px}
+.va-st-impact{font-size:12px;font-weight:800;fill:#d93025}
+.va-tip{position:absolute;z-index:5;pointer-events:none;background:#fff;border:1px solid #d6e3db;border-radius:10px;box-shadow:0 8px 24px #17211d26;padding:8px 10px;min-width:210px;font-size:13px}
+.va-tip-h{font-weight:800;margin-bottom:4px;color:#143c2b}
+.va-tip-r{display:flex;justify-content:space-between;gap:14px;line-height:1.7}
+.va-tip-r span{color:#4d6457}.va-tip-r b{font-variant-numeric:tabular-nums}
+.va-values{margin-top:12px}.va-values summary{cursor:pointer;font-weight:700;color:#006c35;font-size:14px}
+.va-values table{margin-top:8px}
 .va-table-wrap{overflow-x:auto}
 .va-vehicles{width:100%;border-collapse:collapse;font-size:14px;min-width:640px}
 .va-vehicles th{background:#f4f8f6;text-align:start;padding:8px;font-size:13px;color:#284434}
