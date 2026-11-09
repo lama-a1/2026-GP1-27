@@ -118,8 +118,12 @@ def register(app, h):
         story = None
         if result:
             # what the "what happened before the impact" charts need (events without their thumbnails)
-            story = {'events': [{k: e.get(k) for k in ('type', 'vehicle', 'start_t', 'end_t')} for e in result.get('events', [])],
+            keep = ('direction', 'side', 'safe_distance', 'b_distance_m', 'crossed_line_type')
+            story = {'events': [dict({k: e.get(k) for k in ('type', 'vehicle', 'start_t', 'end_t')},
+                                     m={k: v for k, v in (e.get('measures') or {}).items() if k in keep})
+                                for e in result.get('events', [])],
                      'chart': result.get('chart') or {}, 'labels': EVENT_AR, 'vehicles': VEHICLE_AR,
+                     'lanes': {k: (result.get('lane_markings') or {}).get(k) for k in ('left_line', 'right_line')},
                      'lateral': {k: m.get('lateral_m') for k, m in result.get('measures_b', {}).items()}}
         return render_template('video_analysis.html', v=v, case=case, row=row, result=result, story=story,
                                event_ar=EVENT_AR, vehicle_ar=VEHICLE_AR, measure_ar=MEASURE_AR, value_ar=VALUE_AR)

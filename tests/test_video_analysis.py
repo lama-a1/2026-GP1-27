@@ -176,7 +176,7 @@ def test_expert_page_shows_the_story_charts(monkeypatch):
     with app.test_client() as client:
         login_expert(client)
         page = client.get(f'/videos/{vid}/analysis').get_data(as_text=True)
-    assert 'ماذا حدث قبل الاصطدام؟' in page and 'va-story.js' in page
+    assert 'إعادة بناء الحادث' in page and 'va-recon.js' in page and 'id="va-road"' in page
     for row in ('events', 'distance', 'ttc', 'lateral'):
         assert f'data-row="{row}"' in page
     data = json.loads(page.split('<script id="va-data" type="application/json">')[1].split('</script>')[0])

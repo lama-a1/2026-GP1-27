@@ -63,17 +63,37 @@
     {% if result.video.window_start_s > 0 %}<p class="va-muted">الفيديو أطول من {{ (result.video.frames / result.video.fps)|int }} ثانية، فحُلل الجزء المحيط بلحظة الاصطدام فقط (من الثانية {{ result.video.window_start_s }}).</p>{% endif %}
   </section>
 
-  <!-- what happened before the impact: key numbers + charts on one time axis, synced with the video -->
+  <!-- reconstruction of the accident from above, synced with the video; detailed charts folded underneath -->
   {% set coll = (result.events|selectattr('type', 'equalto', 'collision')|list or [none])[0] %}
   {% set fdist = (result.events|selectattr('type', 'equalto', 'following_distance')|list or [none])[0] %}
   <section class="va-card va-story" id="va-story">
-    <div class="va-card-head">
-      <h2>ماذا حدث قبل الاصطدام؟</h2>
-      <div class="va-range" role="group" aria-label="المدة المعروضة">
-        <button type="button" class="is-on" data-range="impact" aria-pressed="true">حول الاصطدام</button>
-        <button type="button" data-range="all" aria-pressed="false">الفيديو كامل</button>
+    <h2>إعادة بناء الحادث</h2>
+    <p class="va-muted">منظر من فوق لمكان المركبة B من سيارة صاحب الفيديو، يتحرك مع الفيديو. شغّلي الفيديو أو اسحبي المؤشر أو اضغطي على أي خطوة. المسافات تقريبية وتُقاس من كاميرا صاحب الفيديو، ومقدمة سيارته أمام الكاميرا بنحو 1.6 م.</p>
+
+    <div class="va-recon">
+      <figure class="va-road-wrap">
+        <svg id="va-road" viewBox="0 0 240 340" role="img" aria-label="منظر من فوق لموقع المركبتين"></svg>
+        <figcaption class="va-road-key"><i><span class="k-a"></span>سيارة صاحب الفيديو</i><i><span class="k-b"></span>المركبة B</i><i><span class="k-z"></span>أقرب من مسافة الأمان</i><i><span class="k-c"></span>الكاميرا</i></figcaption>
+      </figure>
+      <div class="va-now" aria-live="polite">
+        <div class="va-now-time" id="va-now-time">—</div>
+        <dl class="va-now-facts">
+          <div><dt>المسافة من الكاميرا إلى B</dt><dd id="va-now-dist">—</dd></div>
+          <div><dt>مكان B</dt><dd id="va-now-side">—</dd></div>
+          <div><dt>حركة B</dt><dd id="va-now-move">—</dd></div>
+          <div><dt>يحدث الآن</dt><dd id="va-now-event">—</dd></div>
+        </dl>
       </div>
     </div>
+
+    <div class="va-scrub">
+      <button type="button" class="va-play" id="va-play" aria-label="تشغيل">&#9654;</button>
+      <input type="range" id="va-scrub" min="0" max="1000" value="0" step="1" aria-label="الوقت في الفيديو">
+    </div>
+
+    <h3 class="va-steps-title">خطوات الحادث</h3>
+    <ol class="va-steps" id="va-steps"></ol>
+
     {% if coll %}
     <div class="va-kpis">
       <div class="va-kpi"><span>المسافة قبل الاصطدام بثانية</span><b dir="ltr">{{ val('', coll.measures.b_distance_1s_before_m) }}<small> م</small></b></div>
@@ -86,29 +106,39 @@
       {% endif %}
     </div>
     {% endif %}
-    <p class="va-muted">كل الرسوم على نفس خط الزمن. الخط الأحمر هو لحظة الاصطدام، والخط الأخضر الغامق مكان الفيديو الآن. اضغطي على أي نقطة لتنتقلي إليها في الفيديو.</p>
-    <div class="va-rows" id="va-rows" dir="ltr">
-      <figure class="va-row" data-row="events">
-        <figcaption dir="rtl"><b>الأحداث</b><span>متى بدأ كل حدث ومتى انتهى</span></figcaption>
-        <svg aria-label="الأحداث على خط الزمن" role="img"></svg>
-      </figure>
-      <figure class="va-row" data-row="distance">
-        <figcaption dir="rtl"><b>المسافة إلى المركبة B</b><span>كلما نزل الخط اقتربت B. المنطقة الصفراء: أقرب من مسافة الأمان</span></figcaption>
-        <svg aria-label="المسافة إلى المركبة B عبر الزمن" role="img"></svg>
-      </figure>
-      <figure class="va-row" data-row="ttc">
-        <figcaption dir="rtl"><b>الوقت المتبقي للاصطدام</b><span>كل نقطة لقطة تقترب فيها B، لو استمرت السرعتان كما هما. المنطقة الحمراء: أقل من {{ (result.chart or {}).get('ttc_danger_s', 1.6) }} ث</span></figcaption>
-        <svg aria-label="الوقت المتبقي للاصطدام عبر الزمن" role="img"></svg>
-      </figure>
-      <figure class="va-row" data-row="lateral">
-        <figcaption dir="rtl"><b>مكان B من مسار صاحب الفيديو</b><span>المنطقة الرمادية مسار صاحب الفيديو. الخط داخلها يعني أن B أمامه في المسار نفسه</span></figcaption>
-        <svg aria-label="موقع المركبة B الجانبي عبر الزمن" role="img"></svg>
-      </figure>
-    </div>
-    <div class="va-tip" id="va-tip" hidden></div>
-    <details class="va-values">
-      <summary>عرض القيم كجدول</summary>
-      <div class="va-table-wrap"><table class="va-vehicles" id="va-values"></table></div>
+
+    <details class="va-detail" id="va-detail">
+      <summary>رسوم تفصيلية بالأرقام</summary>
+      <div class="va-card-head">
+        <p class="va-muted">كل الرسوم على خط زمن واحد. الخط الأحمر لحظة الاصطدام، والأخضر الغامق مكان الفيديو الآن.</p>
+        <div class="va-range" role="group" aria-label="المدة المعروضة">
+          <button type="button" class="is-on" data-range="impact" aria-pressed="true">حول الاصطدام</button>
+          <button type="button" data-range="all" aria-pressed="false">الفيديو كامل</button>
+        </div>
+      </div>
+      <div class="va-rows" id="va-rows" dir="ltr">
+        <figure class="va-row" data-row="events">
+          <figcaption dir="rtl"><b>الأحداث</b><span>متى بدأ كل حدث ومتى انتهى</span></figcaption>
+          <svg aria-label="الأحداث على خط الزمن" role="img"></svg>
+        </figure>
+        <figure class="va-row" data-row="distance">
+          <figcaption dir="rtl"><b>المسافة إلى المركبة B</b><span>كلما نزل الخط اقتربت B. المنطقة الصفراء: أقرب من مسافة الأمان</span></figcaption>
+          <svg aria-label="المسافة إلى المركبة B عبر الزمن" role="img"></svg>
+        </figure>
+        <figure class="va-row" data-row="ttc">
+          <figcaption dir="rtl"><b>الوقت المتبقي للاصطدام</b><span>كل نقطة لقطة تقترب فيها B، لو استمرت السرعتان كما هما. المنطقة الحمراء: أقل من {{ (result.chart or {}).get('ttc_danger_s', 1.6) }} ث</span></figcaption>
+          <svg aria-label="الوقت المتبقي للاصطدام عبر الزمن" role="img"></svg>
+        </figure>
+        <figure class="va-row" data-row="lateral">
+          <figcaption dir="rtl"><b>مكان B من مسار صاحب الفيديو</b><span>المنطقة الرمادية مسار صاحب الفيديو. الخط داخلها يعني أن B أمامه في المسار نفسه</span></figcaption>
+          <svg aria-label="موقع المركبة B الجانبي عبر الزمن" role="img"></svg>
+        </figure>
+      </div>
+      <div class="va-tip" id="va-tip" hidden></div>
+      <details class="va-values">
+        <summary>عرض القيم كجدول</summary>
+        <div class="va-table-wrap"><table class="va-vehicles" id="va-values"></table></div>
+      </details>
     </details>
   </section>
 
@@ -186,6 +216,7 @@
   {% endif %}
 </div>
 <script src="{{ url_for('static', filename='va-story.js') }}"></script>
+<script src="{{ url_for('static', filename='va-recon.js') }}"></script>
 <script>
 (function () {
   var page = document.querySelector('.va-page');
@@ -243,6 +274,7 @@
     });
   });
   if (window.siyaqStory) window.siyaqStory(D, video);
+  if (window.siyaqRecon) window.siyaqRecon(D, video);
 })();
 </script>
 {% endblock %}
