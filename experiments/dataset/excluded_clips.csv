@@ -1,0 +1,13 @@
+clip_id,old_split,accident_type,source,reason
+000008,train,Lane-change,CCD,snow or rain seen during team review although the source label is Normal (outside the clear-weather scope)
+000978,test,Lane-change,CCD,snow or rain seen during team review although the source label is Normal (outside the clear-weather scope)
+000082,test,Rear-end,CCD,snow or rain seen during team review although the source label is Normal (outside the clear-weather scope)
+000227,train,Rear-end,CCD,snow or rain seen during team review although the source label is Normal (outside the clear-weather scope)
+000516,train,Rear-end,CCD,snow or rain seen during team review although the source label is Normal (outside the clear-weather scope)
+000642,train,Rear-end,CCD,snow or rain seen during team review although the source label is Normal (outside the clear-weather scope)
+001135,train,Rear-end,CCD,snow or rain seen during team review although the source label is Normal (outside the clear-weather scope)
+001279,train,Rear-end,CCD,snow or rain seen during team review although the source label is Normal (outside the clear-weather scope)
+001461,train,Rear-end,CCD,snow or rain seen during team review although the source label is Normal (outside the clear-weather scope)
+dada_training_type11_48,train,Rear-end,DADA-2000,snow or rain seen during team review although the source label is Normal (outside the clear-weather scope)
+dada_training_type11_52,train,Rear-end,DADA-2000,snow or rain seen during team review although the source label is Normal (outside the clear-weather scope)
+dada_validation_type11_92,train,Rear-end,DADA-2000,snow or rain seen during team review although the source label is Normal (outside the clear-weather scope)

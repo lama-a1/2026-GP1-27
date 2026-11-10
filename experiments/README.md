@@ -9,6 +9,7 @@ Every change to the analysis engine (`siyaq_cv/`) is made as a recorded experime
 | `EXPERIMENT_LOG.csv` | One row per experiment: hypothesis, change, baseline, commit, splits, reference levels, key results, decision |
 | `configs/<EXP>.json` | Full engine configuration used by the experiment, with the overridden values |
 | `ground_truth/human_reviewed.json` | The only verified reference labels (team-reviewed). See `ground_truth/README.md` for the four evidence levels |
+| `dataset/` | Final dataset (137 clips): `dataset_index.csv`, `splits/`, `excluded_clips.csv`, `clip_job_map_v2.csv` (CVAT jobs, with the 12 excluded jobs marked), duplicate and leakage checks |
 | `history/` | Evidence for experiments run before this framework existed (HIST-02 tracker comparison, duplicate check) |
 | `../results/<EXP>_<clip>/` | `prediction.json`, `comparison.json`, `diagnostics.csv`, `run_metadata.json` per clip |
 | `../results/<EXP>_SUMMARY/metrics.json` | Aggregate metrics per split and evidence level |

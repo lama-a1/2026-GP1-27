@@ -1,0 +1,28 @@
+{
+ "dataset_index_md5": "1b0ca89e15efb29d27448c5023cdd4b6",
+ "n_clips": 137,
+ "exact_duplicate_files": [],
+ "near_duplicate_pairs_below_15_bits": [],
+ "closest_cross_split_pair": {
+  "bits": 66,
+  "a": "dada_training_type11_36",
+  "b": "dada_training_type11_18",
+  "split_a": "val",
+  "split_b": "train"
+ },
+ "dada_type_id_shared_by_several_names": [],
+ "dada_original_split_vs_siyaq_split": {
+  "testing -> test": 4,
+  "testing -> train": 9,
+  "testing -> val": 1,
+  "training -> test": 7,
+  "training -> train": 25,
+  "training -> val": 7,
+  "validation -> test": 1,
+  "validation -> train": 12,
+  "validation -> val": 1
+ },
+ "dada_original_split_note": "The words training/validation/testing in DADA file names are the DADA-2000-small release's own partition, not Siyaq's split: 37 of 67 DADA clips are in a different Siyaq split than their file name suggests (e.g. dada_testing_type11_114 is in Siyaq Train). File names must never be used to infer the split. No (type, id) pair occurs under two partition names and no footage is duplicated across Siyaq splits, so the naming causes confusion but no leakage.",
+ "ccd_source_video_check": "NOT VERIFIED: CCD clips come from YouTube compilations; Crash-1500.txt (youtubeID, startframe) is needed to check whether two clips in different splits come from the same upload. The file is not in this workspace or on Jana's computer.",
+ "test_split_exposure": "Test clips were evaluated against draft labels in HIST-01 and HIST-02 (before 10 Nov 2026). No tuning since; run_experiment.py refuses the Test split without --final."
+}
