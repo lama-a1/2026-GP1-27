@@ -1,0 +1,36 @@
+{
+ "clip_id": "000946",
+ "split": "val",
+ "accident_type": "Rear-end",
+ "collision": {
+  "predicted_frame": 47,
+  "predicted_s": 4.7,
+  "vs_source_annotation": {
+   "level": "source_annotation",
+   "reference_frame": 41,
+   "error_frames": 6,
+   "hit_within_0_5s": false
+  }
+ },
+ "lane_change": {
+  "predicted": null,
+  "vs_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "reference": null
+  }
+ },
+ "sudden_stop": {
+  "predicted": null,
+  "vs_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "reference": null
+  }
+ },
+ "following_distance": {
+  "predicted": "Not maintained",
+  "vs_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "reference": "Not maintained"
+  }
+ }
+}

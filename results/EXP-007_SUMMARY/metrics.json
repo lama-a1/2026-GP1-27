@@ -1,0 +1,184 @@
+{
+ "train": {
+  "n_clips": 101,
+  "collision_vs_source_annotation": {
+   "level": "source_annotation",
+   "n": 101,
+   "n_no_prediction": 2,
+   "hit_rate_within_0_5s": 0.683,
+   "mae_s": 0.54,
+   "median_abs_error_s": 0.2,
+   "mean_signed_error_s": -0.13
+  },
+  "collision_vs_human_gt": {
+   "level": "human_reviewed",
+   "n": 1,
+   "hits": 1,
+   "errors_frames": [
+    -3
+   ]
+  },
+  "vehicle_b_identification": {
+   "level": "human_reviewed",
+   "n": 3,
+   "correct": 2,
+   "clips": {
+    "000023": false,
+    "000152": true,
+    "dada_training_type11_53": true
+   }
+  },
+  "lane_change_human_reviewed": {
+   "level": "human_reviewed",
+   "n_clips_with_reference_row": 2,
+   "n_matched_pairs": 2,
+   "tp": 2,
+   "fp": 0,
+   "fn": 0,
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "mean_tiou": 0.653,
+   "start_mae_frames": 7.5,
+   "start_mean_error_frames": -7.5,
+   "end_mae_frames": 2,
+   "direction_accuracy": 1.0
+  },
+  "lane_change_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "n_clips_with_reference_row": 101,
+   "n_matched_pairs": 22,
+   "tp": 18,
+   "fp": 15,
+   "fn": 30,
+   "precision": 0.545,
+   "recall": 0.375,
+   "f1": 0.444,
+   "mean_tiou": 0.51,
+   "start_mae_frames": 10.09,
+   "start_mean_error_frames": -6.82,
+   "end_mae_frames": 4.36,
+   "direction_accuracy": 0.909
+  },
+  "sudden_stop_presence_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "n": 101,
+   "tp": 28,
+   "fp": 4,
+   "fn": 25,
+   "agreement": 0.713
+  },
+  "safe_distance_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "n_with_clear_draft_value": 70,
+   "agreement": 0.629,
+   "n_no_prediction": 13
+  },
+  "sudden_stop_human_reviewed": "Pending approved Ground Truth",
+  "safe_distance_human_reviewed": "Pending approved Ground Truth",
+  "processing_time_s": {
+   "n": 101,
+   "mean_total": 15.99,
+   "median_total": 16.0,
+   "max_total": 23.7,
+   "mean_detection_tracking": 5.53,
+   "mean_lanes": 9.9
+  }
+ },
+ "val": {
+  "n_clips": 22,
+  "collision_vs_source_annotation": {
+   "level": "source_annotation",
+   "n": 22,
+   "n_no_prediction": 0,
+   "hit_rate_within_0_5s": 0.818,
+   "mae_s": 0.47,
+   "median_abs_error_s": 0.15,
+   "mean_signed_error_s": -0.28
+  },
+  "collision_vs_human_gt": "Pending approved Ground Truth",
+  "vehicle_b_identification": "Pending approved Ground Truth",
+  "lane_change_human_reviewed": "Pending approved Ground Truth",
+  "lane_change_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "n_clips_with_reference_row": 22,
+   "n_matched_pairs": 4,
+   "tp": 2,
+   "fp": 3,
+   "fn": 10,
+   "precision": 0.4,
+   "recall": 0.167,
+   "f1": 0.235,
+   "mean_tiou": 0.407,
+   "start_mae_frames": 4.25,
+   "start_mean_error_frames": 4.25,
+   "end_mae_frames": 5,
+   "direction_accuracy": 0.5
+  },
+  "sudden_stop_presence_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "n": 22,
+   "tp": 6,
+   "fp": 4,
+   "fn": 3,
+   "agreement": 0.682
+  },
+  "safe_distance_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "n_with_clear_draft_value": 16,
+   "agreement": 0.625,
+   "n_no_prediction": 1
+  },
+  "sudden_stop_human_reviewed": "Pending approved Ground Truth",
+  "safe_distance_human_reviewed": "Pending approved Ground Truth",
+  "processing_time_s": {
+   "n": 22,
+   "mean_total": 15.85,
+   "median_total": 16.05,
+   "max_total": 23.5,
+   "mean_detection_tracking": 5.62,
+   "mean_lanes": 9.65
+  }
+ },
+ "not_measurable_yet": {
+  "vehicle_detection_precision_recall": "Pending approved Ground Truth (CVAT exports contain only imported YOLO boxes)",
+  "tracking_mota_idf1": "Pending approved Ground Truth (no reviewed per-frame tracks)",
+  "lane_line_segmentation": "Pending approved Ground Truth (no lane-line polylines reviewed)",
+  "solid_dashed_accuracy": "Pending approved Ground Truth (no reviewed line types)"
+ },
+ "_run": {
+  "exp_id": "EXP-007",
+  "title": "Frozen baseline (Sprint 2 engine at d3ea9c2)",
+  "hypothesis": "Reference measurement of the current engine; no change.",
+  "baseline": "",
+  "code_commit": "d3ea9c2",
+  "code_fingerprint": "8a9c369b0c205f63",
+  "overrides": {},
+  "splits": [
+   "train",
+   "val"
+  ],
+  "n_clips": 123,
+  "n_failed": 0,
+  "failures": [],
+  "environment": {
+   "python": "3.13.16",
+   "platform": "Linux-6.18.44-fc-v338-x86_64-with-glibc2.39",
+   "machine": "x86_64",
+   "cpu_count": 2,
+   "numpy": "2.5.3",
+   "cv2": "5.0.0",
+   "onnxruntime": "1.29.0"
+  },
+  "models_sha256_16": {
+   "yolov8n.onnx": "3f3ea9dbd7cfb2e5",
+   "twinlitenet.onnx": "f505b56bd7c9e4e3"
+  },
+  "settings": {
+   "collision_tolerance_frames": 5,
+   "tiou_threshold": 0.3,
+   "vehicle_b_box_iou": 0.5,
+   "fps": 10
+  }
+ }
+}

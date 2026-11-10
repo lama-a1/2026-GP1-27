@@ -1,0 +1,31 @@
+{
+ "_about": "HIST-02: light IoU tracker vs ByteTrack port on the same YOLOv8n detections, before SIYAQ-BUG-001. Train+val clips only. crash_ok = predicted impact within 5 frames of the dataset's source crash frame; lc_ok = lane-change presence agrees with the unreviewed draft label. Test-split rows from the same run are deliberately not included here.",
+ "per_tracker": {
+  "iou": {
+   "n_clips": 123,
+   "tracks_per_clip": 7.545,
+   "mean_track_length_frames": 20.69,
+   "vehicle_b_track_length_frames": 33.699,
+   "vehicle_b_coverage_last_2s": 0.798,
+   "collision_within_0_5s_source_annotation": 0.699,
+   "lane_change_presence_agreement_draft": 0.618,
+   "tracking_time_ms_per_clip": 0.77
+  },
+  "bytetrack": {
+   "n_clips": 123,
+   "tracks_per_clip": 4.919,
+   "mean_track_length_frames": 22.576,
+   "vehicle_b_track_length_frames": 32.13,
+   "vehicle_b_coverage_last_2s": 0.787,
+   "collision_within_0_5s_source_annotation": 0.691,
+   "lane_change_presence_agreement_draft": 0.626,
+   "tracking_time_ms_per_clip": 13.23
+  }
+ },
+ "equivalence_with_official_bytetrack": {
+  "clips_identical": 149,
+  "clips_different": 0,
+  "checked": "2026-11-10",
+  "tool": "compare_official.py against ifzhang/ByteTrack (MIT), same detections, box difference <= 0.05 px"
+ }
+}

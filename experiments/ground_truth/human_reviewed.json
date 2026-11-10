@@ -1,0 +1,25 @@
+{
+  "_about": "Human-reviewed reference labels approved by the Siyaq team. Only these may be used as verified evaluation reference data. Each entry records what was reviewed and how. Vehicle B is stored as a reviewed bounding box at one frame (normalised 0-1 image coordinates), so a prediction is matched by box overlap (IoU >= 0.5) and not by a tracker ID that can change between versions.",
+  "clips": {
+    "dada_training_type11_53": {
+      "split": "train",
+      "review": {"by": "Siyaq team (visual review in CVAT, reported 2026-11-09)", "status": "Approved", "in_cvat_export": false},
+      "vehicle_b": {"description": "dark car on the left that moves right into the recording car's lane", "frame": 15, "box": [0.0192, 0.128, 0.1994, 0.7172]},
+      "lane_change": {"vehicle": "B", "direction": "right", "start": 15, "end": 22}
+    },
+    "000152": {
+      "split": "train",
+      "review": {"by": "Siyaq team (visual review, reported 2026-11-10)", "status": "Approved", "in_cvat_export": false},
+      "vehicle_b": {"description": "white hatchback on the right that moves left into the recording car's lane", "frame": 20, "box": [0.6532, 0.3644, 0.9146, 0.6069]},
+      "lane_change": {"vehicle": "B", "direction": "left", "start": 16, "end": 37},
+      "collision_frame": 37,
+      "notes": "dataset_index.csv gives crash_start_frame 32 for this clip; the team review gives 37."
+    },
+    "000023": {
+      "split": "train",
+      "review": {"by": "Siyaq team (visual review, reported 2026-11-09)", "status": "Approved (Vehicle B identity only)", "in_cvat_export": false},
+      "vehicle_b": {"description": "car on the left beside the recording car (partly outside the image)", "frame": 10, "box": [0.0058, 0.5018, 0.2236, 0.9044]},
+      "notes": "Only the identity of Vehicle B was reviewed. Lane change and collision frame were not reviewed."
+    }
+  }
+}

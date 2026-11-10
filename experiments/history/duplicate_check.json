@@ -1,0 +1,150 @@
+{
+ "n_clips": 149,
+ "n_pairs": 11026,
+ "threshold_bits": 15,
+ "pairs_below_threshold": [],
+ "closest_pairs": [
+  {
+   "bits": 50,
+   "a": "dada_testing_type11_104",
+   "b": "dada_testing_type11_111",
+   "split_a": "train",
+   "split_b": "train"
+  },
+  {
+   "bits": 58,
+   "a": "000196",
+   "b": "dada_testing_type11_111",
+   "split_a": "train",
+   "split_b": "train"
+  },
+  {
+   "bits": 59,
+   "a": "dada_testing_type11_105",
+   "b": "dada_testing_type11_111",
+   "split_a": "train",
+   "split_b": "train"
+  },
+  {
+   "bits": 64,
+   "a": "000196",
+   "b": "dada_testing_type11_105",
+   "split_a": "train",
+   "split_b": "train"
+  },
+  {
+   "bits": 65,
+   "a": "000014",
+   "b": "dada_training_type11_18",
+   "split_a": "train",
+   "split_b": "train"
+  },
+  {
+   "bits": 65,
+   "a": "000196",
+   "b": "dada_testing_type11_104",
+   "split_a": "train",
+   "split_b": "train"
+  },
+  {
+   "bits": 66,
+   "a": "dada_training_type11_36",
+   "b": "dada_training_type11_18",
+   "split_a": "val",
+   "split_b": "train"
+  },
+  {
+   "bits": 67,
+   "a": "001355",
+   "b": "dada_training_type11_18",
+   "split_a": "train",
+   "split_b": "train"
+  },
+  {
+   "bits": 67,
+   "a": "dada_training_type11_18",
+   "b": "dada_validation_type11_85",
+   "split_a": "train",
+   "split_b": "train"
+  },
+  {
+   "bits": 69,
+   "a": "000117",
+   "b": "dada_testing_type11_111",
+   "split_a": "train",
+   "split_b": "train"
+  }
+ ],
+ "closest_cross_split_pairs": [
+  {
+   "bits": 66,
+   "a": "dada_training_type11_36",
+   "b": "dada_training_type11_18",
+   "split_a": "val",
+   "split_b": "train"
+  },
+  {
+   "bits": 70,
+   "a": "000596",
+   "b": "000337",
+   "split_a": "train",
+   "split_b": "test"
+  },
+  {
+   "bits": 71,
+   "a": "001062",
+   "b": "dada_testing_type11_111",
+   "split_a": "val",
+   "split_b": "train"
+  },
+  {
+   "bits": 72,
+   "a": "000978",
+   "b": "dada_validation_type11_73",
+   "split_a": "test",
+   "split_b": "train"
+  },
+  {
+   "bits": 74,
+   "a": "001068",
+   "b": "000337",
+   "split_a": "train",
+   "split_b": "test"
+  },
+  {
+   "bits": 74,
+   "a": "dada_training_type11_36",
+   "b": "dada_training_type12_7",
+   "split_a": "val",
+   "split_b": "train"
+  },
+  {
+   "bits": 74,
+   "a": "dada_training_type12_3",
+   "b": "dada_training_type11_18",
+   "split_a": "test",
+   "split_b": "train"
+  },
+  {
+   "bits": 75,
+   "a": "001264",
+   "b": "dada_testing_type11_110",
+   "split_a": "train",
+   "split_b": "test"
+  },
+  {
+   "bits": 75,
+   "a": "dada_testing_type11_99",
+   "b": "000014",
+   "split_a": "test",
+   "split_b": "train"
+  },
+  {
+   "bits": 76,
+   "a": "dada_validation_type11_73",
+   "b": "dada_training_type11_56",
+   "split_a": "train",
+   "split_b": "val"
+  }
+ ]
+}

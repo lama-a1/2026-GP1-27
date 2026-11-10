@@ -1,0 +1,33 @@
+{
+ "exp_id": "EXP-007",
+ "title": "Frozen baseline (Sprint 2 engine at d3ea9c2)",
+ "clip_id": "000465",
+ "split": "train",
+ "source": "CCD",
+ "video_file": "videos/rear_end/000465.mp4",
+ "code_commit": "d3ea9c2",
+ "code_dirty": true,
+ "code_fingerprint": "8a9c369b0c205f63",
+ "config_file": "experiments/configs/EXP-007.json",
+ "overrides": {},
+ "models_sha256_16": {
+  "yolov8n.onnx": "3f3ea9dbd7cfb2e5",
+  "twinlitenet.onnx": "f505b56bd7c9e4e3"
+ },
+ "environment": {
+  "python": "3.13.16",
+  "platform": "Linux-6.18.44-fc-v338-x86_64-with-glibc2.39",
+  "machine": "x86_64",
+  "cpu_count": 2,
+  "numpy": "2.5.3",
+  "cv2": "5.0.0",
+  "onnxruntime": "1.29.0"
+ },
+ "timing_s": {
+  "detection_tracking": 5.3,
+  "lanes": 11.1,
+  "total": 17.0
+ },
+ "wall_time_s": 17.0,
+ "run_at": "2026-11-10T16:15:18+00:00"
+}

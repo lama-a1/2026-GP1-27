@@ -232,3 +232,21 @@ Changed train clips (start current → candidate, draft start):
 1. The team writes the start definition into the labelling protocol, for example "first frame B's wheels/near edge reach the line of the recording car's lane", and reviews lane changes on validation clips.
 2. Then run the candidate once on those clips. Lane lines must exist over B's whole approach; today they are read only in the last 5 s before the impact, every 2nd frame.
 3. Separately, the box-size lateral scale is inflated at long range. Reporting the shift in lane widths (from the lane lines) would be more reliable than metres.
+
+## EXP-007 — Frozen baseline (no change)
+
+**Purpose.** Freeze the current engine (commit `d3ea9c2`) as the reference for all later tuning, using the new experiment framework (`tools/run_experiment.py`). Training (101) and Validation (22) clips. The Test split was not run.
+
+**Results** (full tables in Section 5.1 of the GP report (Word, kept outside the repository); per-clip outputs in `results/EXP-007_*`):
+
+| Measure | Reference | Train | Val |
+|---|---|---|---|
+| Collision within ±0.5 s | Source annotation | 68.3 % (n = 101; 2 without prediction) | 81.8 % (n = 22) |
+| Vehicle B correct | Human-reviewed | 2/3 | Pending |
+| Lane change F1 / mean tIoU | Human-reviewed | 1.00 / 0.653 (n = 2) | Pending |
+| Lane change F1 / mean tIoU | Draft (unreviewed) | 0.44 / 0.510 | 0.23 / 0.407 |
+| Processing time per clip | — | 16.0 s mean (2-core CPU) | 15.9 s |
+
+The draft-label lane-change numbers match the values recorded after EXP-004, so the framework reproduces the earlier result.
+
+**Decision.** Frozen as the baseline. The next experiments start from the open failures listed in Section 5.1 of the report draft.
