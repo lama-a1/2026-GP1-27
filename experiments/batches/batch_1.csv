@@ -1,0 +1,21 @@
+batch,clip_id,accident_type,source,time_of_day,crash_start_frame,num_frames,cvat_task,cvat_job_in_task,annotator,reviewer,gt_status,approved_items,items_to_review
+1,000023,Lane-change,CCD,Day,38,50,siyaq_CCD_2,1,Lama,Waad,Partially approved,vehicle_b,collision_frame; lane_change; sudden_stop; safe_distance; vehicle_boxes; lane_lines
+1,000152,Lane-change,CCD,Day,32,50,siyaq_CCD_2,22,Waad,Raneem,Partially approved,vehicle_b; collision_frame; lane_change,sudden_stop; safe_distance; vehicle_boxes; lane_lines
+1,000308,Lane-change,CCD,Day,32,50,siyaq_CCD_2,25,Waad,Raneem,Needs review,,vehicle_b; collision_frame; lane_change; sudden_stop; safe_distance; vehicle_boxes; lane_lines
+1,000596,Lane-change,CCD,Night,33,50,siyaq_CCD_1,32,Jana,Lama,Needs review,,vehicle_b; collision_frame; lane_change; sudden_stop; safe_distance; vehicle_boxes; lane_lines
+1,000632,Lane-change,CCD,Day,38,50,siyaq_CCD_2,11,Lama,Waad,Needs review,,vehicle_b; collision_frame; lane_change; sudden_stop; safe_distance; vehicle_boxes; lane_lines
+1,dada_training_type11_12,Lane-change,DADA-2000,Day,44,50,siyaq_DADA,40,Lama,Waad,Needs review,,vehicle_b; collision_frame; lane_change; sudden_stop; safe_distance; vehicle_boxes; lane_lines
+1,dada_training_type11_5,Lane-change,DADA-2000,Day,35,50,siyaq_DADA,45,Lama,Waad,Needs review,,vehicle_b; collision_frame; lane_change; sudden_stop; safe_distance; vehicle_boxes; lane_lines
+1,dada_training_type11_53,Lane-change,DADA-2000,Day,22,33,siyaq_DADA,63,Waad,Raneem,Partially approved,vehicle_b; lane_change,collision_frame; sudden_stop; safe_distance; vehicle_boxes; lane_lines
+1,dada_training_type11_59,Lane-change,DADA-2000,Day,35,50,siyaq_DADA,29,Jana,Lama,Needs review,,vehicle_b; collision_frame; lane_change; sudden_stop; safe_distance; vehicle_boxes; lane_lines
+1,dada_training_type12_7,Lane-change,DADA-2000,Day,35,50,siyaq_DADA,67,Waad,Raneem,Needs review,,vehicle_b; collision_frame; lane_change; sudden_stop; safe_distance; vehicle_boxes; lane_lines
+1,000177,Rear-end,CCD,Day,30,50,siyaq_CCD_2,3,Lama,Waad,Needs review,,vehicle_b; collision_frame; lane_change; sudden_stop; safe_distance; vehicle_boxes; lane_lines
+1,000210,Rear-end,CCD,Night,30,50,siyaq_CCD_2,4,Lama,Waad,Needs review,,vehicle_b; collision_frame; lane_change; sudden_stop; safe_distance; vehicle_boxes; lane_lines
+1,000669,Rear-end,CCD,Day,33,50,siyaq_CCD_1,12,Raneem,Jana,Needs review,,vehicle_b; collision_frame; lane_change; sudden_stop; safe_distance; vehicle_boxes; lane_lines
+1,000881,Rear-end,CCD,Day,33,50,siyaq_CCD_2,14,Lama,Waad,Needs review,,vehicle_b; collision_frame; lane_change; sudden_stop; safe_distance; vehicle_boxes; lane_lines
+1,000981,Rear-end,CCD,Day,30,50,siyaq_CCD_1,37,Jana,Lama,Needs review,,vehicle_b; collision_frame; lane_change; sudden_stop; safe_distance; vehicle_boxes; lane_lines
+1,dada_testing_type11_104,Rear-end,DADA-2000,Day,35,50,siyaq_DADA,19,Jana,Lama,Needs review,,vehicle_b; collision_frame; lane_change; sudden_stop; safe_distance; vehicle_boxes; lane_lines
+1,dada_training_type11_29,Rear-end,DADA-2000,Day,35,50,siyaq_DADA,59,Waad,Raneem,Needs review,,vehicle_b; collision_frame; lane_change; sudden_stop; safe_distance; vehicle_boxes; lane_lines
+1,dada_training_type11_60,Rear-end,DADA-2000,Day,39,50,siyaq_DADA,11,Raneem,Jana,Needs review,,vehicle_b; collision_frame; lane_change; sudden_stop; safe_distance; vehicle_boxes; lane_lines
+1,dada_training_type11_69,Rear-end,DADA-2000,Day,49,50,siyaq_DADA,48,Lama,Waad,Needs review,,vehicle_b; collision_frame; lane_change; sudden_stop; safe_distance; vehicle_boxes; lane_lines
+1,dada_validation_type11_88,Rear-end,DADA-2000,Day,35,50,siyaq_DADA,52,Lama,Waad,Needs review,,vehicle_b; collision_frame; lane_change; sudden_stop; safe_distance; vehicle_boxes; lane_lines

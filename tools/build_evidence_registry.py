@@ -32,7 +32,7 @@ FIXED = [
      "HIST-01, HIST-02", "9c51805", "test", "draft_unreviewed", "experiments/EXPERIMENT_LOG.csv", "", "Verified", "Threat to validity"),
     ("D-05", "4.4.3", "CVAT exports contain no human annotation", "1,226 imported tracks, all role 'Other vehicle', 0 tags",
      "", "", "Task1-3.zip (exported 2026-11-04)", "pre-annotation", "", "", "Verified", ""),
-    ("D-06", "4.4.3", "Human-reviewed ground truth available", "3 train clips (000023, 000152, dada_training_type11_53), each partial; 0 val; 0 test",
+    ("D-06", "4.4.3", "Human-reviewed ground truth available", "3 train clips (000023, 000152, dada_training_type11_53), each partial; 0 val; 0 test; Batch 1 (20 train clips) prepared",
      "", "", "train", "human_reviewed", "experiments/ground_truth/human_reviewed.json", "", "Verified", ""),
     ("D-07", "4.4.3", "Accident type per clip", "assigned during curation with GenAI assistance", "", "", "all", "draft_unreviewed",
      "dataset_index.csv", "", "Pending Review", "Not yet confirmed clip by clip"),
