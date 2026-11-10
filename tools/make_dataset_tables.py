@@ -6,8 +6,8 @@ import argparse, collections, csv
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT_T = ROOT / "docs" / "gp_report" / "tables"
-OUT_F = ROOT / "docs" / "gp_report" / "figures"
+from report_paths import TABLES as OUT_T, FIGURES as OUT_F, ensure as _ensure_report_dir
+_ensure_report_dir()
 
 
 def main():

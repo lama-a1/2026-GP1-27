@@ -59,3 +59,11 @@ python tools/report_tables.py --exp EXP-010 --baseline EXP-008
 
 To re-run EXP-009: `git archive --format=tar.gz -o legacy.tar.gz ecadb55 siyaq_cv`, extract it into a folder, and pass that folder with `--engine-root <folder> --code-commit ecadb55`.
 
+## Report tables and figures (not in the repository)
+
+`tools/report_tables.py`, `tools/make_dataset_tables.py` and `tools/build_evidence_registry.py` write their tables, figures and the evidence registry to a folder outside the repository: `~/Documents/Siyaq_GP_Report/` by default, or the folder in `SIYAQ_REPORT_DIR` (see `tools/report_paths.py`). `docs/gp_report/` is in `.gitignore`. Verified references are in `docs/references.bib`; the pipeline diagram is in `docs/report_assets/`.
+
+```bash
+python tools/report_tables.py --exp EXP-0NN --baseline EXP-008
+python tools/build_evidence_registry.py
+```

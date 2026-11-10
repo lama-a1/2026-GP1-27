@@ -4,15 +4,15 @@
     python tools/report_tables.py --exp EXP-008 --baseline EXP-007   # before / after table
 
 Reads   results/<EXP>_SUMMARY/metrics.json and results/<EXP>_<clip>/comparison.json
-Writes  docs/gp_report/tables/5.1_<EXP>_*.md and docs/gp_report/figures/fig_5.1_<EXP>_*.png
+Writes  <report folder>/tables/5.1_<EXP>_*.md and <report folder>/figures/fig_5.1_<EXP>_*.png (see tools/report_paths.py)
 Every table states the evidence level and the number of clips behind each value.
 """
 import argparse, json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-T = ROOT / "docs" / "gp_report" / "tables"
-F = ROOT / "docs" / "gp_report" / "figures"
+from report_paths import TABLES as T, FIGURES as F, ensure as _ensure_report_dir
+_ensure_report_dir()
 PENDING = "Pending approved Ground Truth"
 
 

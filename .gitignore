@@ -5,3 +5,6 @@ __pycache__/
 siyaq.db
 uploads/
 .pytest_cache/
+
+# GP report is kept in Word outside the repository (see tools/report_paths.py)
+docs/gp_report/

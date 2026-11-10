@@ -1,4 +1,4 @@
-"""Build docs/gp_report/evidence_registry.csv: every substantive claim or number in the GP report sections,
+"""Build <report folder>/evidence_registry.csv (see tools/report_paths.py): every substantive claim or number in the GP report sections,
 with the experiment, commit, data, review status, result file and verification status behind it.
 
     python tools/build_evidence_registry.py --baseline EXP-007
@@ -15,7 +15,7 @@ F = ["claim_id", "report_section", "claim_or_metric", "value", "experiment_id", 
 
 FIXED = [
     ("D-01", "4.4.3", "Final dataset size and composition", "137 clips: 76 rear-end, 61 lane-change; 70 CCD, 67 DADA-2000; 91/22/24 train/val/test",
-     "", "", "experiments/dataset/dataset_index.csv (MD5 1b0ca89e...)", "n/a (file count)", "docs/gp_report/tables/table_dataset_distribution.md", "", "Verified",
+     "", "", "experiments/dataset/dataset_index.csv (MD5 1b0ca89e...)", "n/a (file count)", "<report folder>/tables/table_dataset_distribution.md", "", "Verified",
      "Matches the team's final split manifests of 10 Nov 2026; all 137 video files exist"),
     ("D-01b", "4.4.3", "Excluded weather clips", "12 clips removed (snow/rain seen); exactly the 12 flagged in clip_job_map.csv; no remaining clip changed split",
      "", "", "experiments/dataset/excluded_clips.csv", "team decision", "", "", "Verified", ""),
@@ -115,7 +115,9 @@ def main():
                                          "Verified", "Measured on the experiment machine (see run_metadata.json)"]))); i += 1
         for k, v in m.get("not_measurable_yet", {}).items():
             rows.append(dict(zip(F, [f"R-{i:02d}", "5.1", k.replace("_", " "), v, "", "", "", "none", "", "", "Not Evaluated", ""]))); i += 1
-    out = ROOT / "docs" / "gp_report" / "evidence_registry.csv"
+    from report_paths import REPORT_DIR, ensure
+    ensure()
+    out = REPORT_DIR / "evidence_registry.csv"
     with open(out, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=F); w.writeheader(); w.writerows(rows)
     print(out, len(rows), "rows")

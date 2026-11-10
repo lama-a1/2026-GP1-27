@@ -1,0 +1,23 @@
+flowchart TB
+  V["Dashcam video (Cloudinary)"] --> P1["1. Preprocessing - video.py<br/>10 fps, 640 px, 30 s window"]
+  P1 --> D1["2. YOLOv8n (COCO weights, ONNX Runtime) - detect_track.py<br/>car / bus / truck boxes"]:::oob
+  D1 --> D2["3. ByteTrack port - bytetrack.py<br/>Kalman filter, two-stage association"]:::adapt
+  P1 --> M1["6. Farneback optical flow (OpenCV) - motion.py"]:::oob
+  D2 --> E1["4. Vehicle B selection - events.py"]:::cust
+  M1 --> M2["6. Jolt, heading rate, flow inside boxes"]:::cust
+  D2 --> M3["7. Pinhole distance, lateral offset, closing speed, TTC - motion.py"]:::cust
+  E1 --> E2["8. Events - events.py<br/>collision, lane change, sudden stop,<br/>following distance, overtaking"]:::cust
+  M2 --> E2
+  M3 --> E2
+  P1 --> L1["5. TwinLiteNet (BDD100K weights, ONNX) - lanes.py<br/>last 5 s before impact, every 2nd frame"]:::oob
+  E2 -- impact frame --> L1
+  L1 --> L2["5. Line grouping, solid / dashed paint test, crossed line"]:::cust
+  L2 --> E2
+  E2 --> R["9. Evidence - analyse.py<br/>result JSON, provenance (observed / estimated / inferred), thumbnails"]:::cust
+  R --> W1["10. Website - video_analysis.py<br/>EER tables, expert analysis page, expert trial page"]:::cust
+  K1["Out-of-the-box component"]:::oob
+  K2["Adapted (re-implemented) component"]:::adapt
+  K3["Developed by the Siyaq team"]:::cust
+  classDef oob fill:#e8eef7,stroke:#41618f,color:#1d2b40
+  classDef adapt fill:#fff3dc,stroke:#a06a00,color:#3d2a00
+  classDef cust fill:#e6f2ea,stroke:#2f6b45,color:#16321f
