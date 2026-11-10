@@ -1,0 +1,30 @@
+clip_id,split,accident_type,complete,issues,collision_ref,collision_pred,collision_err,b_identity_ok,b_mean_iou,b_at_collision,b_last_pred_frame,lc_ref,lc_pred,lc_tiou,lc_dir_ok,ss_ref,ss_pred,sd_ref,sd_pred
+000004,train,Rear-end,True,,41,39,-2,True,0.965,False,37,,,,,32-41,,Maintained,Maintained
+000117,train,Rear-end,True,,33,31,-2,True,0.909,False,28,,,,,,17-31,Not maintained,Maintained
+000152,train,Lane-change,True,,37,34,-3,True,0.956,True,49,5-37,2-34,0.833,True,,,Unclear,Not maintained
+000308,train,Lane-change,True,,30,17,-13,True,0.884,False,19,24-30,,,,,,Unclear,Maintained
+000324,train,Rear-end,True,,31,46,15,True,0.786,False,49,,,,,18-31,,Not maintained,
+000454,train,Lane-change,False,no safe_distance tag,35,35,0,True,0.959,True,32,24-35,0-35,0.333,True,,,,
+000465,train,Rear-end,True,,30,41,11,True,0.609,False,49,,,,,20-30,,Not maintained,
+000727,train,Rear-end,False,lane change tagged in a rear-end clip,42,41,-1,True,0.859,True,49,,,,,32-42,9-41,Maintained,Maintained
+001264,train,Lane-change,True,,40,24,-16,True,0.953,False,27,25-40,,,,,,Maintained,Maintained
+001269,train,Rear-end,True,,49,49,0,True,0.93,True,49,,,,,40-49,37-49,Not maintained,Maintained
+dada_testing_type11_107,train,Rear-end,False,accident_type Rear-end differs from dataset index (Lane-change),35,36,1,True,0.74,True,49,,,,,25-35,,Maintained,
+dada_training_type10_48,train,Lane-change,False,no safe_distance tag,35,33,-2,True,0.809,True,49,24-35,,,,,,,
+dada_training_type11_16,train,Rear-end,True,,36,37,1,True,0.864,True,49,,21-37,,,24-36,,Not maintained,Maintained
+dada_training_type11_29,train,Rear-end,True,,35,35,0,True,0.864,True,33,,,,,23-35,,Not maintained,
+dada_training_type11_53,train,Lane-change,True,,22,21,-1,True,0.819,True,19,15-22,14-21,0.778,True,,,Maintained,Not maintained
+dada_training_type11_71,train,Rear-end,True,,37,37,0,True,0.864,True,49,,,,,28-37,14-37,Maintained,Maintained
+dada_training_type12_1,train,Lane-change,False,no safe_distance tag,40,40,0,True,0.689,True,49,28-40,31-40,0.769,False,,,,
+dada_training_type12_7,train,Lane-change,True,,34,41,7,True,0.828,False,49,27-34,,,,,,Maintained,
+dada_validation_type11_73,train,Lane-change,True,,35,36,1,True,0.906,True,34,28-35,11-36,0.308,True,,,Maintained,Not maintained
+dada_validation_type11_90,train,Lane-change,False,no safe_distance tag,35,35,0,True,0.835,True,49,16-35,8-35,0.714,True,,,,
+dada_testing_type11_104,train,Rear-end,True,,42,43,1,True,0.946,True,49,,,,,15-42,19-43,Not maintained,Maintained
+dada_testing_type11_112,train,Rear-end,True,,35,34,-1,True,0.9,True,49,,,,,28-35,10-34,Not maintained,Maintained
+dada_testing_type11_114,train,Lane-change,True,,35,46,11,True,0.803,True,49,16-35,,,,,,Unclear,Not maintained
+dada_training_type11_11,train,Lane-change,False,no safe_distance tag,35,33,-2,True,0.827,True,49,20-35,,,,,,,
+dada_training_type11_18,train,Rear-end,True,,35,36,1,True,0.925,False,49,,,,,24-35,27-36,Not maintained,Maintained
+dada_training_type11_31,train,Rear-end,False,no safe_distance tag,35,37,2,True,0.974,True,49,,7-37,,,28-35,,,
+dada_training_type11_41,train,Rear-end,True,,41,41,0,True,0.902,True,49,,12-34,,,28-41,,Not maintained,Maintained
+dada_training_type11_45,train,Lane-change,False,no safe_distance tag; 14 labels after the last real frame (43),29,34,5,True,0.626,True,42,20-29,,,,,,,
+dada_training_type11_59,train,Lane-change,True,,35,36,1,False,0.14,True,37,20-35,26-36,0.588,True,,,Unclear,Maintained

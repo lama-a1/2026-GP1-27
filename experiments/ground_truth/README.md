@@ -10,3 +10,5 @@ Siyaq uses four kinds of reference data. Only the last one is verified ground tr
 | 4. Human-reviewed ground truth | `human_reviewed.json` (this folder) | Siyaq team | The only **verified** reference. 3 train clips so far, 0 validation, 0 test |
 
 When the team finishes reviewing in CVAT, export each task (CVAT for video 1.1), split it per clip with `Siyaq_Part1/cvat/split_export.py`, and add the approved clips here. Do not add a clip before a second member has approved it.
+
+**CVAT jobs marked complete (`cvat_completed_<date>.json`).** Labels extracted by `tools/eval_cvat_labels.py` from the jobs listed in `cvat_<date>_completed_jobs.csv`. Level `cvat_completed_unreviewed`: completed by the annotator but not confirmed by a second member, so they are reported separately and never mixed with `human_reviewed.json`. A clip moves to `human_reviewed.json` only after its review.

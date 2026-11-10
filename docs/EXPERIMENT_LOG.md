@@ -269,3 +269,22 @@ On Validation, the current engine is one collision behind the simple reference (
 The processing times of EXP-008 and EXP-009 (about 27 s per clip) were measured with both runs in parallel on 2 CPU cores. They are not comparable with EXP-007 (16 s, single run).
 
 **Decision.** EXP-008 is the frozen baseline for Batch 1; EXP-009 is a reference only.
+
+## EVAL-001 — EXP-008 predictions against the CVAT jobs marked complete (10 Nov 2026)
+
+**Reference.** CVAT project export of 10 Nov 2026, 20:52 (Datumaro; MD5 in `results/EVAL-001_cvat_vs_EXP-008/metrics.json`). It replaces the 18:48 export, in which Vehicle B was not yet set in job #4699062 (000324) and in 9 DADA jobs; the only other differences between the two exports are renumbered track IDs. Only the 29 jobs marked yellow on the team's job sheet are used (`experiments/ground_truth/cvat_2026-11-10_completed_jobs.csv`); all 29 clips are in the Siyaq Training split. Level **cvat_completed_unreviewed**: completed by the annotator, not approved ground truth; `human_reviewed.json` is unchanged. The engine was not run: the saved EXP-008 predictions were scored with `tools/eval_cvat_labels.py`, and `tools/eval_error_analysis.py` wrote the per-clip error table (`error_analysis.md`).
+
+| Measure (29 Training clips) | Result |
+|---|---|
+| Collision within ±0.5 s | 23/29 (79.3 %); MAE 0.34 s |
+| Vehicle B identity (mean IoU ≥ 0.5 over shared frames) | 28/29 |
+| Vehicle B still tracked at the collision (±3 frames, IoU ≥ 0.5) | 21/29 |
+| Lane change (tIoU ≥ 0.3; rear-end clips count as no lane change) | P 0.70, R 0.50, F1 0.58; mean tIoU 0.62; direction 6/7 |
+| Sudden stop presence | agreement 0.69 (TP 6, FP 1, FN 8, TN 14) |
+| Safe distance at the collision | 4/13 clips with a clear label and a prediction (definition to be aligned) |
+
+**Main finding.** 5 of the 6 collision errors occur in clips where Vehicle B is not tracked within 3 frames of the labelled impact (7 such clips: 2 hits; 22 other clips: 21 hits). The same pattern holds against the source annotations on all 90 EXP-008 Training clips with a prediction: 6/23 hits when B is not tracked near the impact, 57/67 otherwise.
+
+**Annotation items (pending, not counted as errors).** 000152 lane-change start 5 vs approved 16; 000727 lane change tagged in a rear-end clip; dada_testing_type11_107 Rear-end in CVAT vs Lane-change in the draft dataset index; safe-distance tag missing or Unclear in 11 clips; dada_training_type11_45 has labels after its last real frame (43). The collision label equals the dataset's source crash frame in 22 of 29 clips.
+
+**Decision.** Information only. No setting changed. Proposed next experiment: EXP-010, collision timing when Vehicle B is not tracked around the impact.

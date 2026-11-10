@@ -1,0 +1,1350 @@
+[
+ {
+  "clip_id": "000004",
+  "split": "train",
+  "accident_type": "Rear-end",
+  "complete": true,
+  "issues": [],
+  "collision": {
+   "reference_frame": 41,
+   "predicted_frame": 39,
+   "error_frames": -2,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 41,
+   "equals_source_annotation": true
+  },
+  "vehicle_b": {
+   "reference_frame": 41,
+   "predicted_track": 1,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.965,
+   "n_common_frames": 38,
+   "box_iou_at_collision": 0.0,
+   "tracked_at_collision": false,
+   "last_predicted_frame": 37
+  },
+  "lane_change": {
+   "reference": null,
+   "predicted": null
+  },
+  "sudden_stop": {
+   "reference": [
+    32,
+    41
+   ],
+   "predicted": null
+  },
+  "safe_distance": {
+   "reference_at_collision": "Maintained",
+   "predicted": "Maintained",
+   "agree": true
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "000117",
+  "split": "train",
+  "accident_type": "Rear-end",
+  "complete": true,
+  "issues": [],
+  "collision": {
+   "reference_frame": 33,
+   "predicted_frame": 31,
+   "error_frames": -2,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 30,
+   "equals_source_annotation": false
+  },
+  "vehicle_b": {
+   "reference_frame": 33,
+   "predicted_track": 2,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.909,
+   "n_common_frames": 29,
+   "box_iou_at_collision": 0.0,
+   "tracked_at_collision": false,
+   "last_predicted_frame": 28
+  },
+  "lane_change": {
+   "reference": null,
+   "predicted": null
+  },
+  "sudden_stop": {
+   "reference": null,
+   "predicted": [
+    17,
+    31
+   ]
+  },
+  "safe_distance": {
+   "reference_at_collision": "Not maintained",
+   "predicted": "Maintained",
+   "agree": false
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "000152",
+  "split": "train",
+  "accident_type": "Lane-change",
+  "complete": true,
+  "issues": [],
+  "collision": {
+   "reference_frame": 37,
+   "predicted_frame": 34,
+   "error_frames": -3,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 32,
+   "equals_source_annotation": false
+  },
+  "vehicle_b": {
+   "reference_frame": 37,
+   "predicted_track": 1,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.956,
+   "n_common_frames": 50,
+   "box_iou_at_collision": 0.97,
+   "tracked_at_collision": true,
+   "last_predicted_frame": 49
+  },
+  "lane_change": {
+   "reference": {
+    "vehicle": "B",
+    "direction": "left",
+    "start": 5,
+    "end": 37
+   },
+   "predicted": {
+    "direction": "left",
+    "start": 2,
+    "end": 34
+   },
+   "tiou": 0.833,
+   "start_error_frames": -3,
+   "end_error_frames": -3,
+   "direction_correct": true
+  },
+  "sudden_stop": {
+   "reference": null,
+   "predicted": null
+  },
+  "safe_distance": {
+   "reference_at_collision": "Unclear",
+   "predicted": "Not maintained",
+   "agree": null
+  },
+  "accident_type_vs_index": true,
+  "vs_approved_human_review": {
+   "lane_change": {
+    "approved": [
+     16,
+     37
+    ],
+    "cvat": [
+     5,
+     37
+    ]
+   },
+   "collision_frame": {
+    "approved": 37,
+    "cvat": 37
+   },
+   "vehicle_b_box_iou_at_approved_frame": 0.982
+  }
+ },
+ {
+  "clip_id": "000308",
+  "split": "train",
+  "accident_type": "Lane-change",
+  "complete": true,
+  "issues": [],
+  "collision": {
+   "reference_frame": 30,
+   "predicted_frame": 17,
+   "error_frames": -13,
+   "hit_within_0_5s": false,
+   "source_annotation_frame": 32,
+   "equals_source_annotation": false
+  },
+  "vehicle_b": {
+   "reference_frame": 30,
+   "predicted_track": 1,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.884,
+   "n_common_frames": 16,
+   "box_iou_at_collision": 0.0,
+   "tracked_at_collision": false,
+   "last_predicted_frame": 19
+  },
+  "lane_change": {
+   "reference": {
+    "vehicle": "B",
+    "direction": "left",
+    "start": 24,
+    "end": 30
+   },
+   "predicted": null
+  },
+  "sudden_stop": {
+   "reference": null,
+   "predicted": null
+  },
+  "safe_distance": {
+   "reference_at_collision": "Unclear",
+   "predicted": "Maintained",
+   "agree": null
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "000324",
+  "split": "train",
+  "accident_type": "Rear-end",
+  "complete": true,
+  "issues": [],
+  "collision": {
+   "reference_frame": 31,
+   "predicted_frame": 46,
+   "error_frames": 15,
+   "hit_within_0_5s": false,
+   "source_annotation_frame": 33,
+   "equals_source_annotation": false
+  },
+  "vehicle_b": {
+   "reference_frame": 31,
+   "predicted_track": 5,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.786,
+   "n_common_frames": 8,
+   "box_iou_at_collision": 0.0,
+   "tracked_at_collision": false,
+   "last_predicted_frame": 49
+  },
+  "lane_change": {
+   "reference": null,
+   "predicted": null
+  },
+  "sudden_stop": {
+   "reference": [
+    18,
+    31
+   ],
+   "predicted": null
+  },
+  "safe_distance": {
+   "reference_at_collision": "Not maintained",
+   "predicted": null,
+   "agree": null
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "000454",
+  "split": "train",
+  "accident_type": "Lane-change",
+  "complete": false,
+  "issues": [
+   "no safe_distance tag"
+  ],
+  "collision": {
+   "reference_frame": 35,
+   "predicted_frame": 35,
+   "error_frames": 0,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 35,
+   "equals_source_annotation": true
+  },
+  "vehicle_b": {
+   "reference_frame": 35,
+   "predicted_track": 1,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.959,
+   "n_common_frames": 33,
+   "box_iou_at_collision": 0.697,
+   "tracked_at_collision": true,
+   "last_predicted_frame": 32
+  },
+  "lane_change": {
+   "reference": {
+    "vehicle": "B",
+    "direction": "right",
+    "start": 24,
+    "end": 35
+   },
+   "predicted": {
+    "direction": "right",
+    "start": 0,
+    "end": 35
+   },
+   "tiou": 0.333,
+   "start_error_frames": -24,
+   "end_error_frames": 0,
+   "direction_correct": true
+  },
+  "sudden_stop": {
+   "reference": null,
+   "predicted": null
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "000465",
+  "split": "train",
+  "accident_type": "Rear-end",
+  "complete": true,
+  "issues": [],
+  "collision": {
+   "reference_frame": 30,
+   "predicted_frame": 41,
+   "error_frames": 11,
+   "hit_within_0_5s": false,
+   "source_annotation_frame": 30,
+   "equals_source_annotation": true
+  },
+  "vehicle_b": {
+   "reference_frame": 30,
+   "predicted_track": 11,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.609,
+   "n_common_frames": 9,
+   "box_iou_at_collision": 0.0,
+   "tracked_at_collision": false,
+   "last_predicted_frame": 49
+  },
+  "lane_change": {
+   "reference": null,
+   "predicted": null
+  },
+  "sudden_stop": {
+   "reference": [
+    20,
+    30
+   ],
+   "predicted": null
+  },
+  "safe_distance": {
+   "reference_at_collision": "Not maintained",
+   "predicted": null,
+   "agree": null
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "000727",
+  "split": "train",
+  "accident_type": "Rear-end",
+  "complete": false,
+  "issues": [
+   "lane change tagged in a rear-end clip"
+  ],
+  "collision": {
+   "reference_frame": 42,
+   "predicted_frame": 41,
+   "error_frames": -1,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 42,
+   "equals_source_annotation": true
+  },
+  "vehicle_b": {
+   "reference_frame": 42,
+   "predicted_track": 6,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.859,
+   "n_common_frames": 35,
+   "box_iou_at_collision": 0.736,
+   "tracked_at_collision": true,
+   "last_predicted_frame": 49
+  },
+  "sudden_stop": {
+   "reference": [
+    32,
+    42
+   ],
+   "predicted": [
+    9,
+    41
+   ],
+   "tiou": 0.294
+  },
+  "safe_distance": {
+   "reference_at_collision": "Maintained",
+   "predicted": "Maintained",
+   "agree": true
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "001264",
+  "split": "train",
+  "accident_type": "Lane-change",
+  "complete": true,
+  "issues": [],
+  "collision": {
+   "reference_frame": 40,
+   "predicted_frame": 24,
+   "error_frames": -16,
+   "hit_within_0_5s": false,
+   "source_annotation_frame": 40,
+   "equals_source_annotation": true
+  },
+  "vehicle_b": {
+   "reference_frame": 40,
+   "predicted_track": 1,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.953,
+   "n_common_frames": 27,
+   "box_iou_at_collision": 0.0,
+   "tracked_at_collision": false,
+   "last_predicted_frame": 27
+  },
+  "lane_change": {
+   "reference": {
+    "vehicle": "B",
+    "direction": "left",
+    "start": 25,
+    "end": 40
+   },
+   "predicted": null
+  },
+  "sudden_stop": {
+   "reference": null,
+   "predicted": null
+  },
+  "safe_distance": {
+   "reference_at_collision": "Maintained",
+   "predicted": "Maintained",
+   "agree": true
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "001269",
+  "split": "train",
+  "accident_type": "Rear-end",
+  "complete": true,
+  "issues": [],
+  "collision": {
+   "reference_frame": 49,
+   "predicted_frame": 49,
+   "error_frames": 0,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 48,
+   "equals_source_annotation": false
+  },
+  "vehicle_b": {
+   "reference_frame": 49,
+   "predicted_track": 1,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.93,
+   "n_common_frames": 50,
+   "box_iou_at_collision": 0.941,
+   "tracked_at_collision": true,
+   "last_predicted_frame": 49
+  },
+  "lane_change": {
+   "reference": null,
+   "predicted": null
+  },
+  "sudden_stop": {
+   "reference": [
+    40,
+    49
+   ],
+   "predicted": [
+    37,
+    49
+   ],
+   "tiou": 0.769
+  },
+  "safe_distance": {
+   "reference_at_collision": "Not maintained",
+   "predicted": "Maintained",
+   "agree": false
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "dada_testing_type11_107",
+  "split": "train",
+  "accident_type": "Rear-end",
+  "complete": false,
+  "issues": [
+   "accident_type Rear-end differs from dataset index (Lane-change)"
+  ],
+  "collision": {
+   "reference_frame": 35,
+   "predicted_frame": 36,
+   "error_frames": 1,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 35,
+   "equals_source_annotation": true
+  },
+  "vehicle_b": {
+   "reference_frame": 35,
+   "predicted_track": 7,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.74,
+   "n_common_frames": 16,
+   "box_iou_at_collision": 0.685,
+   "tracked_at_collision": true,
+   "last_predicted_frame": 49
+  },
+  "lane_change": {
+   "reference": null,
+   "predicted": null
+  },
+  "sudden_stop": {
+   "reference": [
+    25,
+    35
+   ],
+   "predicted": null
+  },
+  "safe_distance": {
+   "reference_at_collision": "Maintained",
+   "predicted": null,
+   "agree": null
+  },
+  "accident_type_vs_index": false
+ },
+ {
+  "clip_id": "dada_training_type10_48",
+  "split": "train",
+  "accident_type": "Lane-change",
+  "complete": false,
+  "issues": [
+   "no safe_distance tag"
+  ],
+  "collision": {
+   "reference_frame": 35,
+   "predicted_frame": 33,
+   "error_frames": -2,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 35,
+   "equals_source_annotation": true
+  },
+  "vehicle_b": {
+   "reference_frame": 35,
+   "predicted_track": 3,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.809,
+   "n_common_frames": 25,
+   "box_iou_at_collision": 0.813,
+   "tracked_at_collision": true,
+   "last_predicted_frame": 49
+  },
+  "lane_change": {
+   "reference": {
+    "vehicle": "B",
+    "direction": "left",
+    "start": 24,
+    "end": 35
+   },
+   "predicted": null
+  },
+  "sudden_stop": {
+   "reference": null,
+   "predicted": null
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "dada_training_type11_16",
+  "split": "train",
+  "accident_type": "Rear-end",
+  "complete": true,
+  "issues": [],
+  "collision": {
+   "reference_frame": 36,
+   "predicted_frame": 37,
+   "error_frames": 1,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 36,
+   "equals_source_annotation": true
+  },
+  "vehicle_b": {
+   "reference_frame": 36,
+   "predicted_track": 10,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.864,
+   "n_common_frames": 29,
+   "box_iou_at_collision": 0.874,
+   "tracked_at_collision": true,
+   "last_predicted_frame": 49
+  },
+  "lane_change": {
+   "reference": null,
+   "predicted": {
+    "direction": "right",
+    "start": 21,
+    "end": 37
+   }
+  },
+  "sudden_stop": {
+   "reference": [
+    24,
+    36
+   ],
+   "predicted": null
+  },
+  "safe_distance": {
+   "reference_at_collision": "Not maintained",
+   "predicted": "Maintained",
+   "agree": false
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "dada_training_type11_29",
+  "split": "train",
+  "accident_type": "Rear-end",
+  "complete": true,
+  "issues": [],
+  "collision": {
+   "reference_frame": 35,
+   "predicted_frame": 35,
+   "error_frames": 0,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 35,
+   "equals_source_annotation": true
+  },
+  "vehicle_b": {
+   "reference_frame": 35,
+   "predicted_track": 4,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.864,
+   "n_common_frames": 3,
+   "box_iou_at_collision": 0.655,
+   "tracked_at_collision": true,
+   "last_predicted_frame": 33
+  },
+  "lane_change": {
+   "reference": null,
+   "predicted": null
+  },
+  "sudden_stop": {
+   "reference": [
+    23,
+    35
+   ],
+   "predicted": null
+  },
+  "safe_distance": {
+   "reference_at_collision": "Not maintained",
+   "predicted": null,
+   "agree": null
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "dada_training_type11_53",
+  "split": "train",
+  "accident_type": "Lane-change",
+  "complete": true,
+  "issues": [],
+  "collision": {
+   "reference_frame": 22,
+   "predicted_frame": 21,
+   "error_frames": -1,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 22,
+   "equals_source_annotation": true
+  },
+  "vehicle_b": {
+   "reference_frame": 22,
+   "predicted_track": 4,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.819,
+   "n_common_frames": 10,
+   "box_iou_at_collision": 0.527,
+   "tracked_at_collision": true,
+   "last_predicted_frame": 19
+  },
+  "lane_change": {
+   "reference": {
+    "vehicle": "B",
+    "direction": "right",
+    "start": 15,
+    "end": 22
+   },
+   "predicted": {
+    "direction": "right",
+    "start": 14,
+    "end": 21
+   },
+   "tiou": 0.778,
+   "start_error_frames": -1,
+   "end_error_frames": -1,
+   "direction_correct": true
+  },
+  "sudden_stop": {
+   "reference": null,
+   "predicted": null
+  },
+  "safe_distance": {
+   "reference_at_collision": "Maintained",
+   "predicted": "Not maintained",
+   "agree": false
+  },
+  "accident_type_vs_index": true,
+  "vs_approved_human_review": {
+   "lane_change": {
+    "approved": [
+     15,
+     22
+    ],
+    "cvat": [
+     15,
+     22
+    ]
+   },
+   "vehicle_b_box_iou_at_approved_frame": 0.982
+  }
+ },
+ {
+  "clip_id": "dada_training_type11_71",
+  "split": "train",
+  "accident_type": "Rear-end",
+  "complete": true,
+  "issues": [],
+  "collision": {
+   "reference_frame": 37,
+   "predicted_frame": 37,
+   "error_frames": 0,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 37,
+   "equals_source_annotation": true
+  },
+  "vehicle_b": {
+   "reference_frame": 37,
+   "predicted_track": 3,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.864,
+   "n_common_frames": 42,
+   "box_iou_at_collision": 0.757,
+   "tracked_at_collision": true,
+   "last_predicted_frame": 49
+  },
+  "lane_change": {
+   "reference": null,
+   "predicted": null
+  },
+  "sudden_stop": {
+   "reference": [
+    28,
+    37
+   ],
+   "predicted": [
+    14,
+    37
+   ],
+   "tiou": 0.417
+  },
+  "safe_distance": {
+   "reference_at_collision": "Maintained",
+   "predicted": "Maintained",
+   "agree": true
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "dada_training_type12_1",
+  "split": "train",
+  "accident_type": "Lane-change",
+  "complete": false,
+  "issues": [
+   "no safe_distance tag"
+  ],
+  "collision": {
+   "reference_frame": 40,
+   "predicted_frame": 40,
+   "error_frames": 0,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 40,
+   "equals_source_annotation": true
+  },
+  "vehicle_b": {
+   "reference_frame": 40,
+   "predicted_track": 8,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.689,
+   "n_common_frames": 17,
+   "box_iou_at_collision": 0.595,
+   "tracked_at_collision": true,
+   "last_predicted_frame": 49
+  },
+  "lane_change": {
+   "reference": {
+    "vehicle": "B",
+    "direction": "left",
+    "start": 28,
+    "end": 40
+   },
+   "predicted": {
+    "direction": "right",
+    "start": 31,
+    "end": 40
+   },
+   "tiou": 0.769,
+   "start_error_frames": 3,
+   "end_error_frames": 0,
+   "direction_correct": false
+  },
+  "sudden_stop": {
+   "reference": null,
+   "predicted": null
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "dada_training_type12_7",
+  "split": "train",
+  "accident_type": "Lane-change",
+  "complete": true,
+  "issues": [],
+  "collision": {
+   "reference_frame": 34,
+   "predicted_frame": 41,
+   "error_frames": 7,
+   "hit_within_0_5s": false,
+   "source_annotation_frame": 35,
+   "equals_source_annotation": false
+  },
+  "vehicle_b": {
+   "reference_frame": 34,
+   "predicted_track": 1,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.828,
+   "n_common_frames": 6,
+   "box_iou_at_collision": 0.0,
+   "tracked_at_collision": false,
+   "last_predicted_frame": 49
+  },
+  "lane_change": {
+   "reference": {
+    "vehicle": "B",
+    "direction": "left",
+    "start": 27,
+    "end": 34
+   },
+   "predicted": null
+  },
+  "sudden_stop": {
+   "reference": null,
+   "predicted": null
+  },
+  "safe_distance": {
+   "reference_at_collision": "Maintained",
+   "predicted": null,
+   "agree": null
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "dada_validation_type11_73",
+  "split": "train",
+  "accident_type": "Lane-change",
+  "complete": true,
+  "issues": [],
+  "collision": {
+   "reference_frame": 35,
+   "predicted_frame": 36,
+   "error_frames": 1,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 35,
+   "equals_source_annotation": true
+  },
+  "vehicle_b": {
+   "reference_frame": 35,
+   "predicted_track": 1,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.906,
+   "n_common_frames": 30,
+   "box_iou_at_collision": 0.884,
+   "tracked_at_collision": true,
+   "last_predicted_frame": 34
+  },
+  "lane_change": {
+   "reference": {
+    "vehicle": "B",
+    "direction": "left",
+    "start": 28,
+    "end": 35
+   },
+   "predicted": {
+    "direction": "left",
+    "start": 11,
+    "end": 36
+   },
+   "tiou": 0.308,
+   "start_error_frames": -17,
+   "end_error_frames": 1,
+   "direction_correct": true
+  },
+  "sudden_stop": {
+   "reference": null,
+   "predicted": null
+  },
+  "safe_distance": {
+   "reference_at_collision": "Maintained",
+   "predicted": "Not maintained",
+   "agree": false
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "dada_validation_type11_90",
+  "split": "train",
+  "accident_type": "Lane-change",
+  "complete": false,
+  "issues": [
+   "no safe_distance tag"
+  ],
+  "collision": {
+   "reference_frame": 35,
+   "predicted_frame": 35,
+   "error_frames": 0,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 35,
+   "equals_source_annotation": true
+  },
+  "vehicle_b": {
+   "reference_frame": 35,
+   "predicted_track": 9,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.835,
+   "n_common_frames": 18,
+   "box_iou_at_collision": 0.669,
+   "tracked_at_collision": true,
+   "last_predicted_frame": 49
+  },
+  "lane_change": {
+   "reference": {
+    "vehicle": "B",
+    "direction": "left",
+    "start": 16,
+    "end": 35
+   },
+   "predicted": {
+    "direction": "left",
+    "start": 8,
+    "end": 35
+   },
+   "tiou": 0.714,
+   "start_error_frames": -8,
+   "end_error_frames": 0,
+   "direction_correct": true
+  },
+  "sudden_stop": {
+   "reference": null,
+   "predicted": null
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "dada_testing_type11_104",
+  "split": "train",
+  "accident_type": "Rear-end",
+  "complete": true,
+  "issues": [],
+  "collision": {
+   "reference_frame": 42,
+   "predicted_frame": 43,
+   "error_frames": 1,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 35,
+   "equals_source_annotation": false
+  },
+  "vehicle_b": {
+   "reference_frame": 42,
+   "predicted_track": 1,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.946,
+   "n_common_frames": 33,
+   "box_iou_at_collision": 0.733,
+   "tracked_at_collision": true,
+   "last_predicted_frame": 49
+  },
+  "lane_change": {
+   "reference": null,
+   "predicted": null
+  },
+  "sudden_stop": {
+   "reference": [
+    15,
+    42
+   ],
+   "predicted": [
+    19,
+    43
+   ],
+   "tiou": 0.828
+  },
+  "safe_distance": {
+   "reference_at_collision": "Not maintained",
+   "predicted": "Maintained",
+   "agree": false
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "dada_testing_type11_112",
+  "split": "train",
+  "accident_type": "Rear-end",
+  "complete": true,
+  "issues": [],
+  "collision": {
+   "reference_frame": 35,
+   "predicted_frame": 34,
+   "error_frames": -1,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 35,
+   "equals_source_annotation": true
+  },
+  "vehicle_b": {
+   "reference_frame": 35,
+   "predicted_track": 3,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.9,
+   "n_common_frames": 44,
+   "box_iou_at_collision": 0.848,
+   "tracked_at_collision": true,
+   "last_predicted_frame": 49
+  },
+  "lane_change": {
+   "reference": null,
+   "predicted": null
+  },
+  "sudden_stop": {
+   "reference": [
+    28,
+    35
+   ],
+   "predicted": [
+    10,
+    34
+   ],
+   "tiou": 0.269
+  },
+  "safe_distance": {
+   "reference_at_collision": "Not maintained",
+   "predicted": "Maintained",
+   "agree": false
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "dada_testing_type11_114",
+  "split": "train",
+  "accident_type": "Lane-change",
+  "complete": true,
+  "issues": [],
+  "collision": {
+   "reference_frame": 35,
+   "predicted_frame": 46,
+   "error_frames": 11,
+   "hit_within_0_5s": false,
+   "source_annotation_frame": 35,
+   "equals_source_annotation": true
+  },
+  "vehicle_b": {
+   "reference_frame": 35,
+   "predicted_track": 4,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.803,
+   "n_common_frames": 30,
+   "box_iou_at_collision": 0.984,
+   "tracked_at_collision": true,
+   "last_predicted_frame": 49
+  },
+  "lane_change": {
+   "reference": {
+    "vehicle": "B",
+    "direction": "left",
+    "start": 16,
+    "end": 35
+   },
+   "predicted": null
+  },
+  "sudden_stop": {
+   "reference": null,
+   "predicted": null
+  },
+  "safe_distance": {
+   "reference_at_collision": "Unclear",
+   "predicted": "Not maintained",
+   "agree": null
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "dada_training_type11_11",
+  "split": "train",
+  "accident_type": "Lane-change",
+  "complete": false,
+  "issues": [
+   "no safe_distance tag"
+  ],
+  "collision": {
+   "reference_frame": 35,
+   "predicted_frame": 33,
+   "error_frames": -2,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 35,
+   "equals_source_annotation": true
+  },
+  "vehicle_b": {
+   "reference_frame": 35,
+   "predicted_track": 1,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.827,
+   "n_common_frames": 50,
+   "box_iou_at_collision": 0.837,
+   "tracked_at_collision": true,
+   "last_predicted_frame": 49
+  },
+  "lane_change": {
+   "reference": {
+    "vehicle": "B",
+    "direction": "unclear",
+    "start": 20,
+    "end": 35
+   },
+   "predicted": null
+  },
+  "sudden_stop": {
+   "reference": null,
+   "predicted": null
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "dada_training_type11_18",
+  "split": "train",
+  "accident_type": "Rear-end",
+  "complete": true,
+  "issues": [],
+  "collision": {
+   "reference_frame": 35,
+   "predicted_frame": 36,
+   "error_frames": 1,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 35,
+   "equals_source_annotation": true
+  },
+  "vehicle_b": {
+   "reference_frame": 35,
+   "predicted_track": 1,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.925,
+   "n_common_frames": 49,
+   "box_iou_at_collision": 0.27,
+   "tracked_at_collision": false,
+   "last_predicted_frame": 49
+  },
+  "lane_change": {
+   "reference": null,
+   "predicted": null
+  },
+  "sudden_stop": {
+   "reference": [
+    24,
+    35
+   ],
+   "predicted": [
+    27,
+    36
+   ],
+   "tiou": 0.692
+  },
+  "safe_distance": {
+   "reference_at_collision": "Not maintained",
+   "predicted": "Maintained",
+   "agree": false
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "dada_training_type11_31",
+  "split": "train",
+  "accident_type": "Rear-end",
+  "complete": false,
+  "issues": [
+   "no safe_distance tag"
+  ],
+  "collision": {
+   "reference_frame": 35,
+   "predicted_frame": 37,
+   "error_frames": 2,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 35,
+   "equals_source_annotation": true
+  },
+  "vehicle_b": {
+   "reference_frame": 35,
+   "predicted_track": 2,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.974,
+   "n_common_frames": 50,
+   "box_iou_at_collision": 0.971,
+   "tracked_at_collision": true,
+   "last_predicted_frame": 49
+  },
+  "lane_change": {
+   "reference": null,
+   "predicted": {
+    "direction": "left",
+    "start": 7,
+    "end": 37
+   }
+  },
+  "sudden_stop": {
+   "reference": [
+    28,
+    35
+   ],
+   "predicted": null
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "dada_training_type11_41",
+  "split": "train",
+  "accident_type": "Rear-end",
+  "complete": true,
+  "issues": [],
+  "collision": {
+   "reference_frame": 41,
+   "predicted_frame": 41,
+   "error_frames": 0,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 41,
+   "equals_source_annotation": true
+  },
+  "vehicle_b": {
+   "reference_frame": 41,
+   "predicted_track": 2,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.902,
+   "n_common_frames": 50,
+   "box_iou_at_collision": 0.581,
+   "tracked_at_collision": true,
+   "last_predicted_frame": 49
+  },
+  "lane_change": {
+   "reference": null,
+   "predicted": {
+    "direction": "right",
+    "start": 12,
+    "end": 34
+   }
+  },
+  "sudden_stop": {
+   "reference": [
+    28,
+    41
+   ],
+   "predicted": null
+  },
+  "safe_distance": {
+   "reference_at_collision": "Not maintained",
+   "predicted": "Maintained",
+   "agree": false
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "dada_training_type11_45",
+  "split": "train",
+  "accident_type": "Lane-change",
+  "complete": false,
+  "issues": [
+   "no safe_distance tag",
+   "14 labels after the last real frame (43)"
+  ],
+  "collision": {
+   "reference_frame": 29,
+   "predicted_frame": 34,
+   "error_frames": 5,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 29,
+   "equals_source_annotation": true
+  },
+  "vehicle_b": {
+   "reference_frame": 29,
+   "predicted_track": 5,
+   "identity_correct": true,
+   "mean_iou_common_frames": 0.626,
+   "n_common_frames": 14,
+   "box_iou_at_collision": 0.719,
+   "tracked_at_collision": true,
+   "last_predicted_frame": 42
+  },
+  "lane_change": {
+   "reference": {
+    "vehicle": "B",
+    "direction": "left",
+    "start": 20,
+    "end": 29
+   },
+   "predicted": null
+  },
+  "sudden_stop": {
+   "reference": null,
+   "predicted": null
+  },
+  "accident_type_vs_index": true
+ },
+ {
+  "clip_id": "dada_training_type11_59",
+  "split": "train",
+  "accident_type": "Lane-change",
+  "complete": true,
+  "issues": [],
+  "collision": {
+   "reference_frame": 35,
+   "predicted_frame": 36,
+   "error_frames": 1,
+   "hit_within_0_5s": true,
+   "source_annotation_frame": 35,
+   "equals_source_annotation": true
+  },
+  "vehicle_b": {
+   "reference_frame": 35,
+   "predicted_track": 2,
+   "identity_correct": false,
+   "mean_iou_common_frames": 0.14,
+   "n_common_frames": 35,
+   "box_iou_at_collision": 0.547,
+   "tracked_at_collision": true,
+   "last_predicted_frame": 37
+  },
+  "lane_change": {
+   "reference": {
+    "vehicle": "B",
+    "direction": "left",
+    "start": 20,
+    "end": 35
+   },
+   "predicted": {
+    "direction": "left",
+    "start": 26,
+    "end": 36
+   },
+   "tiou": 0.588,
+   "start_error_frames": 6,
+   "end_error_frames": 1,
+   "direction_correct": true
+  },
+  "sudden_stop": {
+   "reference": null,
+   "predicted": null
+  },
+  "safe_distance": {
+   "reference_at_collision": "Unclear",
+   "predicted": "Maintained",
+   "agree": null
+  },
+  "accident_type_vs_index": true
+ }
+]
