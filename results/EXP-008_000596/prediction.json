@@ -1,0 +1,48 @@
+{
+ "version": "siyaq-cv-sprint2-1.0",
+ "detector": "yolov8n",
+ "accident_type": "LANE_CHANGE",
+ "video": {
+  "fps": 10,
+  "frames": 50,
+  "duration_s": 5.0,
+  "window_start_s": 0.0,
+  "width": 1280,
+  "height": 720,
+  "source_fps": 10.0
+ },
+ "assumptions": {
+  "camera_fov_deg": 110.0,
+  "real_heights_m": {
+   "car": 1.55,
+   "bus": 3.0,
+   "truck": 2.5
+  }
+ },
+ "quality": {
+  "brightness": 36.2,
+  "sharpness": 316.6,
+  "flags": [
+   "dark_or_night"
+  ]
+ },
+ "vehicle_b": null,
+ "collision_frame": null,
+ "vehicles": [],
+ "measures_b": {},
+ "events": [],
+ "lane_markings": {
+  "model": "TwinLiteNet (BDD100K)",
+  "left_line": "Unclear",
+  "right_line": "Dashed",
+  "visible": true,
+  "crossed_line_type": null
+ },
+ "crossed_line_type": null,
+ "timing_s": {
+  "detection_tracking": 5.7,
+  "lanes": 27.5,
+  "total": 33.9
+ },
+ "vehicle_b_boxes": []
+}

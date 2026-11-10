@@ -1,0 +1,41 @@
+{
+ "clip_id": "001062",
+ "split": "val",
+ "accident_type": "Lane-change",
+ "collision": {
+  "predicted_frame": 49,
+  "predicted_s": 4.9,
+  "vs_source_annotation": {
+   "level": "source_annotation",
+   "reference_frame": 48,
+   "error_frames": 1,
+   "hit_within_0_5s": true
+  }
+ },
+ "lane_change": {
+  "predicted": null,
+  "vs_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "reference": {
+    "vehicle": "B",
+    "direction": "left",
+    "start": 16,
+    "end": 48
+   }
+  }
+ },
+ "sudden_stop": {
+  "predicted": null,
+  "vs_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "reference": null
+  }
+ },
+ "following_distance": {
+  "predicted": "Maintained",
+  "vs_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "reference": "Unclear"
+  }
+ }
+}

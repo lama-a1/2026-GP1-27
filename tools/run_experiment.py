@@ -116,9 +116,12 @@ def git_commit():
         return None, None
 
 
+ENGINE_ROOT = ROOT
+
+
 def code_fingerprint():
     h = hashlib.sha256()
-    for p in sorted((ROOT / "siyaq_cv").glob("*.py")):
+    for p in sorted((ENGINE_ROOT / "siyaq_cv").glob("*.py")):
         h.update(p.name.encode()); h.update(p.read_bytes())
     return h.hexdigest()[:16]
 
@@ -131,8 +134,15 @@ def sha256(path):
     return h.hexdigest()
 
 
+def portable(v):
+    """Paths inside the engine folder are stored relative to it, so no machine-specific folder enters the results."""
+    if isinstance(v, str) and v.startswith(str(ENGINE_ROOT)):
+        return str(Path(v).relative_to(ENGINE_ROOT))
+    return v
+
+
 def config_snapshot(config):
-    return {k: getattr(config, k) for k in dir(config) if k.isupper() and isinstance(getattr(config, k), (int, float, str, bool, dict, list, tuple))}
+    return {k: portable(getattr(config, k)) for k in dir(config) if k.isupper() and isinstance(getattr(config, k), (int, float, str, bool, dict, list, tuple))}
 
 
 def apply_overrides(config, sets):
@@ -330,17 +340,29 @@ def main():
     ap.add_argument("--baseline", default="")
     ap.add_argument("--draft-labels", default="", help="draft_labels.xlsx (unreviewed); reported separately")
     ap.add_argument("--code-commit", default="", help="record this commit if git is not available here")
+    ap.add_argument("--engine-root", default="", help="folder holding another siyaq_cv version (e.g. extracted with "
+                                                     "'git archive <commit> siyaq_cv'); default: this repository")
     ap.add_argument("--final", action="store_true", help="allow the Test split (final frozen evaluation only)")
     ap.add_argument("--status", default="Completed")
     ap.add_argument("--decision", default="")
     ap.add_argument("--notes", default="")
     a = ap.parse_args()
 
+    if any((ROOT / "results").glob(f"{a.exp_id}_*")):
+        raise SystemExit(f"results/{a.exp_id}_* already exists: use a new experiment ID (earlier results are never overwritten)")
     splits = [s.strip() for s in a.splits.split(",") if s.strip()]
     if "test" in splits and not a.final:
         raise SystemExit("Refusing the Test split: it is reserved for the final frozen evaluation (use --final only then).")
 
+    global ENGINE_ROOT
+    if a.engine_root:
+        ENGINE_ROOT = Path(a.engine_root).resolve()
+        sys.path.insert(0, str(ENGINE_ROOT))
+        if not a.code_commit:
+            raise SystemExit("--engine-root needs --code-commit (the commit the engine was extracted from)")
     from siyaq_cv import analyse, config
+    if Path(analyse.__file__).resolve().parents[1] != ENGINE_ROOT:
+        raise SystemExit(f"engine imported from {analyse.__file__}, expected {ENGINE_ROOT}")
     changed = apply_overrides(config, a.set)
     index = load_index(a.dataset)
     human = load_human()
@@ -348,6 +370,8 @@ def main():
     clips = [c for c in (a.clips.split(",") if a.clips else index) if c and index[c]["split"] in splits]
 
     commit, dirty = git_commit()
+    if a.engine_root:
+        dirty = None                     # extracted from git history, not this working tree
     commit = a.code_commit or commit
     cfg = config_snapshot(config)
     cfg_path = ROOT / "experiments" / "configs" / f"{a.exp_id}.json"
@@ -386,7 +410,8 @@ def main():
         (out / "run_metadata.json").write_text(json.dumps({
             "exp_id": a.exp_id, "title": a.title, "clip_id": cid, "split": row["split"], "source": row["source"],
             "video_file": row["file"], "code_commit": commit, "code_dirty": dirty, "code_fingerprint": code_fingerprint(),
-            "config_file": str(cfg_path.relative_to(ROOT)), "overrides": changed, "models_sha256_16": models,
+            "config_file": str(cfg_path.relative_to(ROOT)), "overrides": changed,
+            "engine_root": f"git archive {commit}" if a.engine_root else "repository", "models_sha256_16": models,
             "environment": env, "timing_s": r["timing_s"], "wall_time_s": round(time.time() - t0, 2),
             "run_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}, indent=1, default=str))
         comps.append(comp)
@@ -395,6 +420,8 @@ def main():
 
     summary = aggregate(comps, timings)
     summary["_run"] = {"exp_id": a.exp_id, "title": a.title, "hypothesis": a.hypothesis, "baseline": a.baseline,
+                       "dataset_index_md5": hashlib.md5((Path(a.dataset) / "dataset_index.csv").read_bytes()).hexdigest(),
+                       "engine_root": "repository" if not a.engine_root else f"git archive {commit}",
                        "code_commit": commit, "code_fingerprint": code_fingerprint(), "overrides": changed,
                        "splits": splits, "n_clips": len(clips), "n_failed": len(failures), "failures": failures,
                        "environment": env, "models_sha256_16": models,

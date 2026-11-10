@@ -1,0 +1,72 @@
+{
+ "clip_id": "dada_training_type11_53",
+ "split": "train",
+ "accident_type": "Lane-change",
+ "collision": {
+  "predicted_frame": 21,
+  "predicted_s": 2.1,
+  "vs_source_annotation": {
+   "level": "source_annotation",
+   "reference_frame": 22,
+   "error_frames": -1,
+   "hit_within_0_5s": true
+  }
+ },
+ "vehicle_b": {
+  "level": "human_reviewed",
+  "predicted_track": 4,
+  "review_frame": 15,
+  "box_iou": 1.0,
+  "correct": true
+ },
+ "lane_change": {
+  "predicted": {
+   "vehicle": "B",
+   "direction": "right",
+   "start": 14,
+   "end": 21
+  },
+  "vs_human_reviewed": {
+   "level": "human_reviewed",
+   "reference": {
+    "vehicle": "B",
+    "direction": "right",
+    "start": 15,
+    "end": 22
+   },
+   "tiou": 0.778,
+   "start_error_frames": -1,
+   "end_error_frames": -1,
+   "direction_correct": true,
+   "vehicle_correct": true
+  },
+  "vs_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "reference": {
+    "vehicle": "B",
+    "direction": "right",
+    "start": 12,
+    "end": 22
+   },
+   "tiou": 0.727,
+   "start_error_frames": 2,
+   "end_error_frames": -1,
+   "direction_correct": true,
+   "vehicle_correct": true
+  }
+ },
+ "sudden_stop": {
+  "predicted": null,
+  "vs_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "reference": null
+  }
+ },
+ "following_distance": {
+  "predicted": "Not maintained",
+  "vs_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "reference": "Unclear"
+  }
+ }
+}

@@ -1,0 +1,768 @@
+{
+ "version": "siyaq-cv-sprint2-1.0",
+ "detector": "yolov8n",
+ "accident_type": "REAR_END",
+ "video": {
+  "fps": 10,
+  "frames": 50,
+  "duration_s": 5.0,
+  "window_start_s": 0.0,
+  "width": 1280,
+  "height": 720,
+  "source_fps": 10.0
+ },
+ "assumptions": {
+  "camera_fov_deg": 110.0,
+  "real_heights_m": {
+   "car": 1.55,
+   "bus": 3.0,
+   "truck": 2.5
+  }
+ },
+ "quality": {
+  "brightness": 128.5,
+  "sharpness": 621.6,
+  "flags": []
+ },
+ "vehicle_b": 4,
+ "collision_frame": 34,
+ "vehicles": [
+  {
+   "track_id": 1,
+   "role": "other",
+   "class": "car",
+   "frames": 6,
+   "first_frame": 0,
+   "last_frame": 5,
+   "min_distance_m": 8.4,
+   "mean_distance_m": 8.99,
+   "mean_rel_speed_mps": 1.84,
+   "lateral_change_m": -0.83,
+   "longitudinal": "moving away",
+   "lateral": "moving left"
+  },
+  {
+   "track_id": 2,
+   "role": "other",
+   "class": "car",
+   "frames": 36,
+   "first_frame": 0,
+   "last_frame": 35,
+   "min_distance_m": 3.19,
+   "mean_distance_m": 3.23,
+   "mean_rel_speed_mps": -0.01,
+   "lateral_change_m": 0.46,
+   "longitudinal": "steady gap",
+   "lateral": "same position"
+  },
+  {
+   "track_id": 3,
+   "role": "other",
+   "class": "car",
+   "frames": 14,
+   "first_frame": 0,
+   "last_frame": 13,
+   "min_distance_m": 16.18,
+   "mean_distance_m": 19.63,
+   "mean_rel_speed_mps": -3.38,
+   "lateral_change_m": 3.14,
+   "longitudinal": "approaching",
+   "lateral": "moving right"
+  },
+  {
+   "track_id": 4,
+   "role": "B",
+   "class": "bus",
+   "frames": 17,
+   "first_frame": 16,
+   "last_frame": 32,
+   "min_distance_m": 2.87,
+   "mean_distance_m": 3.59,
+   "mean_rel_speed_mps": -0.78,
+   "lateral_change_m": 1.08,
+   "longitudinal": "approaching",
+   "lateral": "moving right"
+  },
+  {
+   "track_id": 5,
+   "role": "other",
+   "class": "car",
+   "frames": 8,
+   "first_frame": 18,
+   "last_frame": 25,
+   "min_distance_m": 14.31,
+   "mean_distance_m": 14.84,
+   "mean_rel_speed_mps": 2.43,
+   "lateral_change_m": 0.89,
+   "longitudinal": "moving away",
+   "lateral": "moving right"
+  },
+  {
+   "track_id": 6,
+   "role": "other",
+   "class": "car",
+   "frames": 3,
+   "first_frame": 20,
+   "last_frame": 22,
+   "min_distance_m": 11.64,
+   "mean_distance_m": 11.8,
+   "mean_rel_speed_mps": 0.0,
+   "lateral_change_m": -0.38,
+   "longitudinal": "steady gap",
+   "lateral": "same position"
+  }
+ ],
+ "measures_b": {
+  "16": {
+   "distance_m": 4.46,
+   "lateral_m": -2.81,
+   "centre_offset": -0.276,
+   "height_frac": 0.295,
+   "rel_speed_mps": null,
+   "lateral_speed_mps": null,
+   "ttc_s": null,
+   "flow_dx_px": -1.33,
+   "at_edge": false
+  },
+  "17": {
+   "distance_m": 4.39,
+   "lateral_m": -2.78,
+   "centre_offset": -0.2812,
+   "height_frac": 0.3031,
+   "rel_speed_mps": null,
+   "lateral_speed_mps": null,
+   "ttc_s": null,
+   "flow_dx_px": -1.1,
+   "at_edge": false
+  },
+  "18": {
+   "distance_m": 4.31,
+   "lateral_m": -2.72,
+   "centre_offset": -0.2856,
+   "height_frac": 0.3148,
+   "rel_speed_mps": -0.64,
+   "lateral_speed_mps": 0.42,
+   "ttc_s": 2.99,
+   "flow_dx_px": -0.66,
+   "at_edge": false
+  },
+  "19": {
+   "distance_m": 4.13,
+   "lateral_m": -2.63,
+   "centre_offset": -0.2883,
+   "height_frac": 0.3295,
+   "rel_speed_mps": -0.92,
+   "lateral_speed_mps": 0.61,
+   "ttc_s": 2.57,
+   "flow_dx_px": -0.21,
+   "at_edge": false
+  },
+  "20": {
+   "distance_m": 3.97,
+   "lateral_m": -2.52,
+   "centre_offset": -0.2883,
+   "height_frac": 0.3428,
+   "rel_speed_mps": -1.12,
+   "lateral_speed_mps": 0.87,
+   "ttc_s": 2.29,
+   "flow_dx_px": 0.1,
+   "at_edge": false
+  },
+  "21": {
+   "distance_m": 3.84,
+   "lateral_m": -2.43,
+   "centre_offset": -0.287,
+   "height_frac": 0.3538,
+   "rel_speed_mps": -1.23,
+   "lateral_speed_mps": 0.96,
+   "ttc_s": 2.42,
+   "flow_dx_px": 0.43,
+   "at_edge": false
+  },
+  "22": {
+   "distance_m": 3.74,
+   "lateral_m": -2.36,
+   "centre_offset": -0.2854,
+   "height_frac": 0.3622,
+   "rel_speed_mps": -0.96,
+   "lateral_speed_mps": 0.87,
+   "ttc_s": 3.02,
+   "flow_dx_px": 0.69,
+   "at_edge": false
+  },
+  "23": {
+   "distance_m": 3.63,
+   "lateral_m": -2.29,
+   "centre_offset": -0.2845,
+   "height_frac": 0.3733,
+   "rel_speed_mps": -0.83,
+   "lateral_speed_mps": 0.79,
+   "ttc_s": 3.37,
+   "flow_dx_px": 0.71,
+   "at_edge": false
+  },
+  "24": {
+   "distance_m": 3.56,
+   "lateral_m": -2.24,
+   "centre_offset": -0.282,
+   "height_frac": 0.3786,
+   "rel_speed_mps": -0.65,
+   "lateral_speed_mps": 0.66,
+   "ttc_s": 4.29,
+   "flow_dx_px": 1.19,
+   "at_edge": false
+  },
+  "25": {
+   "distance_m": 3.48,
+   "lateral_m": -2.16,
+   "centre_offset": -0.2774,
+   "height_frac": 0.385,
+   "rel_speed_mps": -0.57,
+   "lateral_speed_mps": 0.67,
+   "ttc_s": 4.77,
+   "flow_dx_px": 1.23,
+   "at_edge": false
+  },
+  "26": {
+   "distance_m": 3.38,
+   "lateral_m": -2.09,
+   "centre_offset": -0.2756,
+   "height_frac": 0.3952,
+   "rel_speed_mps": -0.52,
+   "lateral_speed_mps": 0.65,
+   "ttc_s": 5.13,
+   "flow_dx_px": 1.22,
+   "at_edge": false
+  },
+  "27": {
+   "distance_m": 3.26,
+   "lateral_m": -2.01,
+   "centre_offset": -0.2733,
+   "height_frac": 0.4088,
+   "rel_speed_mps": -0.68,
+   "lateral_speed_mps": 0.76,
+   "ttc_s": 3.76,
+   "flow_dx_px": 0.25,
+   "at_edge": false
+  },
+  "28": {
+   "distance_m": 3.14,
+   "lateral_m": -1.93,
+   "centre_offset": -0.2732,
+   "height_frac": 0.424,
+   "rel_speed_mps": -0.84,
+   "lateral_speed_mps": 0.76,
+   "ttc_s": 2.95,
+   "flow_dx_px": -0.01,
+   "at_edge": false
+  },
+  "29": {
+   "distance_m": 3.04,
+   "lateral_m": -1.87,
+   "centre_offset": -0.2726,
+   "height_frac": 0.4372,
+   "rel_speed_mps": -0.85,
+   "lateral_speed_mps": 0.74,
+   "ttc_s": 2.82,
+   "flow_dx_px": -0.01,
+   "at_edge": false
+  },
+  "30": {
+   "distance_m": 2.9,
+   "lateral_m": -1.77,
+   "centre_offset": -0.2695,
+   "height_frac": 0.4567,
+   "rel_speed_mps": -0.9,
+   "lateral_speed_mps": 0.78,
+   "ttc_s": 2.56,
+   "flow_dx_px": 0.19,
+   "at_edge": false
+  },
+  "31": {
+   "distance_m": 2.89,
+   "lateral_m": -1.76,
+   "centre_offset": -0.2696,
+   "height_frac": 0.4589,
+   "rel_speed_mps": -0.61,
+   "lateral_speed_mps": 0.57,
+   "ttc_s": 3.65,
+   "flow_dx_px": 0.35,
+   "at_edge": false
+  },
+  "32": {
+   "distance_m": 2.87,
+   "lateral_m": -1.73,
+   "centre_offset": -0.2672,
+   "height_frac": 0.4634,
+   "rel_speed_mps": -0.38,
+   "lateral_speed_mps": 0.47,
+   "ttc_s": 5.01,
+   "flow_dx_px": 0.24,
+   "at_edge": false
+  }
+ },
+ "events": [
+  {
+   "type": "lane_change",
+   "vehicle": "B",
+   "track_id": 4,
+   "start": 17,
+   "end": 34,
+   "sources": {
+    "event_start": {
+     "basis": "observed",
+     "frame": 17,
+     "time_s": 1.7,
+     "from": "track"
+    },
+    "event_end": {
+     "basis": "inferred",
+     "frame": 34,
+     "time_s": 3.4,
+     "from": "collision",
+     "last_tracked_frame": 32,
+     "last_tracked_s": 3.2
+    },
+    "duration_s": {
+     "basis": "inferred",
+     "frame": 34,
+     "time_s": 3.4,
+     "from": "collision",
+     "last_tracked_frame": 32,
+     "last_tracked_s": 3.2
+    },
+    "offset_start": {
+     "basis": "observed",
+     "frame": 17,
+     "time_s": 1.7
+    },
+    "b_distance_start_m": {
+     "basis": "observed",
+     "frame": 17,
+     "time_s": 1.7
+    },
+    "offset_end": {
+     "basis": "inferred",
+     "frame": 32,
+     "time_s": 3.2,
+     "reported_for_frame": 34,
+     "reported_for_s": 3.4
+    },
+    "b_distance_end_m": {
+     "basis": "inferred",
+     "frame": 32,
+     "time_s": 3.2,
+     "reported_for_frame": 34,
+     "reported_for_s": 3.4
+    },
+    "lateral_start_m": {
+     "basis": "estimated",
+     "frames": [
+      16,
+      19
+     ],
+     "time_s": [
+      1.6,
+      1.9
+     ]
+    },
+    "lateral_end_m": {
+     "basis": "inferred",
+     "frames": [
+      30,
+      32
+     ],
+     "time_s": [
+      3.0,
+      3.2
+     ],
+     "uses_frame": 32,
+     "reported_for_frame": 34,
+     "reported_for_s": 3.4
+    },
+    "lateral_shift_m": {
+     "basis": "estimated",
+     "frames": [
+      16,
+      32
+     ],
+     "time_s": [
+      1.6,
+      3.2
+     ]
+    },
+    "max_lateral_speed_mps": {
+     "basis": "estimated",
+     "frames": [
+      18,
+      32
+     ],
+     "time_s": [
+      1.8,
+      3.2
+     ]
+    },
+    "mean_box_flow_dx_px": {
+     "basis": "estimated",
+     "frames": [
+      17,
+      32
+     ],
+     "time_s": [
+      1.7,
+      3.2
+     ]
+    },
+    "seconds_before_collision": {
+     "basis": "observed",
+     "frames": [
+      17,
+      34
+     ],
+     "time_s": [
+      1.7,
+      3.4
+     ]
+    }
+   },
+   "measures": {
+    "direction": "right",
+    "duration_s": 1.7,
+    "offset_start": -0.2812,
+    "offset_end": -0.2672,
+    "lateral_start_m": -2.75,
+    "lateral_end_m": -1.76,
+    "lateral_shift_m": 1.02,
+    "max_lateral_speed_mps": 0.96,
+    "mean_box_flow_dx_px": 0.3,
+    "b_distance_start_m": 4.39,
+    "b_distance_end_m": 2.87,
+    "seconds_before_collision": 1.7,
+    "crossed_line_side": "left",
+    "crossed_line_type": "Unclear",
+    "crossed_line_frames": 0,
+    "crossed_line_solid_share": null
+   },
+   "start_t": 1.7,
+   "end_t": 3.4
+  },
+  {
+   "type": "collision",
+   "vehicle": "B",
+   "track_id": 4,
+   "start": 34,
+   "end": 34,
+   "b_last_tracked_frame": 32,
+   "b_last_tracked_s": 3.2,
+   "sources": {
+    "time_s": {
+     "basis": "observed",
+     "frame": 34,
+     "time_s": 3.4
+    },
+    "jolt_score": {
+     "basis": "observed",
+     "frame": 34,
+     "time_s": 3.4
+    },
+    "b_box_height_frac": {
+     "basis": "inferred",
+     "frame": 32,
+     "time_s": 3.2,
+     "reported_for_frame": 34,
+     "reported_for_s": 3.4
+    },
+    "b_distance_at_impact_m": {
+     "basis": "inferred",
+     "frame": 32,
+     "time_s": 3.2,
+     "reported_for_frame": 34,
+     "reported_for_s": 3.4
+    },
+    "b_lateral_at_impact_m": {
+     "basis": "inferred",
+     "frame": 32,
+     "time_s": 3.2,
+     "reported_for_frame": 34,
+     "reported_for_s": 3.4
+    },
+    "b_distance_1s_before_m": {
+     "basis": "observed",
+     "frame": 24,
+     "time_s": 2.4
+    },
+    "closing_speed_last_1s_mps": {
+     "basis": "estimated",
+     "frames": [
+      24,
+      32
+     ],
+     "time_s": [
+      2.4,
+      3.2
+     ]
+    },
+    "closing_speed_last_1s_kmh": {
+     "basis": "estimated",
+     "frames": [
+      24,
+      32
+     ],
+     "time_s": [
+      2.4,
+      3.2
+     ]
+    },
+    "min_ttc_last_1s_s": {
+     "basis": "estimated",
+     "frames": [
+      24,
+      32
+     ],
+     "time_s": [
+      2.4,
+      3.2
+     ]
+    },
+    "a_heading_change_last_1s_deg": {
+     "basis": "estimated",
+     "frames": [
+      24,
+      33
+     ],
+     "time_s": [
+      2.4,
+      3.3
+     ]
+    }
+   },
+   "measures": {
+    "time_s": 3.4,
+    "jolt_score": 1.7,
+    "b_box_height_frac": 0.4634,
+    "b_distance_at_impact_m": 2.87,
+    "b_distance_1s_before_m": 3.56,
+    "closing_speed_last_1s_mps": 0.67,
+    "closing_speed_last_1s_kmh": 2.4,
+    "min_ttc_last_1s_s": 2.56,
+    "b_lateral_at_impact_m": -1.73,
+    "a_heading_change_last_1s_deg": 0.0
+   },
+   "start_t": 3.4,
+   "end_t": 3.4
+  },
+  {
+   "type": "following_distance",
+   "vehicle": "B",
+   "track_id": 4,
+   "start": 34,
+   "end": 34,
+   "sources": {
+    "event_start": {
+     "basis": "inferred",
+     "frame": 34,
+     "time_s": 3.4,
+     "from": "collision",
+     "last_tracked_frame": 32,
+     "last_tracked_s": 3.2,
+     "from_event": "lane_change_end"
+    },
+    "b_distance_m": {
+     "basis": "inferred",
+     "frame": 32,
+     "time_s": 3.2,
+     "reported_for_frame": 34,
+     "reported_for_s": 3.4
+    },
+    "b_box_height_frac": {
+     "basis": "inferred",
+     "frame": 32,
+     "time_s": 3.2,
+     "reported_for_frame": 34,
+     "reported_for_s": 3.4
+    },
+    "ttc_s": {
+     "basis": "inferred",
+     "frame": 32,
+     "time_s": 3.2,
+     "reported_for_frame": 34,
+     "reported_for_s": 3.4
+    },
+    "safe_distance": {
+     "basis": "inferred",
+     "frame": 32,
+     "time_s": 3.2,
+     "reported_for_frame": 34,
+     "reported_for_s": 3.4
+    },
+    "closing_speed_mps": {
+     "basis": "estimated",
+     "frames": [
+      29,
+      32
+     ],
+     "time_s": [
+      2.9,
+      3.2
+     ]
+    },
+    "gap_closing_time_s": {
+     "basis": "inferred",
+     "frames": [
+      29,
+      32
+     ],
+     "time_s": [
+      2.9,
+      3.2
+     ],
+     "uses_frame": 32
+    }
+   },
+   "measures": {
+    "b_distance_m": 2.87,
+    "b_box_height_frac": 0.4634,
+    "closing_speed_mps": 0.68,
+    "ttc_s": 5.01,
+    "gap_closing_time_s": 4.19,
+    "safe_distance": "Not maintained"
+   },
+   "start_t": 3.4,
+   "end_t": 3.4
+  }
+ ],
+ "lane_markings": {
+  "model": "TwinLiteNet (BDD100K)",
+  "left_line": "Unclear",
+  "right_line": "Unclear",
+  "visible": false,
+  "crossed_line_type": "Unclear"
+ },
+ "crossed_line_type": "Unclear",
+ "timing_s": {
+  "detection_tracking": 5.5,
+  "lanes": 19.9,
+  "total": 26.1
+ },
+ "vehicle_b_boxes": [
+  [
+   16,
+   0.1076,
+   0.1975,
+   0.3403,
+   0.722
+  ],
+  [
+   17,
+   0.0993,
+   0.1898,
+   0.3384,
+   0.7287
+  ],
+  [
+   18,
+   0.0904,
+   0.1833,
+   0.3383,
+   0.7429
+  ],
+  [
+   19,
+   0.0823,
+   0.172,
+   0.3411,
+   0.7577
+  ],
+  [
+   20,
+   0.0775,
+   0.1568,
+   0.3459,
+   0.7663
+  ],
+  [
+   21,
+   0.075,
+   0.1434,
+   0.351,
+   0.7724
+  ],
+  [
+   22,
+   0.0738,
+   0.1313,
+   0.3553,
+   0.7752
+  ],
+  [
+   23,
+   0.0706,
+   0.1107,
+   0.3604,
+   0.7745
+  ],
+  [
+   24,
+   0.0711,
+   0.0979,
+   0.3648,
+   0.7709
+  ],
+  [
+   25,
+   0.073,
+   0.0831,
+   0.3721,
+   0.7675
+  ],
+  [
+   26,
+   0.0705,
+   0.0632,
+   0.3782,
+   0.7658
+  ],
+  [
+   27,
+   0.067,
+   0.041,
+   0.3865,
+   0.7677
+  ],
+  [
+   28,
+   0.0602,
+   0.0174,
+   0.3935,
+   0.7713
+  ],
+  [
+   29,
+   0.0543,
+   0.0024,
+   0.4005,
+   0.7797
+  ],
+  [
+   30,
+   0.0479,
+   0.0061,
+   0.4132,
+   0.818
+  ],
+  [
+   31,
+   0.0435,
+   -0.0007,
+   0.4172,
+   0.8151
+  ],
+  [
+   32,
+   0.0401,
+   -0.0004,
+   0.4255,
+   0.8235
+  ]
+ ]
+}

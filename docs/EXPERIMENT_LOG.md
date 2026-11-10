@@ -250,3 +250,22 @@ Changed train clips (start current → candidate, draft start):
 The draft-label lane-change numbers match the values recorded after EXP-004, so the framework reproduces the earlier result.
 
 **Decision.** Frozen as the baseline. The next experiments start from the open failures listed in Section 5.1 of the report draft.
+
+## EXP-008 and EXP-009 — Baselines on the final dataset (no tuning)
+
+**Dataset.** The team's final split manifests of 10 Nov 2026: 137 clips (91 Train, 22 Validation, 24 Test). The 12 snow/rain clips are removed, and no remaining clip changed split. The Test split was not run. EXP-007 (149-clip dataset) is kept unchanged and marked superseded.
+
+| Measure | Reference | EXP-009 simple reference (`ecadb55`: light IoU tracker, original rules) | EXP-008 frozen current (`d3ea9c2`: ByteTrack, improved rules) |
+|---|---|---|---|
+| Collision within ±0.5 s, train (n = 91) | Source annotation | 65.9 % | 69.2 % (1 clip without prediction) |
+| Collision within ±0.5 s, val (n = 22) | Source annotation | 86.4 % | 81.8 % |
+| Vehicle B correct, train | Human (n = 3) | 2/3 | 2/3 |
+| Lane change F1 / mean tIoU, train | Human (n = 2) | 0.67 / 0.50 | 1.00 / 0.65 |
+| Lane change F1 / mean tIoU, train | Draft (unreviewed) | 0.36 / 0.36 | 0.46 / 0.51 |
+| Lane change F1 / mean tIoU, val | Draft (unreviewed) | 0.35 / 0.48 | 0.23 / 0.41 |
+
+On Validation, the current engine is one collision behind the simple reference (18/22 vs 19/22), and its draft-label lane-change agreement is lower (4 matched pairs only). These are differences of single clips. They are reported without selection.
+
+The processing times of EXP-008 and EXP-009 (about 27 s per clip) were measured with both runs in parallel on 2 CPU cores. They are not comparable with EXP-007 (16 s, single run).
+
+**Decision.** EXP-008 is the frozen baseline for Batch 1; EXP-009 is a reference only.

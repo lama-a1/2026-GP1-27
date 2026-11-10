@@ -1,0 +1,41 @@
+{
+ "clip_id": "dada_training_type40_16",
+ "split": "train",
+ "accident_type": "Lane-change",
+ "collision": {
+  "predicted_frame": 29,
+  "predicted_s": 2.9,
+  "vs_source_annotation": {
+   "level": "source_annotation",
+   "reference_frame": 45,
+   "error_frames": -16,
+   "hit_within_0_5s": false
+  }
+ },
+ "lane_change": {
+  "predicted": null,
+  "vs_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "reference": {
+    "vehicle": "B",
+    "direction": "right",
+    "start": 24,
+    "end": 45
+   }
+  }
+ },
+ "sudden_stop": {
+  "predicted": null,
+  "vs_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "reference": null
+  }
+ },
+ "following_distance": {
+  "predicted": "Maintained",
+  "vs_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "reference": "Unclear"
+  }
+ }
+}

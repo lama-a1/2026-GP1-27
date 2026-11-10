@@ -1,0 +1,44 @@
+{
+ "clip_id": "dada_training_type11_31",
+ "split": "train",
+ "accident_type": "Rear-end",
+ "collision": {
+  "predicted_frame": 37,
+  "predicted_s": 3.7,
+  "vs_source_annotation": {
+   "level": "source_annotation",
+   "reference_frame": 35,
+   "error_frames": 2,
+   "hit_within_0_5s": true
+  }
+ },
+ "lane_change": {
+  "predicted": {
+   "vehicle": "A",
+   "direction": "left",
+   "start": 7,
+   "end": 37
+  },
+  "vs_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "reference": null
+  }
+ },
+ "sudden_stop": {
+  "predicted": null,
+  "vs_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "reference": [
+    28,
+    35
+   ]
+  }
+ },
+ "following_distance": {
+  "predicted": "Maintained",
+  "vs_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "reference": "Not maintained"
+  }
+ }
+}

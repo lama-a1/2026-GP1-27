@@ -19,17 +19,17 @@ Every change to the analysis engine (`siyaq_cv/`) is made as a recorded experime
 
 ```bash
 # baseline (no change)
-python tools/run_experiment.py --exp-id EXP-007 --title "Frozen baseline" \
-  --dataset ~/Downloads/Siyaq_Part1/dataset --splits train,val \
+python tools/run_experiment.py --exp-id EXP-0NN --title "Frozen baseline" \
+  --dataset <folder with experiments/dataset/dataset_index.csv and videos/> --splits train,val \
   --draft-labels ~/Downloads/Siyaq_Part1/labeling/draft_labels.xlsx
 
 # one controlled change, tuned on train only
-python tools/run_experiment.py --exp-id EXP-008 --title "..." --baseline EXP-007 \
-  --dataset ~/Downloads/Siyaq_Part1/dataset --splits train \
+python tools/run_experiment.py --exp-id EXP-010 --title "..." --baseline EXP-008 \
+  --dataset <same folder> --splits train \
   --set LANE_ONSET_MPS=0.5 --hypothesis "..." --draft-labels ...
 
 # report tables and figures for Section 5.1
-python tools/report_tables.py --exp EXP-008 --baseline EXP-007
+python tools/report_tables.py --exp EXP-010 --baseline EXP-008
 ```
 
 ## Rules
@@ -47,3 +47,14 @@ python tools/report_tables.py --exp EXP-008 --baseline EXP-007
 - `HIST-xx`: reconstructed from git history, before this framework existed.
 - `SIYAQ-BUG-xxx`: bug investigations.
 - `EXP-xxx`: numbered experiments. EXP-001 to EXP-003 were not recorded in the repository.
+
+## Baselines
+
+| ID | Engine | Dataset | Use |
+|---|---|---|---|
+| EXP-007 | Current (`d3ea9c2`) | Original 149 clips (123 train+val) | Superseded, kept for reproducibility |
+| EXP-008 | Current (`d3ea9c2`): ByteTrack + improved event rules | Final 137 clips (91 train + 22 val) | Frozen baseline for all tuning |
+| EXP-009 | Simple reference (`ecadb55`, from `git archive`): light IoU tracker + original event rules | Final 137 clips (91 train + 22 val) | Reference only |
+
+To re-run EXP-009: `git archive --format=tar.gz -o legacy.tar.gz ecadb55 siyaq_cv`, extract it into a folder, and pass that folder with `--engine-root <folder> --code-commit ecadb55`.
+

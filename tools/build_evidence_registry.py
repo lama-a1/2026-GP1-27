@@ -79,7 +79,7 @@ def g(d, *ks):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--baseline", default="EXP-007")
+    ap.add_argument("--baseline", default="EXP-008")
     a = ap.parse_args()
     rows = [dict(zip(F, r)) for r in FIXED]
     mp = ROOT / "results" / f"{a.baseline}_SUMMARY" / "metrics.json"

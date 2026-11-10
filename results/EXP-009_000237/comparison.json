@@ -1,0 +1,51 @@
+{
+ "clip_id": "000237",
+ "split": "train",
+ "accident_type": "Lane-change",
+ "collision": {
+  "predicted_frame": 32,
+  "predicted_s": 3.2,
+  "vs_source_annotation": {
+   "level": "source_annotation",
+   "reference_frame": 48,
+   "error_frames": -16,
+   "hit_within_0_5s": false
+  }
+ },
+ "lane_change": {
+  "predicted": {
+   "vehicle": "B",
+   "direction": "left",
+   "start": 0,
+   "end": 31
+  },
+  "vs_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "reference": {
+    "vehicle": "B",
+    "direction": "left",
+    "start": 28,
+    "end": 48
+   },
+   "tiou": 0.082,
+   "start_error_frames": -28,
+   "end_error_frames": -17,
+   "direction_correct": true,
+   "vehicle_correct": true
+  }
+ },
+ "sudden_stop": {
+  "predicted": null,
+  "vs_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "reference": null
+  }
+ },
+ "following_distance": {
+  "predicted": "Maintained",
+  "vs_draft_unreviewed": {
+   "level": "draft_unreviewed",
+   "reference": "Unclear"
+  }
+ }
+}

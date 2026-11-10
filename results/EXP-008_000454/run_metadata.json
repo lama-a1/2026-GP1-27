@@ -1,0 +1,34 @@
+{
+ "exp_id": "EXP-008",
+ "title": "Frozen current Siyaq baseline on the final 137-clip dataset (ByteTrack + improved event rules, d3ea9c2)",
+ "clip_id": "000454",
+ "split": "train",
+ "source": "CCD",
+ "video_file": "videos/lane_change/000454.mp4",
+ "code_commit": "d3ea9c2",
+ "code_dirty": true,
+ "code_fingerprint": "8a9c369b0c205f63",
+ "config_file": "experiments/configs/EXP-008.json",
+ "overrides": {},
+ "engine_root": "repository",
+ "models_sha256_16": {
+  "yolov8n.onnx": "3f3ea9dbd7cfb2e5",
+  "twinlitenet.onnx": "f505b56bd7c9e4e3"
+ },
+ "environment": {
+  "python": "3.13.16",
+  "platform": "Linux-6.18.44-fc-v338-x86_64-with-glibc2.39",
+  "machine": "x86_64",
+  "cpu_count": 2,
+  "numpy": "2.5.3",
+  "cv2": "5.0.0",
+  "onnxruntime": "1.29.0"
+ },
+ "timing_s": {
+  "detection_tracking": 5.6,
+  "lanes": 20.3,
+  "total": 26.4
+ },
+ "wall_time_s": 26.44,
+ "run_at": "2026-11-10T16:39:57+00:00"
+}
