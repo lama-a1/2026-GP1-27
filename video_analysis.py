@@ -324,31 +324,48 @@ def cloudinary_video_url(public_id, fmt='mp4'):
 
 
 def save_result(h, c, video_id, result):
-    """Save the full result, and the events in the EER tables (DETECTED_EVENT, DETECTED_VEHICLE, INVOLVEMENT,
-    BOUNDING_BOX) so later sprints can use them."""
-    old = c.execute('SELECT event_id FROM detected_event WHERE video_id=?', (video_id,)).fetchall()
-    for e in old:
-        dv = c.execute('SELECT detected_vehicle_id FROM involvement WHERE event_id=?', (e['event_id'],)).fetchall()
-        c.execute('DELETE FROM detected_event WHERE event_id=?', (e['event_id'],))
-        for d in dv:
-            c.execute('DELETE FROM detected_vehicle WHERE detected_vehicle_id=?', (d['detected_vehicle_id'],))
+    """Save the full result, and the events in the EER tables (DETECTED_EVENT, INVOLVEMENT, BOUNDING_BOX)
+    so later sprints can use them."""
+    # analysing again replaces the old events (their involvement and boxes are deleted with them)
+    c.execute('DELETE FROM detected_event WHERE video_id=?', (video_id,))
     tracks = result.get('tracks', {})
+    other = result.get('vehicle_b')  # track of the other party's car in this video
     for e in result['events']:
+        # every saved event is linked to the other party's car, which is always visible in the video:
+        # ACTOR if that car did the event, AFFECTED if the recording car (A) did it (e.g. its own lane change)
+        if e.get('vehicle') == 'B':
+            role, tid = 'ACTOR', e.get('track_id')
+        elif e.get('vehicle') == 'A':
+            role, tid = 'AFFECTED', other
+        else:
+            continue  # cars that are not a party of the accident are kept in the result only
+        track = tracks.get(str(tid), []) if tid is not None else []
+        if not track:
+            continue
+        # boxes of that car during the event, or its closest box when it is not seen inside the event
+        boxes = [b for b in track if e['start'] <= b[0] <= e['end']] or [min(track, key=lambda b: abs(b[0] - e['end']))]
         # the measures, and where each one comes from (observed / estimated / inferred, with its frame)
         value = dict(e['measures'], _sources=e['sources']) if e.get('sources') else e['measures']
         event_id = h.insert_id(c, '''INSERT INTO detected_event(event_type,event_value,start_time,end_time,video_id)
                                      VALUES(?,?,?,?,?)''',
                                (e['type'], json.dumps(value, ensure_ascii=False), e['start_t'], e['end_t'], video_id),
                                key='event_id')
-        tid = e.get('track_id')
-        boxes = [b for b in tracks.get(str(tid), []) if e['start'] <= b[0] <= e['end']] if tid is not None else []
-        if boxes:
-            dv = h.insert_id(c, 'INSERT INTO detected_vehicle(vehicle_id) VALUES(NULL)', (), key='detected_vehicle_id')
-            role = 'Vehicle B' if e['vehicle'] == 'B' else 'Other vehicle'
-            c.execute('INSERT INTO involvement(event_id,detected_vehicle_id,vehicle_role,track_id) VALUES(?,?,?,?)',
-                      (event_id, dv, role, str(tid)))
-            for b in (boxes[0], boxes[-1]) if len(boxes) > 1 else boxes:
-                c.execute('INSERT INTO bounding_box(event_id,vehicle_role,bounding_box) VALUES(?,?,?)',
-                          (event_id, role, json.dumps({'frame': b[0], 'box': b[1:]})))
+        c.execute('INSERT INTO involvement(event_id,vehicle_role,track_id) VALUES(?,?,?)', (event_id, role, str(tid)))
+        for b in (boxes[0], boxes[-1]) if len(boxes) > 1 else boxes:
+            c.execute('INSERT INTO bounding_box(event_id,vehicle_role,bounding_box) VALUES(?,?,?)',
+                      (event_id, role, json.dumps({'frame': b[0], 'box': b[1:]})))
+    case_id = c.execute('SELECT case_id FROM dashcam_video WHERE video_id=?', (video_id,)).fetchone()['case_id']
+    link_vehicles(c, case_id)
     c.execute("UPDATE video_analysis SET status='done', result_json=?, engine_version=?, error=NULL, finished_at=? WHERE video_id=?",
               (json.dumps(result, ensure_ascii=False), result.get('version'), _now(), video_id))
+
+def link_vehicles(c, case_id):
+    """Link the events of each video to the other party's car (the party who did not upload that video).
+    That car is only known after the second party joins, so this runs again when both parties submit."""
+    for v in c.execute('SELECT video_id, national_id FROM dashcam_video WHERE case_id=?', (case_id,)).fetchall():
+        car = c.execute('''SELECT i.vehicle_id FROM involves i JOIN vehicle ve ON ve.vehicle_id=i.vehicle_id
+                           WHERE i.case_id=? AND ve.national_id<>?''', (case_id, v['national_id'])).fetchone()
+        if car:
+            c.execute('''UPDATE involvement SET vehicle_id=?
+                         WHERE event_id IN (SELECT event_id FROM detected_event WHERE video_id=?)''',
+                      (car['vehicle_id'], v['video_id']))

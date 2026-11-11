@@ -67,7 +67,7 @@ def test_analyse_saves_result_and_eer_events(monkeypatch):
         types = [r['event_type'] for r in db.execute('SELECT event_type FROM detected_event WHERE video_id=?', (vid,))]
         assert sorted(types) == ['collision', 'lane_change']
         assert db.execute('''SELECT count(*) AS n FROM involvement i JOIN detected_event e ON e.event_id=i.event_id
-                             WHERE e.video_id=? AND i.vehicle_role='Vehicle B' ''', (vid,)).fetchone()['n'] == 2
+                             WHERE e.video_id=? AND i.vehicle_role='ACTOR' ''', (vid,)).fetchone()['n'] == 2
         assert db.execute('SELECT job_status FROM video_processing WHERE video_id=?', (vid,)).fetchone()['job_status'] == 'done'
     # analysing again (by the expert) replaces the old events instead of adding duplicates
     with app.test_client() as expert:
@@ -160,3 +160,26 @@ def test_cloudinary_fetch_signs_with_timestamp_and_falls_back(monkeypatch, tmp_p
     assert 'timestamp=' in seen[0] and 'format=mov' in seen[0]
     assert seen[1].startswith('https://res.cloudinary.com/demo/video/authenticated/s--')
 
+
+def test_events_are_linked_to_the_other_party_car():
+    # every saved event is linked to the other party's car: ACTOR if it did the event,
+    # AFFECTED if the recording car did it; events of cars outside the accident are not saved
+    import video_analysis
+    with module.conn() as db:
+        a, _ = factory.make_party(db, 'Uploader')
+        b, _ = factory.make_party(db, 'Other Party')
+        case_id = factory.make_case(db, a, b, accident_type='LANE_CHANGE', with_vehicles=True)
+        vid = factory.add_video(db, case_id, a, uuid.uuid4().hex + '.mp4')
+        result = dict(FAKE, events=FAKE['events'] + [
+            {'type': 'lane_change', 'vehicle': 'A', 'track_id': None, 'start': 20, 'end': 30, 'start_t': 2.0, 'end_t': 3.0, 'measures': {}},
+            {'type': 'overtaking', 'vehicle': 'other', 'track_id': 5, 'start': 1, 'end': 9, 'start_t': .1, 'end_t': .9, 'measures': {}}])
+        db.execute("INSERT INTO video_analysis(video_id,status) VALUES(?, 'running')", (vid,))
+        video_analysis.save_result(module, db, vid, result)
+        rows = db.execute('''SELECT i.vehicle_role, v.national_id,
+                                    (SELECT count(*) FROM bounding_box bb WHERE bb.event_id=i.event_id) AS boxes
+                             FROM involvement i JOIN detected_event e ON e.event_id=i.event_id
+                             LEFT JOIN vehicle v ON v.vehicle_id=i.vehicle_id WHERE e.video_id=?''', (vid,)).fetchall()
+        assert len(rows) == 3                                   # 2 events of B + 1 of A, none of the other car
+        assert sorted(r['vehicle_role'] for r in rows) == ['ACTOR', 'ACTOR', 'AFFECTED']
+        assert all(r['national_id'] == b for r in rows)         # always the other party's car
+        assert all(r['boxes'] >= 1 for r in rows)               # bounding boxes [1..*]

@@ -21,7 +21,11 @@ CREATE TABLE IF NOT EXISTS accident_case (
                 CHECK (accident_type IN ('REAR_END','LANE_CHANGE')),
             party_a_position TEXT CHECK (party_a_position IN ('FRONT','REAR')),
             accident_date TEXT NOT NULL, accident_time TEXT NOT NULL, location TEXT NOT NULL,
-            party_a_description TEXT, party_b_description TEXT,
+            -- composite attributes party_a_description and party_b_description: one column per part
+            party_a_description_text TEXT, party_a_pre_impact_event TEXT, party_a_other_vehicle_side TEXT,
+            party_a_lane_changer TEXT, party_a_impact_zone TEXT,
+            party_b_description_text TEXT, party_b_pre_impact_event TEXT, party_b_other_vehicle_side TEXT,
+            party_b_lane_changer TEXT, party_b_impact_zone TEXT,
             status TEXT NOT NULL DEFAULT 'draft',
             reviewed_by_expert_id BIGINT REFERENCES authorized_expert(expert_id));
 
@@ -47,14 +51,11 @@ CREATE TABLE IF NOT EXISTS detected_event (
             start_time REAL NOT NULL, end_time REAL NOT NULL CHECK (end_time >= start_time),
             video_id BIGINT NOT NULL REFERENCES dashcam_video(video_id) ON DELETE CASCADE);
 
-CREATE TABLE IF NOT EXISTS detected_vehicle (
-            detected_vehicle_id INTEGER PRIMARY KEY, vehicle_id BIGINT REFERENCES vehicle(vehicle_id));
-
 CREATE TABLE IF NOT EXISTS involvement (
             event_id BIGINT NOT NULL REFERENCES detected_event(event_id) ON DELETE CASCADE,
-            detected_vehicle_id BIGINT NOT NULL REFERENCES detected_vehicle(detected_vehicle_id),
-            vehicle_role TEXT NOT NULL, track_id TEXT NOT NULL,
-            PRIMARY KEY (event_id,vehicle_role), UNIQUE (event_id,detected_vehicle_id));
+            vehicle_id BIGINT REFERENCES vehicle(vehicle_id),
+            vehicle_role TEXT NOT NULL CHECK (vehicle_role IN ('ACTOR','AFFECTED')), track_id TEXT NOT NULL,
+            PRIMARY KEY (event_id,vehicle_role), UNIQUE (event_id));
 
 CREATE TABLE IF NOT EXISTS bounding_box (
             event_id BIGINT NOT NULL, vehicle_role TEXT NOT NULL, bounding_box TEXT NOT NULL,
@@ -77,7 +78,7 @@ CREATE TABLE IF NOT EXISTS participation_progress (
             national_id TEXT NOT NULL, case_id TEXT NOT NULL,
             position TEXT NOT NULL CHECK (position IN ('A','B')),
             progress INTEGER NOT NULL DEFAULT 0, completed INTEGER NOT NULL DEFAULT 0 CHECK (completed IN (0,1)),
-            description_meta TEXT, joined_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+            joined_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
             PRIMARY KEY (national_id,case_id), UNIQUE (case_id,position),
             FOREIGN KEY (national_id,case_id) REFERENCES participates(national_id,case_id) ON DELETE CASCADE);
 
@@ -92,7 +93,7 @@ CREATE TABLE IF NOT EXISTS password_reset_link (
             token_hash TEXT NOT NULL UNIQUE, expires_at REAL NOT NULL, used_at TEXT);
 
 CREATE TABLE IF NOT EXISTS login_attempt (
-            key TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0, locked_until REAL);
+            key TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0, lock_expiration REAL);
 
 CREATE TABLE IF NOT EXISTS video_processing (
             video_id BIGINT PRIMARY KEY REFERENCES dashcam_video(video_id) ON DELETE CASCADE,
@@ -126,13 +127,6 @@ CREATE TRIGGER IF NOT EXISTS involves_max_two BEFORE INSERT ON involves
 CREATE TRIGGER IF NOT EXISTS involves_max_two_update BEFORE UPDATE ON involves
                 WHEN OLD.case_id<>NEW.case_id AND (SELECT count(*) FROM involves WHERE case_id=NEW.case_id) >= 2
                 BEGIN SELECT RAISE(ABORT,'A case can involve at most two vehicles'); END;
-
-CREATE TRIGGER IF NOT EXISTS involvement_max_two BEFORE INSERT ON involvement
-                WHEN (SELECT count(*) FROM involvement WHERE event_id=NEW.event_id) >= 2 BEGIN SELECT RAISE(ABORT,'An event can involve at most two detected vehicles'); END;
-
-CREATE TRIGGER IF NOT EXISTS involvement_max_two_update BEFORE UPDATE ON involvement
-                WHEN OLD.event_id<>NEW.event_id AND (SELECT count(*) FROM involvement WHERE event_id=NEW.event_id) >= 2
-                BEGIN SELECT RAISE(ABORT,'An event can involve at most two detected vehicles'); END;
 
 CREATE TRIGGER IF NOT EXISTS receives_max_two BEFORE INSERT ON receives
                 WHEN (SELECT count(*) FROM receives WHERE report_id=NEW.report_id) >= 2 BEGIN SELECT RAISE(ABORT,'A report can have at most two recipients'); END;

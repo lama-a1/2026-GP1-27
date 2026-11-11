@@ -36,10 +36,11 @@ def test_first_party_can_choose_position():
         assert 'data-locked=""' in page
 
 def meta_of(cid, nid):
-    import json
+    # the party's description parts, read from the accident_case columns
     with module.conn() as db:
-        row=db.execute('SELECT description_meta FROM participation_progress WHERE case_id=? AND national_id=?',(cid,nid)).fetchone()
-    return json.loads(row['description_meta'])
+        case=module.get_case(db,cid)
+        party=module.get_party(db,case,nid)
+    return module.description_meta(case,party['position'])
 
 def post_step4(nid, cid, data):
     with app.test_client() as c:
@@ -60,7 +61,7 @@ def test_rear_end_zone_follows_position_and_story_stays_free():
     m=meta_of(cid,b)
     assert m['pos']=='REAR' and m['zone']=='front' and m['rcase']=='sudden'
     with module.conn() as db:
-        assert db.execute('SELECT party_b_description FROM accident_case WHERE case_id=?',(cid,)).fetchone()[0]=='The front car braked for no reason.'
+        assert db.execute('SELECT party_b_description_text FROM accident_case WHERE case_id=?',(cid,)).fetchone()[0]=='The front car braked for no reason.'
 
 def test_lane_change_only_side_is_fixed():
     app.config['TESTING']=True
@@ -73,3 +74,20 @@ def test_lane_change_only_side_is_fixed():
     post_step4(b,cid,{'side':'left','who':'other','zone':'right','description':'The other car moved into my lane.'})
     m=meta_of(cid,b)
     assert m['side']=='right' and m['who']=='other' and m['zone']=='right'
+
+def test_description_parts_are_saved_in_accident_case_and_shown_again():
+    # the composite attribute is stored as accident_case columns with the EER names,
+    # and the description page shows the saved choices when the party opens it again
+    app.config['TESTING']=True
+    with module.conn() as db:
+        a,_=factory.make_party(db,'Lane Saver')
+        cid=factory.make_case(db,a,progress=3,with_vehicles=True,accident_type='LANE_CHANGE')
+    post_step4(a,cid,{'side':'left','who':'other','zone':'front-left','description':'The other car moved into my lane.'})
+    with module.conn() as db:
+        row=db.execute('''SELECT party_a_description_text,party_a_other_vehicle_side,party_a_lane_changer,
+                          party_a_impact_zone,party_a_pre_impact_event FROM accident_case WHERE case_id=?''',(cid,)).fetchone()
+    assert tuple(row)==('The other car moved into my lane.','left','other','front-left',None)
+    with app.test_client() as c:
+        with c.session_transaction() as s: s['uid']=a; s['csrf']='t'
+        page=c.get(f'/cases/{cid}/steps/4').data.decode()
+    assert '&#34;who&#34;: &#34;other&#34;' in page or '"who": "other"' in page

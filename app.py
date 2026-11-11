@@ -123,9 +123,22 @@ def get_party(c, case, national_id):
     party=dict(row)
     a=party['position']=='A'
     party.update(id=row['national_id'], user_id=row['national_id'],
-                 description=case['party_a_description'] if a else case['party_b_description'],
+                 description=case['party_a_description_text'] if a else case['party_b_description_text'],
                  vehicle_role=case['party_a_position'] if a else OPPOSITE.get(case['party_a_position']))
+    meta=description_meta(case,party['position'])
+    party['description_meta']=json.dumps(meta) if meta else None
     return party
+
+# the parts of the composite attributes party_a_description / party_b_description (EER) and the
+# short names the description page uses for them
+DESC_PARTS={'rcase':'pre_impact_event','side':'other_vehicle_side','who':'lane_changer','zone':'impact_zone'}
+def description_meta(case, position):
+    # the party's description choices read from accident_case, with the page's short names
+    p='party_a_' if position=='A' else 'party_b_'
+    meta={k:case[p+col] for k,col in DESC_PARTS.items() if case[p+col]}
+    if meta and case['accident_type']=='REAR_END' and case['party_a_position']:
+        meta['pos']=case['party_a_position'] if position=='A' else OPPOSITE[case['party_a_position']]
+    return meta
 
 def party_at(c, case, position):
     # the party in position A or B (None if B did not join yet)
@@ -158,14 +171,14 @@ LOGIN_MAX_FAILS=5
 LOGIN_LOCK_SECONDS=15*60
 def login_locked(key):
     with conn() as c:
-        row=c.execute('SELECT locked_until FROM login_attempt WHERE key=?',(key,)).fetchone()
-    return bool(row and row['locked_until'] and row['locked_until']>time.time())
+        row=c.execute('SELECT lock_expiration FROM login_attempt WHERE key=?',(key,)).fetchone()
+    return bool(row and row['lock_expiration'] and row['lock_expiration']>time.time())
 def login_failed(key):
     with conn() as c:
         row=c.execute('SELECT count FROM login_attempt WHERE key=?',(key,)).fetchone()
         count=(row['count'] if row else 0)+1
         locked=time.time()+LOGIN_LOCK_SECONDS if count>=LOGIN_MAX_FAILS else None
-        c.execute('INSERT INTO login_attempt(key,count,locked_until) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET count=excluded.count,locked_until=excluded.locked_until',
+        c.execute('INSERT INTO login_attempt(key,count,lock_expiration) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET count=excluded.count,lock_expiration=excluded.lock_expiration',
                   (key,0 if locked else count,locked))
 def login_succeeded(key):
     with conn() as c: c.execute('DELETE FROM login_attempt WHERE key=?',(key,))
@@ -805,8 +818,9 @@ def edit_case(case_id):
             c.execute('UPDATE accident_case SET accident_type=?,accident_date=?,accident_time=?,location=? WHERE case_id=?',(typ,date,time,location,case_id))
             if typ!=case['accident_type']:
                 # if the accident type changed the description no longer fits, so we clear it
-                c.execute('UPDATE accident_case SET party_a_description=NULL,party_b_description=NULL,party_a_position=NULL WHERE case_id=?',(case_id,))
-                c.execute('UPDATE participation_progress SET description_meta=NULL WHERE case_id=?',(case_id,))
+                parts=['description_text']+list(DESC_PARTS.values())
+                c.execute('UPDATE accident_case SET '+','.join(f'party_{x}_{part}=NULL' for x in 'ab' for part in parts)
+                          +',party_a_position=NULL WHERE case_id=?',(case_id,))
                 c.execute('UPDATE participation_progress SET progress=3 WHERE case_id=? AND progress>3',(case_id,))
         flash('تم تحديث بيانات الحادث.','success')
         return redirect(url_for('wizard',case_id=case_id,step=1))
@@ -1131,10 +1145,12 @@ def wizard(case_id,step):
             if errors:
                 for e in errors: flash(e,'error')
                 return redirect(request.url)
-            column='party_a_description' if party['position']=='A' else 'party_b_description'
+            p='party_a_' if party['position']=='A' else 'party_b_'
             with conn() as c:
-                c.execute(f'UPDATE accident_case SET {column}=? WHERE case_id=?',(text,case_id))
-                c.execute('UPDATE participation_progress SET description_meta=? WHERE case_id=? AND national_id=?',(json.dumps(meta),case_id,nid))
+                # composite attribute: the text and each part go to their own column in accident_case
+                c.execute(f'''UPDATE accident_case SET {p}description_text=?,{p}pre_impact_event=?,{p}other_vehicle_side=?,
+                    {p}lane_changer=?,{p}impact_zone=? WHERE case_id=?''',
+                    (text,meta.get('rcase'),meta.get('side'),meta.get('who'),meta.get('zone'),case_id))
                 if case['accident_type']=='REAR_END':
                     # only the first party's position is stored (party_a_position); the second party has the opposite
                     position=meta['pos'] if party['position']=='A' else OPPOSITE[meta['pos']]
@@ -1176,6 +1192,8 @@ def wizard(case_id,step):
                 c.execute('UPDATE participation_progress SET completed=1 WHERE case_id=? AND national_id=?',(case_id,nid))
                 count=c.execute('SELECT COUNT(*) AS total FROM participation_progress WHERE case_id=? AND completed=1',(case_id,)).fetchone()['total']
                 c.execute('UPDATE accident_case SET status=? WHERE case_id=?',('in_progress' if count==2 else 'pending',case_id))
+                # both parties submitted, so the other party's car is known: link the analysed events to it
+                if count==2: video_analysis.link_vehicles(c,case_id)
             # both parties submitted, so tell them the case is now in review
             if count==2: notify_case(case_id,'in_progress')
             save_party_progress(case_id,nid,6)

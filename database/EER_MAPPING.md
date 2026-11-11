@@ -1,6 +1,6 @@
 # EER mapping
 
-The eight entities map to eight tables. Composite attributes are flattened into columns. Relationship foreign keys are added on the many side; many-to-many relationships and multivalued bounding boxes need their own tables. The resulting schema has 13 tables.
+The seven entities map to seven tables. Composite attributes are flattened into columns. Relationship foreign keys are added on the many side; many-to-many relationships and multivalued bounding boxes need their own tables. The resulting schema has 12 tables.
 
 | EER entity | Table | Primary key | Relationship foreign keys |
 | --- | --- | --- | --- |
@@ -9,7 +9,6 @@ The eight entities map to eight tables. Composite attributes are flattened into 
 | ACCIDENT_CASE | `accident_case` | `case_id` | `reviewed_by_expert_id` is optional |
 | DASHCAM_VIDEO | `dashcam_video` | `video_id` | `case_id`, `national_id` identify its case and uploader |
 | DETECTED_EVENT | `detected_event` | `event_id` | `video_id` produces the event |
-| DETECTED_VEHICLE | `detected_vehicle` | `detected_vehicle_id` | `vehicle_id` optionally matches a registered vehicle |
 | AUTHORIZED_EXPERT | `authorized_expert` | `expert_id` | — |
 | FINAL_REPORT | `final_report` | `report_id` | unique `case_id`; optional `approved_by_expert_id` |
 
@@ -17,8 +16,9 @@ The eight entities map to eight tables. Composite attributes are flattened into 
 | --- | --- | --- |
 | Participates | `participates` | PK (`national_id`, `case_id`) |
 | Involves | `involves` | PK (`case_id`, `vehicle_id`) |
-| INVOLVEMENT | `involvement` | PK (`event_id`, `vehicle_role`); `detected_vehicle_id`, `track_id`; event/detected-vehicle pair is unique |
+| INVOLVEMENT | `involvement` | PK (`event_id`, `vehicle_role`); `event_id` is unique (one vehicle per event); `vehicle_id` FK to the other party's car; `vehicle_role` is ACTOR or AFFECTED; `track_id` |
 | Bounding boxes [1..*] | `bounding_box` | PK (`event_id`, `vehicle_role`, `bounding_box`); parent FK to involvement |
+| party_a_description / party_b_description (composite) | `accident_case` | one column per part: `party_a_description_text`, `party_a_pre_impact_event`, `party_a_other_vehicle_side`, `party_a_lane_changer`, `party_a_impact_zone` (and the same for `party_b_`) |
 | Receives | `receives` | PK (`report_id`, `national_id`) |
 
 `vehicle.manufacturer`, `model`, `year` and `color` are the components of `car_details`. Plate letters and numbers are separate fields. All other entity attributes retain the EER names.
@@ -37,11 +37,11 @@ The website needs a few tables that are not part of the EER. They only hold tech
 
 | Table | Why the website needs it |
 | --- | --- |
-| `participation_progress` | Each party's position (A or B), the step they reached, whether they submitted, and their picture choices in the accident description |
+| `participation_progress` | Each party's position (A or B), the step they reached, and whether they submitted |
 | `case_invitation` | The private invitation link sent to the second party: its token, expiry and whether it was used |
 | `password_reset_link` | Password reset links: token, expiry and whether they were used |
 | `login_attempt` | Wrong login attempts, to stop login for 15 minutes after 5 tries |
 | `video_processing` | The uploaded file's original name and its privacy/analysis processing status |
-| `video_analysis` | Sprint 2: the full result of the automatic analysis of each video (JSON). The events themselves are saved in the EER tables `detected_event`, `detected_vehicle`, `involvement` and `bounding_box` |
+| `video_analysis` | Sprint 2: the full result of the automatic analysis of each video (JSON). The events themselves are saved in the EER tables `detected_event`, `involvement` and `bounding_box` |
 
 The tables are created by `schema.py` when the website starts. `database/postgresql.sql` and `database/sqlite.sql` show the same statements.

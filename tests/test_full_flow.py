@@ -77,8 +77,8 @@ def test_whole_case_with_both_parties(monkeypatch):
         assert case['status']=='in_progress'
         assert case['party_a_position']=='REAR'
         assert case['party_b_email']==b_email
-        assert case['party_a_description']=='I hit the car in front of me.'
-        assert case['party_b_description']=='The car behind hit me.'
+        assert case['party_a_description_text']=='I hit the car in front of me.'
+        assert case['party_b_description_text']=='The car behind hit me.'
         assert db.execute('SELECT COUNT(*) AS n FROM participates WHERE case_id=?',(case_id,)).fetchone()['n']==2
         assert db.execute('SELECT COUNT(*) AS n FROM involves WHERE case_id=?',(case_id,)).fetchone()['n']==2
         video=db.execute('SELECT * FROM dashcam_video WHERE case_id=?',(case_id,)).fetchone()

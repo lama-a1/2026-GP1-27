@@ -2,7 +2,7 @@
 from pathlib import Path
 
 ENTITY_TABLES = {'accident_party', 'authorized_expert', 'vehicle', 'accident_case',
-                 'dashcam_video', 'detected_event', 'detected_vehicle', 'final_report'}
+                 'dashcam_video', 'detected_event', 'final_report'}
 RELATION_TABLES = {'participates', 'involves', 'involvement', 'bounding_box', 'receives'}
 TABLES = ENTITY_TABLES | RELATION_TABLES
 # not in the EER: the website needs them to run (invitation links, password reset links,
@@ -10,7 +10,7 @@ TABLES = ENTITY_TABLES | RELATION_TABLES
 SUPPORT_TABLES = {'participation_progress', 'case_invitation', 'password_reset_link',
                   'login_attempt', 'video_processing', 'video_analysis'}
 # tables from the old design (before matching the EER)
-LEGACY_TABLES = {'users', 'cases', 'parties', 'vehicles', 'videos', 'invitations',
+LEGACY_TABLES = {'detected_vehicle', 'users', 'cases', 'parties', 'vehicles', 'videos', 'invitations',
                  'garage_vehicles', 'analysis_jobs', 'expert_accounts', 'expert_logins',
                  'login_failures', 'password_resets'}
 
@@ -38,7 +38,11 @@ def statements(postgres=False):
                 CHECK (accident_type IN ('REAR_END','LANE_CHANGE')),
             party_a_position TEXT CHECK (party_a_position IN ('FRONT','REAR')),
             accident_date TEXT NOT NULL, accident_time TEXT NOT NULL, location TEXT NOT NULL,
-            party_a_description TEXT, party_b_description TEXT,
+            -- composite attributes party_a_description and party_b_description: one column per part
+            party_a_description_text TEXT, party_a_pre_impact_event TEXT, party_a_other_vehicle_side TEXT,
+            party_a_lane_changer TEXT, party_a_impact_zone TEXT,
+            party_b_description_text TEXT, party_b_pre_impact_event TEXT, party_b_other_vehicle_side TEXT,
+            party_b_lane_changer TEXT, party_b_impact_zone TEXT,
             status TEXT NOT NULL DEFAULT 'draft',
             reviewed_by_expert_id BIGINT REFERENCES authorized_expert(expert_id))''',
         '''CREATE TABLE IF NOT EXISTS participates (
@@ -59,13 +63,14 @@ def statements(postgres=False):
             event_id {identity}, event_type TEXT NOT NULL, event_value TEXT, frame_path TEXT,
             start_time {number} NOT NULL, end_time {number} NOT NULL CHECK (end_time >= start_time),
             video_id BIGINT NOT NULL REFERENCES dashcam_video(video_id) ON DELETE CASCADE)''',
-        f'''CREATE TABLE IF NOT EXISTS detected_vehicle (
-            detected_vehicle_id {identity}, vehicle_id BIGINT REFERENCES vehicle(vehicle_id))''',
+        # Involved: each event is linked to one vehicle, the other party's car (always visible in the video).
+        # vehicle_role: ACTOR = that car did the event, AFFECTED = the recording car did it.
+        # vehicle_id is filled when both parties have submitted (the other party's car is known then).
         '''CREATE TABLE IF NOT EXISTS involvement (
             event_id BIGINT NOT NULL REFERENCES detected_event(event_id) ON DELETE CASCADE,
-            detected_vehicle_id BIGINT NOT NULL REFERENCES detected_vehicle(detected_vehicle_id),
-            vehicle_role TEXT NOT NULL, track_id TEXT NOT NULL,
-            PRIMARY KEY (event_id,vehicle_role), UNIQUE (event_id,detected_vehicle_id))''',
+            vehicle_id BIGINT REFERENCES vehicle(vehicle_id),
+            vehicle_role TEXT NOT NULL CHECK (vehicle_role IN ('ACTOR','AFFECTED')), track_id TEXT NOT NULL,
+            PRIMARY KEY (event_id,vehicle_role), UNIQUE (event_id))''',
         '''CREATE TABLE IF NOT EXISTS bounding_box (
             event_id BIGINT NOT NULL, vehicle_role TEXT NOT NULL, bounding_box TEXT NOT NULL,
             PRIMARY KEY (event_id,vehicle_role,bounding_box),
@@ -85,7 +90,7 @@ def statements(postgres=False):
             national_id TEXT NOT NULL, case_id TEXT NOT NULL,
             position TEXT NOT NULL CHECK (position IN ('A','B')),
             progress INTEGER NOT NULL DEFAULT 0, completed INTEGER NOT NULL DEFAULT 0 CHECK (completed IN (0,1)),
-            description_meta TEXT, joined_at TEXT NOT NULL DEFAULT ({now}),
+            joined_at TEXT NOT NULL DEFAULT ({now}),
             PRIMARY KEY (national_id,case_id), UNIQUE (case_id,position),
             FOREIGN KEY (national_id,case_id) REFERENCES participates(national_id,case_id) ON DELETE CASCADE)''',
         f'''CREATE TABLE IF NOT EXISTS case_invitation (
@@ -97,7 +102,7 @@ def statements(postgres=False):
             link_id {identity}, national_id TEXT NOT NULL REFERENCES accident_party(national_id) ON DELETE CASCADE,
             token_hash TEXT NOT NULL UNIQUE, expires_at {number} NOT NULL, used_at TEXT)''',
         f'''CREATE TABLE IF NOT EXISTS login_attempt (
-            key TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0, locked_until {number})''',
+            key TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0, lock_expiration {number})''',
         f'''CREATE TABLE IF NOT EXISTS video_processing (
             video_id BIGINT PRIMARY KEY REFERENCES dashcam_video(video_id) ON DELETE CASCADE,
             original_name TEXT NOT NULL, processed_path TEXT,
@@ -123,8 +128,6 @@ def relationship_guards(postgres):
          'A case can have at most two accident parties'),
         ('involves', 'case_id,vehicle_id', 'SELECT count(*) FROM involves WHERE case_id=NEW.case_id',
          'A case can involve at most two vehicles'),
-        ('involvement', 'event_id', 'SELECT count(*) FROM involvement WHERE event_id=NEW.event_id',
-         'An event can involve at most two detected vehicles'),
         ('receives', 'report_id', 'SELECT count(*) FROM receives WHERE report_id=NEW.report_id',
          'A report can have at most two recipients'),
     ]
