@@ -535,3 +535,27 @@ form[data-step="7"] .wizardfooter{display:none}
 .expert-analysis{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
 .ana-link{display:inline-block;font-size:12.5px;font-weight:700;border-radius:99px;padding:2px 10px;text-decoration:none;white-space:nowrap}
 .ana-done{background:#e8f4ec;color:#006b3b}.ana-running,.ana-none{background:#fff6e5;color:#8a5a00}.ana-failed{background:#fdecea;color:#b3261e}
+/* expert analysis: plain-language summary, key facts, collapsed details */
+.va-summary{background:#f5faf7;border-color:#cfe4d7}
+.va-story{list-style:none;margin:0 0 10px;padding:0;display:flex;flex-direction:column;gap:8px}
+.va-story li{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #dfe9e3;border-inline-start:5px solid #006b3b;border-radius:10px;padding:10px 14px}
+.va-story li.st-collision{border-inline-start-color:#d93025}.va-story li.st-lane_change{border-inline-start-color:#1f5c99}.va-story li.st-sudden_stop{border-inline-start-color:#b26a00}.va-story li.st-following_distance{border-inline-start-color:#6b7f73}.va-story li.st-overtaking{border-inline-start-color:#7b4fb3}
+.va-story-t{flex:none;min-width:52px;font-weight:800;color:#143c2b;font-variant-numeric:tabular-nums}
+.va-story-line{flex:1;font-size:16px;font-weight:700;color:#1d3327}
+.va-hint{font-size:13px;color:#6d4500;background:#fff6e5;border-radius:8px;padding:6px 10px;margin:8px 0 0}
+.va-facts{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.va-facts li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:center;border:1px solid #e3ede7;border-radius:10px;padding:10px 14px;background:#fbfdfc}
+.va-facts li.is-ok{background:#effaf3;border-color:#bfe3cc}.va-facts li.is-bad{background:#fdf1f0;border-color:#f3c4bf}
+.va-fact-label{color:#4d6457;font-size:14px}
+.va-fact-value{font-weight:800;font-size:16px;color:#143c2b}
+.va-facts small{grid-column:1/-1;color:#6b7f73;font-size:12.5px}
+.va-tick,.va-cross{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;margin-inline-end:6px;font-size:13px;color:#fff;vertical-align:1px}
+.va-tick{background:#1e8e4f}.va-cross{background:#d93025}
+.va-more>summary{cursor:pointer;font-weight:800;font-size:17px;color:#006b3b;list-style:none;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.va-more>summary::-webkit-details-marker{display:none}
+.va-more>summary::before{content:'▸';transition:transform .15s}.va-more[open]>summary::before{transform:rotate(90deg)}
+.va-more>summary small{font-weight:400;font-size:13px;color:#6b7f73}
+.va-more[open]>summary{margin-bottom:12px}
+.va-more-part{border-top:1px solid #eef3f0;padding-top:12px;margin-top:12px}
+.va-more-part h3{font-size:15px;margin:0 0 8px;color:#143c2b}.va-more-part h3 small{font-weight:400;color:#6b7f73}
+.va-measure-hint{display:block;font-size:12px;color:#839488;margin-top:1px}

@@ -21,17 +21,17 @@ EVENT_AR = {
 VEHICLE_AR = {'A': 'مركبة صاحب الفيديو', 'B': 'المركبة الأخرى في الحادث', 'other': 'مركبة أخرى'}
 # measure -> (Arabic label, unit)
 MEASURE_AR = {
-    'time_s': ('وقت الحدث', 'ث'), 'jolt_score': ('شدة الاهتزاز (z)', ''),
-    'b_box_height_frac': ('حجم المركبة في الصورة (ارتفاع/عرض)', ''),
+    'time_s': ('وقت الحدث', 'ث'), 'jolt_score': ('شدة اهتزاز الصورة مقارنة بباقي الفيديو', ''),
+    'b_box_height_frac': ('حجم المركبة الأخرى في الصورة', ''),
     'b_distance_at_impact_m': ('المسافة عند الاصطدام', 'م'), 'b_distance_1s_before_m': ('المسافة قبل الاصطدام بثانية', 'م'),
     'closing_speed_last_1s_mps': ('سرعة الاقتراب في آخر ثانية', 'م/ث'), 'closing_speed_last_1s_kmh': ('سرعة الاقتراب في آخر ثانية', 'كم/س'),
-    'min_ttc_last_1s_s': ('أقل زمن متبقٍ للاصطدام (TTC) في آخر ثانية', 'ث'), 'b_lateral_at_impact_m': ('الإزاحة الجانبية عند الاصطدام', 'م'),
+    'min_ttc_last_1s_s': ('أقل زمن متبقٍ للاصطدام (TTC) في آخر ثانية', 'ث'), 'b_lateral_at_impact_m': ('بعد المركبة الأخرى عن منتصف المسار عند الاصطدام', 'م'),
     'a_heading_change_last_1s_deg': ('تغير اتجاه مركبة صاحب الفيديو في آخر ثانية', '°'),
     'direction': ('الاتجاه', ''), 'duration_s': ('المدة', 'ث'),
-    'offset_start': ('البعد عن منتصف الصورة في البداية', ''), 'offset_end': ('البعد عن منتصف الصورة في النهاية', ''),
-    'lateral_start_m': ('الموقع الجانبي في البداية', 'م'), 'lateral_end_m': ('الموقع الجانبي في النهاية', 'م'),
+    'offset_start': ('موقع المركبة في الصورة في البداية', ''), 'offset_end': ('موقع المركبة في الصورة في النهاية', ''),
+    'lateral_start_m': ('بعدها الجانبي عن منتصف المسار في البداية', 'م'), 'lateral_end_m': ('بعدها الجانبي عن منتصف المسار في النهاية', 'م'),
     'lateral_shift_m': ('مقدار الانتقال الجانبي', 'م'), 'max_lateral_speed_mps': ('أعلى سرعة جانبية', 'م/ث'),
-    'mean_box_flow_dx_px': ('الحركة الجانبية بالتدفق البصري (متوسط)', 'بكسل/إطار'),
+    'mean_box_flow_dx_px': ('حركة المركبة الجانبية في الصورة', 'بكسل/إطار'),
     'b_distance_start_m': ('المسافة في البداية', 'م'), 'b_distance_end_m': ('المسافة في النهاية', 'م'),
     'seconds_before_collision': ('قبل الاصطدام بـ', 'ث'),
     'heading_change_deg': ('مقدار تغير الاتجاه', '°'), 'max_heading_rate_deg_s': ('أعلى معدل لتغير الاتجاه', '°/ث'),
@@ -40,15 +40,31 @@ MEASURE_AR = {
     'closing_speed_before_mps': ('سرعة الاقتراب قبل التوقف', 'م/ث'), 'closing_speed_after_mps': ('سرعة الاقتراب بعد التوقف', 'م/ث'),
     'max_closing_speed_mps': ('أعلى سرعة اقتراب', 'م/ث'), 'relative_deceleration_mps2': ('التباطؤ النسبي للمركبة الأمامية', 'م/ث²'),
     'b_distance_m': ('المسافة بين المركبتين', 'م'), 'closing_speed_mps': ('سرعة الاقتراب', 'م/ث'), 'ttc_s': ('الزمن المتبقي للاصطدام', 'ث'),
-    'gap_closing_time_s': ('زمن انغلاق المسافة', 'ث'), 'safe_distance': ('مسافة الأمان', ''),
+    'gap_closing_time_s': ('الوقت حتى تنعدم المسافة بالسرعة الحالية', 'ث'), 'safe_distance': ('مسافة الأمان', ''),
     'safety_ttc_s': ('الوقت قبل الاصطدام (لحكم مسافة الأمان)', 'ث'), 'safe_distance_ttc_threshold_s': ('حد مسافة الأمان', 'ث'),
     'side': ('الجانب', ''), 'distance_start_m': ('المسافة في البداية', 'م'), 'distance_end_m': ('المسافة في النهاية', 'م'),
     'mean_rel_speed_mps': ('متوسط السرعة النسبية', 'م/ث'), 'mean_rel_speed_kmh': ('متوسط السرعة النسبية', 'كم/س'),
     'crossed_line_side': ('خط المسار الذي قُطع (من جهة مركبة صاحب الفيديو)', ''),
     'crossed_line_type': ('نوع الخط المقطوع', ''),
-    'crossed_line_frames': ('عدد الإطارات التي حُدد فيها نوع الخط', ''),
-    'crossed_line_solid_share': ('نسبة الإطارات التي ظهر فيها الخط متصلًا', ''),
+    'crossed_line_frames': ('عدد اللقطات التي قُرئ فيها نوع الخط', ''),
+    'crossed_line_solid_share': ('نسبة اللقطات التي ظهر فيها الخط متصلًا', ''),
 }
+# one short explanation per measure, shown under its label in "more details"
+MEASURE_HINT = {
+    'jolt_score': '0 = اهتزاز عادي؛ كلما زاد الرقم كانت الهزة أقوى من المعتاد في هذا الفيديو',
+    'b_box_height_frac': 'من 0 إلى 1؛ كلما كبر كانت المركبة أقرب',
+    'offset_start': '0 = منتصف الصورة، 1 = طرفها', 'offset_end': '0 = منتصف الصورة، 1 = طرفها',
+    'lateral_start_m': 'عرض المسار حوالي 3.5 م؛ تقديري ويضعف مع البعد', 'lateral_end_m': 'عرض المسار حوالي 3.5 م؛ تقديري ويضعف مع البعد',
+    'lateral_shift_m': 'كم انتقلت المركبة جانبيًا خلال تغيير المسار',
+    'ttc_s': 'لو استمرت السرعتان كما هما، بعد كم ثانية تصطدمان', 'safety_ttc_s': 'لو استمرت السرعتان كما هما، بعد كم ثانية تصطدمان',
+    'min_ttc_last_1s_s': 'لو استمرت السرعتان كما هما، بعد كم ثانية تصطدمان',
+    'safe_distance_ttc_threshold_s': 'أقل من هذا الحد = مسافة الأمان غير محافظ عليها',
+    'a_heading_change_last_1s_deg': 'قريب من 0 = مركبة صاحب الفيديو كانت مستقيمة',
+    'mean_box_flow_dx_px': 'موجب = نحو اليمين، سالب = نحو اليسار',
+    'crossed_line_solid_share': '0 = متقطع في كل اللقطات، 1 = متصل في كل اللقطات',
+}
+# measures left out of "more details" because another row already says the same thing
+MEASURE_HIDE = {'direction', 'closing_speed_last_1s_mps', 'mean_rel_speed_mps', 'time_s'}
 VALUE_AR = {'left': 'يسار', 'right': 'يمين', 'Maintained': 'محافظ عليها', 'Not maintained': 'غير محافظ عليها',
             'approaching': 'تقترب', 'moving away': 'تبتعد', 'steady gap': 'مسافة ثابتة', 'moving left': 'تتحرك يسارًا',
             'moving right': 'تتحرك يمينًا', 'same position': 'لا حركة جانبية', 'car': 'سيارة', 'bus': 'حافلة', 'truck': 'شاحنة',
@@ -56,10 +72,76 @@ VALUE_AR = {'left': 'يسار', 'right': 'يمين', 'Maintained': 'محافظ �
             'dark_or_night': 'إضاءة منخفضة أو ليل', 'blurred': 'صورة غير واضحة'}
 
 
+def _n(x, d=1):
+    return None if x is None else round(float(x), d)
+
+
+def _fact(label, value, ok=None, note=None):
+    # ok: True = within the limit (✓), False = outside it (✗), None = information only
+    return {'label': label, 'value': value, 'ok': ok, 'note': note}
+
+
+def summarise(result):
+    """Plain-language view of an analysis for the expert: one line per event and at most 3 key facts each.
+    Only re-words the engine's own measures; no rule and no fault percentage."""
+    events = result.get('events') or []
+    lm = result.get('lane_markings') or {}
+    crash = next((e for e in events if e['type'] == 'collision'), None)
+    items = []
+    for e in events:
+        m, t, who = e.get('measures') or {}, e['start_t'], e.get('vehicle')
+        facts, line = [], ''
+        if e['type'] == 'lane_change':
+            side = {'left': 'اليمين', 'right': 'اليسار'}.get(m.get('direction'))     # B moving left = it came from the right
+            if who == 'B':
+                line = 'المركبة الأخرى دخلت مسار صاحب الفيديو' + (' من جهة ' + side if side else '')
+            else:
+                line = 'مركبة صاحب الفيديو غيّرت مسارها إلى ' + VALUE_AR.get(m.get('direction'), '—')
+            facts.append(_fact('الجهة', ('من ' + side) if who == 'B' and side else VALUE_AR.get(m.get('direction'), '—')))
+            lt = m.get('crossed_line_type')
+            if lt:
+                facts.append(_fact('الخط الذي قُطع', VALUE_AR.get(lt, lt), None if lt != 'Solid' else False,
+                                   'الخط المتصل لا يجوز قطعه' if lt == 'Solid' else ('يحتاج تحقق الخبير' if lt == 'Unclear' else None)))
+            if m.get('seconds_before_collision') is not None:
+                facts.append(_fact('متى', 'قبل الاصطدام بـ {} ث'.format(_n(m['seconds_before_collision']))))
+        elif e['type'] == 'following_distance':
+            ok = m.get('safe_distance') == 'Maintained'
+            lim = m.get('safe_distance_ttc_threshold_s')
+            line = 'مسافة الأمان بعد دخول المركبة الأخرى: ' + ('محافظ عليها' if ok else 'غير محافظ عليها')
+            facts.append(_fact('مسافة الأمان', 'محافظ عليها' if ok else 'غير محافظ عليها', ok))
+            if m.get('safety_ttc_s') is not None:
+                facts.append(_fact('الوقت المتبقي قبل الاصطدام', '{} ث'.format(_n(m['safety_ttc_s'])), ok,
+                                   'الآمن {} ث أو أكثر'.format(_n(lim)) if lim else None))
+            if m.get('b_distance_m') is not None:
+                facts.append(_fact('المسافة بين المركبتين', 'حوالي {} م'.format(_n(m['b_distance_m'])), None, 'تقديرية'))
+        elif e['type'] == 'collision':
+            line = 'وقع الاصطدام'
+            facts.append(_fact('وقت الاصطدام', 'الثانية {}'.format(_n(t))))
+            h = m.get('a_heading_change_last_1s_deg')
+            if h is not None:
+                facts.append(_fact('مركبة صاحب الفيديو قبل الاصطدام', 'مستقيمة' if abs(h) < 3 else 'انعطفت {}°'.format(_n(abs(h), 0))))
+        elif e['type'] == 'sudden_stop':
+            line = 'المركبة الأمامية توقفت فجأة'
+            if m.get('ttc_at_start_s') is not None:
+                facts.append(_fact('الوقت المتبقي قبل الاصطدام لحظة التوقف', '{} ث'.format(_n(m['ttc_at_start_s']))))
+            if m.get('relative_deceleration_mps2') is not None:
+                facts.append(_fact('قوة التباطؤ', '{} م/ث²'.format(_n(m['relative_deceleration_mps2'])), None, 'تقديرية'))
+        elif e['type'] == 'overtaking':
+            line = 'تجاوز من جهة ' + VALUE_AR.get(m.get('side'), '—')
+            if m.get('duration_s') is not None:
+                facts.append(_fact('المدة', '{} ث'.format(_n(m['duration_s']))))
+        else:
+            line = EVENT_AR.get(e['type'], e['type'])
+        items.append({'event': e, 'line': line, 'facts': facts[:3]})
+    return {'items': items, 'crash_t': crash['start_t'] if crash else None,
+            'lanes': (VALUE_AR.get(lm.get('left_line')), VALUE_AR.get(lm.get('right_line'))) if lm.get('visible') else None}
+
+
 def register(app, h):
     """h = the app module (conn, VIDEO_SQL, get_case, current_user, ...)."""
     from functools import wraps
     from flask import session
+    app.jinja_env.globals.update(va_summary=summarise, measure_hint=MEASURE_HINT, measure_hide=MEASURE_HIDE)  # used by _analysis_result.html
 
     def is_expert():
         return bool(session.get('expert_authenticated'))
