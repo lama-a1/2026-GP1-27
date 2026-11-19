@@ -1,8 +1,8 @@
 {
  "_about": "Labels of every active clip, extracted from the CVAT project export by tools/cvat_labels.py. Boxes are normalised 0-1. Do not edit by hand: fix the labels in CVAT and export again.",
  "level": "cvat_labels",
- "export_md5": "076f8046b403ae02355ea562053c4415",
- "extracted_at": "2026-11-18T20:31:32+00:00",
+ "export_md5": "a45ae1d822551c80d35eeee8411cba96",
+ "extracted_at": "2026-11-19T04:40:02+00:00",
  "clips": {
   "000014": {
    "job_id": "siyaq_CCD_1#2",
@@ -326,7 +326,7 @@
     "vehicle": "B",
     "direction": "left",
     "start": 10,
-    "end": null
+    "end": 29
    },
    "sudden_stop": {
     "start": 24,
@@ -345,14 +345,12 @@
    ],
    "lane_markings": 0,
    "other_vehicle_tracks": 6,
-   "issues": [
-    "lane change tagged in a rear-end clip"
-   ],
-   "complete": false,
+   "issues": [],
+   "complete": true,
    "valid_for": {
     "collision": true,
     "vehicle_b": true,
-    "lane_change": false,
+    "lane_change": true,
     "sudden_stop": true,
     "safe_distance": true,
     "accident_type": true
@@ -7305,7 +7303,7 @@
     "vehicle": "B",
     "direction": "right",
     "start": 16,
-    "end": null
+    "end": 32
    },
    "sudden_stop": {
     "start": 26,
@@ -7321,14 +7319,13 @@
    "lane_markings": 0,
    "other_vehicle_tracks": 10,
    "issues": [
-    "lane change tagged in a rear-end clip",
     "sudden stop start/end not paired"
    ],
    "complete": false,
    "valid_for": {
     "collision": true,
     "vehicle_b": true,
-    "lane_change": false,
+    "lane_change": true,
     "sudden_stop": false,
     "safe_distance": true,
     "accident_type": true
@@ -10326,14 +10323,12 @@
    ],
    "lane_markings": 0,
    "other_vehicle_tracks": 3,
-   "issues": [
-    "lane change tagged in a rear-end clip"
-   ],
-   "complete": false,
+   "issues": [],
+   "complete": true,
    "valid_for": {
     "collision": true,
     "vehicle_b": true,
-    "lane_change": false,
+    "lane_change": true,
     "sudden_stop": true,
     "safe_distance": true,
     "accident_type": true
@@ -11389,14 +11384,12 @@
    ],
    "lane_markings": 0,
    "other_vehicle_tracks": 6,
-   "issues": [
-    "lane change tagged in a rear-end clip"
-   ],
-   "complete": false,
+   "issues": [],
+   "complete": true,
    "valid_for": {
     "collision": true,
     "vehicle_b": true,
-    "lane_change": false,
+    "lane_change": true,
     "sudden_stop": true,
     "safe_distance": true,
     "accident_type": true
@@ -12826,14 +12819,12 @@
    ],
    "lane_markings": 0,
    "other_vehicle_tracks": 0,
-   "issues": [
-    "lane change tagged in a rear-end clip"
-   ],
-   "complete": false,
+   "issues": [],
+   "complete": true,
    "valid_for": {
     "collision": true,
     "vehicle_b": true,
-    "lane_change": false,
+    "lane_change": true,
     "sudden_stop": true,
     "safe_distance": true,
     "accident_type": true
@@ -13539,14 +13530,13 @@
    "lane_markings": 0,
    "other_vehicle_tracks": 8,
    "issues": [
-    "lane change tagged in a rear-end clip",
     "sudden stop start/end not paired"
    ],
    "complete": false,
    "valid_for": {
     "collision": true,
     "vehicle_b": true,
-    "lane_change": false,
+    "lane_change": true,
     "sudden_stop": false,
     "safe_distance": true,
     "accident_type": true
@@ -17261,14 +17251,12 @@
    ],
    "lane_markings": 0,
    "other_vehicle_tracks": 9,
-   "issues": [
-    "lane change tagged in a rear-end clip"
-   ],
-   "complete": false,
+   "issues": [],
+   "complete": true,
    "valid_for": {
     "collision": true,
     "vehicle_b": true,
-    "lane_change": false,
+    "lane_change": true,
     "sudden_stop": true,
     "safe_distance": true,
     "accident_type": true
@@ -17615,14 +17603,12 @@
    ],
    "lane_markings": 0,
    "other_vehicle_tracks": 5,
-   "issues": [
-    "lane change tagged in a rear-end clip"
-   ],
-   "complete": false,
+   "issues": [],
+   "complete": true,
    "valid_for": {
     "collision": true,
     "vehicle_b": true,
-    "lane_change": false,
+    "lane_change": true,
     "sudden_stop": true,
     "safe_distance": true,
     "accident_type": true
@@ -21894,14 +21880,12 @@
    ],
    "lane_markings": 0,
    "other_vehicle_tracks": 13,
-   "issues": [
-    "lane change tagged in a rear-end clip"
-   ],
-   "complete": false,
+   "issues": [],
+   "complete": true,
    "valid_for": {
     "collision": true,
     "vehicle_b": true,
-    "lane_change": false,
+    "lane_change": true,
     "sudden_stop": true,
     "safe_distance": true,
     "accident_type": true
@@ -23319,7 +23303,7 @@
     "vehicle": "Vehicle A",
     "direction": "right",
     "start": 10,
-    "end": null
+    "end": 24
    },
    "sudden_stop": {
     "start": 4,
@@ -23338,14 +23322,12 @@
    ],
    "lane_markings": 0,
    "other_vehicle_tracks": 4,
-   "issues": [
-    "lane change tagged in a rear-end clip"
-   ],
-   "complete": false,
+   "issues": [],
+   "complete": true,
    "valid_for": {
     "collision": true,
     "vehicle_b": true,
-    "lane_change": false,
+    "lane_change": true,
     "sudden_stop": true,
     "safe_distance": true,
     "accident_type": true
@@ -24395,7 +24377,7 @@
     "vehicle": "B",
     "direction": "right",
     "start": 13,
-    "end": null
+    "end": 34
    },
    "sudden_stop": {
     "start": 34,
@@ -24411,14 +24393,13 @@
    "lane_markings": 0,
    "other_vehicle_tracks": 3,
    "issues": [
-    "lane change tagged in a rear-end clip",
     "sudden stop start/end not paired"
    ],
    "complete": false,
    "valid_for": {
     "collision": true,
     "vehicle_b": true,
-    "lane_change": false,
+    "lane_change": true,
     "sudden_stop": false,
     "safe_distance": true,
     "accident_type": true
@@ -26340,7 +26321,7 @@
     "vehicle": "B",
     "direction": "right",
     "start": 16,
-    "end": null
+    "end": 24
    },
    "sudden_stop": {
     "start": 24,
@@ -26359,14 +26340,12 @@
    ],
    "lane_markings": 0,
    "other_vehicle_tracks": 21,
-   "issues": [
-    "lane change tagged in a rear-end clip"
-   ],
-   "complete": false,
+   "issues": [],
+   "complete": true,
    "valid_for": {
     "collision": true,
     "vehicle_b": true,
-    "lane_change": false,
+    "lane_change": true,
     "sudden_stop": true,
     "safe_distance": true,
     "accident_type": true
@@ -36383,7 +36362,7 @@
     "vehicle": "Vehicle A",
     "direction": "right",
     "start": 6,
-    "end": null
+    "end": 30
    },
    "sudden_stop": {
     "start": 16,
@@ -36402,14 +36381,12 @@
    ],
    "lane_markings": 0,
    "other_vehicle_tracks": 10,
-   "issues": [
-    "lane change tagged in a rear-end clip"
-   ],
-   "complete": false,
+   "issues": [],
+   "complete": true,
    "valid_for": {
     "collision": true,
     "vehicle_b": true,
-    "lane_change": false,
+    "lane_change": true,
     "sudden_stop": true,
     "safe_distance": true,
     "accident_type": true
@@ -42612,14 +42589,12 @@
    ],
    "lane_markings": 0,
    "other_vehicle_tracks": 8,
-   "issues": [
-    "lane change tagged in a rear-end clip"
-   ],
-   "complete": false,
+   "issues": [],
+   "complete": true,
    "valid_for": {
     "collision": true,
     "vehicle_b": true,
-    "lane_change": false,
+    "lane_change": true,
     "sudden_stop": true,
     "safe_distance": true,
     "accident_type": true

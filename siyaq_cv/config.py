@@ -57,7 +57,7 @@ SAFE_REF_S = 1.5              # seconds before the impact at which it is judged 
 # Lane-change thresholds per accident type of the user's report (they replace the five LANE_*/EGO_YAW_DEG values above,
 # which are used only when the type is unknown). Chosen per report type by tools/cross_validate.py.
 LANE_BY_TYPE = {   # repeated 5x5 CV with YOLOv8s, chosen on all 136 clips per report type, 2026-11-19
-    "REAR_END": {"LANE_SIDE_M": 1.0, "LANE_SHIFT_M": 1.2, "LANE_IN_M": 1.8, "LANE_ONSET_MPS": 0.2, "EGO_YAW_DEG": 20.0, "LANE_LINE_RULE": "and"},
+    "REAR_END": {"LANE_SIDE_M": 1.0, "LANE_SHIFT_M": 1.5, "LANE_IN_M": 0.6, "LANE_ONSET_MPS": 0.2, "EGO_YAW_DEG": 20.0, "LANE_LINE_RULE": "and"},
     "LANE_CHANGE": {"LANE_SIDE_M": 1.0, "LANE_SHIFT_M": 0.3, "LANE_IN_M": 0.6, "LANE_ONSET_MPS": 0.6, "EGO_YAW_DEG": 2.0, "LANE_LINE_RULE": "off"},
 }
 LANE_LINE_RULE = "off"        # Vehicle B's lane change from the lane lines: "off", "or" (add), "and" (confirm), "line" (both)

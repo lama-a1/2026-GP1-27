@@ -163,7 +163,12 @@ def build_reference(job, row, items, labels, idx, extracted=None):
             if not L["direction"]:
                 issues.append("lane change direction missing")
     elif ref["lane_change"]:
-        issues.append("lane change tagged in a rear-end clip")
+        # a lane change before a rear-end impact is allowed (rule R3); it must still have a start and an end
+        L = ref["lane_change"]
+        if L["start"] is None or L["end"] is None:
+            issues.append("lane change start/end missing")
+        elif L["start"] > L["end"]:
+            issues.append("lane change start after end")
     S = ref["sudden_stop"]
     if S and (S["start"] is None or S["end"] is None):
         issues.append("sudden stop start/end not paired")
@@ -177,7 +182,9 @@ def build_reference(job, row, items, labels, idx, extracted=None):
     ref["valid_for"] = {
         "collision": len(col) == 1 and col[0]["frame"] < real,
         "vehicle_b": bool(bb) and len(bt) == 1,
-        "lane_change": (lc_type and ref["lane_change"] is not None and None not in (ref["lane_change"]["start"], ref["lane_change"]["end"])
+        # Lane-change clips need a complete lane change; rear-end clips are scored as "no lane change" or, when a lane
+        # change is tagged before the impact (rule R3), as that lane change, which must then be complete as well
+        "lane_change": (ref["lane_change"] is not None and None not in (ref["lane_change"]["start"], ref["lane_change"]["end"])
                         and ref["lane_change"]["start"] <= ref["lane_change"]["end"]) or ((acc or {}).get("value") == "Rear-end" and not ref["lane_change"]),
         "sudden_stop": not S or None not in (S["start"], S["end"]),
         "safe_distance": bool(sd),
