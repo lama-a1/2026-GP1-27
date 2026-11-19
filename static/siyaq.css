@@ -583,3 +583,14 @@ form[data-step="7"] .wizardfooter{display:none}
 .try-analysing span{color:#4d6457;font-size:13px}
 .vl-time{display:inline-block;margin-inline-start:6px;font-weight:700;color:#006b3b;font-variant-numeric:tabular-nums}
 @media (prefers-reduced-motion:reduce){.va-loader *,.vl-dots i{animation:none!important}}
+.va-stage{position:relative;overflow:hidden;width:min(100%,calc(520px * var(--ar,1.78)));margin-inline:auto}
+.va-player.va-cropped video{cursor:pointer}
+.va-controls{display:flex;align-items:center;gap:10px;margin-top:8px;direction:ltr}
+.va-controls input{flex:1;accent-color:#006b3b}
+.va-play{width:34px;height:30px;border:1px solid #b8d9c5;border-radius:8px;background:#fff;color:#006b3b;font-size:13px;cursor:pointer}
+.va-clock{font-size:13px;color:#4d6457;font-variant-numeric:tabular-nums;min-width:78px}
+.va-head-tools{display:flex;align-items:center;gap:14px}
+.va-player:fullscreen,.va-player:-webkit-full-screen{display:flex;align-items:center;justify-content:center;background:#000;width:100vw;height:100vh;max-height:none;border-radius:0;aspect-ratio:auto!important}
+.va-player:fullscreen video,.va-player:-webkit-full-screen video{max-height:100vh;height:100%;width:100%;object-fit:contain}
+.va-player.va-cropped:fullscreen .va-stage,.va-player.va-cropped:-webkit-full-screen .va-stage{width:min(100vw,calc(100vh * var(--ar,1.78)))}
+.va-player.va-cropped:fullscreen video,.va-player.va-cropped:-webkit-full-screen video{max-height:none;object-fit:fill}

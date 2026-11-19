@@ -42,7 +42,10 @@
   <section class="va-card">
     <div class="va-card-head">
       <h2>تتبع المركبات</h2>
-      <label class="va-toggle"><input type="checkbox" id="va-show-boxes" checked> إظهار المربعات</label>
+      <div class="va-head-tools">
+        <label class="va-toggle"><input type="checkbox" id="va-show-boxes" checked> إظهار المربعات</label>
+        <button type="button" class="va-seek" id="va-full"><i data-lucide="maximize"></i> ملء الشاشة</button>
+      </div>
     </div>
     <div class="va-player">
       <video id="va-video" controls playsinline preload="metadata" src="{{ video_src }}"></video>
@@ -166,4 +169,4 @@
     </ul>
   </section>
   </details>
-  <script id="va-data" type="application/json">{{ {'tracks': result.tracks, 'series': result.series, 'b': result.vehicle_b|string, 'start': result.video.window_start_s, 'fps': result.video.fps, 'picture': result.video.get('picture')}|tojson }}</script>
+  <script id="va-data" type="application/json">{{ {'tracks': result.tracks, 'series': result.series, 'b': result.vehicle_b|string, 'start': result.video.window_start_s, 'fps': result.video.fps, 'picture': result.video.get('picture'), 'size': [result.video.width, result.video.height] if result.video.width else None}|tojson }}</script>
