@@ -19,6 +19,15 @@ Sources
   [Lu]        C. Lu et al., "Performance evaluation of surrogate measures of safety with naturalistic driving data",
               Accident Analysis & Prevention 162 (2021) - TTC threshold calibrated to 4.5 s; 1.5-3 s commonly used.
   [Krajewski] = [highD]: a lane change is the crossing of the lane marking.
+  [ByteTrack] Y. Zhang et al., "ByteTrack", ECCV 2022 - a lost track is kept for 30 frames at 30 fps (1 s).
+  [Archer]    J. Archer, "Indicators for traffic safety assessment and prediction and their application in
+              micro-simulation modelling", PhD thesis, KTH Stockholm 2005 - deceleration rate to avoid the crash
+              (DRAC = closing speed^2 / (2 x gap)), conflict when above 3.35 m/s^2.
+  [SWOV]      SWOV fact sheet "Headway times and road safety" (2012) - a 2 s headway is the recommended minimum; the
+              driver must be able to stop within the distance ahead.
+              https://www.swov.nl/system/files/publication-downloads/fs_headway_archived.pdf
+  [Duda]      R. O. Duda, P. E. Hart, D. G. Stork, Pattern Classification, 2nd ed., Wiley 2001 - the decision threshold
+              depends on the prior probability of each class (here: the accident type of the user's report).
   [Dagan]     E. Dagan et al., "Forward collision warning with a single camera", IEEE IV 2004 - TTC from the change of
               the vehicle's image size (the method used in motion.py).
 """
@@ -44,17 +53,46 @@ GRID = {
     "SAFE_REF_S": [1.0, 1.5, 2.0, 2.5, 3.0],
     # B's lane change from the lane lines (B's road contact point crosses the marking) [highD]: not used, added to the
     # metric rule, used to confirm it, or both. "off" keeps the original rule, so the search can always keep it.
-    "LANE_LINE_RULE": ["off", "or", "and", "line"],
+    "LANE_LINE_RULE": ["off", "or", "and", "line", "confirm", "add"],
+    # impact after Vehicle B is lost at short range: up to the tracker's 1 s buffer (10 frames at 10 fps) [ByteTrack].
+    "COLLISION_LOST_WIN": [0, 5, 10],
+    # B must reach the recording car's lane for a lane change (a lane change = crossing the marking) [highD].
+    "LANE_REQUIRE_IN": [False, True],
+    # B's lane change that cuts in ends at the impact (the team's labels: median end = impact frame).
+    "LANE_END_AT_IMPACT": [False, True],
+    # no lane change found: B's lane change in this many s before the impact, marked as inferred from the report
+    # (B makes most lane changes: prior probability [Duda]); 1-2 s around the median start of the labelled lane
+    # changes (1.5 s before the impact). 0 = off.
+    "LANE_FALLBACK_S": [0.0, 1.0, 1.5, 2.0],
+    # following distance judged by TTC, by DRAC or by both [vdHorst, Lu, Archer].
+    "SAFE_RULE": ["ttc", "drac", "ttc_or_drac", "ttc_and_drac"],
+    # DRAC threshold 3.35 m/s^2 [Archer], +-50 % for the camera-model error in the gap (metres).
+    "SAFE_DRAC_MPS2": [2.0, 3.35, 5.0],
+    # decision when the gap to B is not closing (no TTC, no DRAC), chosen per report type [Duda].
+    "SAFE_UNKNOWN": ["Maintained", "Not maintained"],
+    # a safe distance lets the driver stop when the vehicle ahead brakes [SWOV]: sudden stop + impact = not maintained.
+    "SAFE_SUDDEN_STOP": [False, True],
+    # B not tracked at the judging moment: its nearest tracked frame within up to 1 s (the tracker's buffer) [ByteTrack].
+    "SAFE_FALLBACK_S": [0.0, 0.5, 1.0],
 }
 
-# The rules run in this order (Vehicle B's lane change, then the recording car's lane change only if B made none,
-# then the sudden stop only if B made no lane change, then the following distance), so the search runs in the same
-# stages, each with the earlier stages fixed. Each stage is scored on the event it changes.
+# The rules run in this order (impact, Vehicle B's lane change, then the recording car's lane change only if B made
+# none, then the sudden stop only if B made no lane change, then the following distance), so the search runs in the
+# same stages, each with the earlier stages fixed. Each stage is scored on the event it changes. The third item says
+# whether the stage is searched separately for each accident type of the report [Duda] (config.LANE_BY_TYPE).
 STAGES = [
-    (("LANE_SIDE_M", "LANE_SHIFT_M", "LANE_IN_M"), "lane_change"),
-    (("LANE_ONSET_MPS",), "lane_change"),
-    (("EGO_YAW_DEG",), "lane_change"),
-    (("LANE_LINE_RULE",), "lane_change"),
-    (("TTC_SUDDEN_STOP_S",), "sudden_stop"),
-    (("SAFE_REF_S", "SAFE_TTC_S"), "safe_distance"),
+    (("COLLISION_LOST_WIN",), "collision", False),
+    (("LANE_SIDE_M", "LANE_SHIFT_M", "LANE_IN_M"), "lane_change", True),
+    (("LANE_REQUIRE_IN",), "lane_change", True),
+    (("LANE_ONSET_MPS",), "lane_change", True),
+    (("EGO_YAW_DEG",), "lane_change", True),
+    (("LANE_LINE_RULE",), "lane_change", True),
+    (("LANE_END_AT_IMPACT",), "lane_change", True),
+    (("LANE_FALLBACK_S", "EGO_YAW_DEG"), "lane_change", True),
+    (("TTC_SUDDEN_STOP_S",), "sudden_stop", True),
+    (("SAFE_REF_S", "SAFE_TTC_S"), "safe_distance", True),
+    (("SAFE_RULE", "SAFE_DRAC_MPS2"), "safe_distance", True),
+    (("SAFE_UNKNOWN",), "safe_distance", True),
+    (("SAFE_SUDDEN_STOP",), "safe_distance", True),
+    (("SAFE_FALLBACK_S",), "safe_distance", False),
 ]

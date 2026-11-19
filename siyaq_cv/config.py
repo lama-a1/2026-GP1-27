@@ -54,16 +54,37 @@ TTC_SUDDEN_STOP_S = 2.0      # (repeated 5x5 CV with YOLOv8s, chosen on all 136 
 SAFE_TTC_S = 4.5              # (repeated 5x5 CV with YOLOv8s, chosen on all 136 clips, 2026-11-19) TTC below this at SAFE_REF_S before the impact = safe distance not maintained
 SAFE_REF_S = 1.5              # seconds before the impact at which it is judged (in the last second every rear-end
                               # approach has a small TTC). Both values are chosen by tools/cross_validate.py.
-# Lane-change thresholds per accident type of the user's report (they replace the five LANE_*/EGO_YAW_DEG values above,
-# which are used only when the type is unknown). Chosen per report type by tools/cross_validate.py.
+# Settings per accident type of the user's report (lane change, sudden stop, following distance; they replace the
+# values in this file, which are used only when the type is unknown). Chosen per report type by tools/cross_validate.py.
 LANE_BY_TYPE = {   # repeated 5x5 CV with YOLOv8s, chosen on all 136 clips per report type, 2026-11-19
-    "REAR_END": {"LANE_SIDE_M": 1.0, "LANE_SHIFT_M": 1.5, "LANE_IN_M": 0.6, "LANE_ONSET_MPS": 0.2, "EGO_YAW_DEG": 20.0, "LANE_LINE_RULE": "and"},
-    "LANE_CHANGE": {"LANE_SIDE_M": 1.0, "LANE_SHIFT_M": 0.3, "LANE_IN_M": 0.6, "LANE_ONSET_MPS": 0.6, "EGO_YAW_DEG": 2.0, "LANE_LINE_RULE": "off"},
+    "REAR_END": {
+        "LANE_SIDE_M": 1.0, "LANE_SHIFT_M": 1.5, "LANE_IN_M": 0.6, "LANE_ONSET_MPS": 0.2,
+        "EGO_YAW_DEG": 20.0, "TTC_SUDDEN_STOP_S": 2.0, "SAFE_TTC_S": 4.5, "SAFE_REF_S": 1.5,
+        "LANE_LINE_RULE": "and", "COLLISION_LOST_WIN": 5, "LANE_REQUIRE_IN": True,
+        "LANE_END_AT_IMPACT": False, "LANE_FALLBACK_S": 0.0, "SAFE_RULE": "ttc", "SAFE_DRAC_MPS2": 2.0,
+        "SAFE_UNKNOWN": "Not maintained", "SAFE_SUDDEN_STOP": True, "SAFE_FALLBACK_S": 1.0},
+    "LANE_CHANGE": {
+        "LANE_SIDE_M": 1.0, "LANE_SHIFT_M": 0.3, "LANE_IN_M": 0.6, "LANE_ONSET_MPS": 0.6,
+        "EGO_YAW_DEG": 16.0, "TTC_SUDDEN_STOP_S": 1.0, "SAFE_TTC_S": 1.5, "SAFE_REF_S": 1.0,
+        "LANE_LINE_RULE": "add", "COLLISION_LOST_WIN": 5, "LANE_REQUIRE_IN": False,
+        "LANE_END_AT_IMPACT": True, "LANE_FALLBACK_S": 1.0, "SAFE_RULE": "drac", "SAFE_DRAC_MPS2": 2.0,
+        "SAFE_UNKNOWN": "Maintained", "SAFE_SUDDEN_STOP": True, "SAFE_FALLBACK_S": 1.0},
 }
-LANE_LINE_RULE = "off"        # Vehicle B's lane change from the lane lines: "off", "or" (add), "and" (confirm), "line" (both)
+LANE_LINE_RULE = "off"        # Vehicle B's lane change from the lane lines: "off", "or" (add on a crossing), "and"
+                              # (confirm by a crossing), "line" (both), "confirm" (drop it when B stays inside the lane
+                              # in every checked frame), "add" (add it when B is outside the lane before the impact)
 LANE_LINE_MIN_FRAMES = 3      # lane-analysed frames with a usable line needed before the lines are used
 LANE_LINE_MIN_IN = 2          # B must stay inside the lane for this many analysed frames after crossing
 LANE_DETECT_MPS = None        # optional: B's inward lateral speed must reach this (m/s) for a lane change; None = no check
+COLLISION_LOST_WIN = 5        # (chosen on all clips) frames after B's last box in which the impact jolt may still be taken (0 = off)
+LANE_REQUIRE_IN = False       # True: B's lane change counts only if B reaches the recording car's lane
+LANE_END_AT_IMPACT = False    # True: Vehicle B's lane change ends at the impact
+LANE_FALLBACK_S = 0.0         # > 0: no lane change found -> B's lane change in this many s before the impact (inferred)
+SAFE_RULE = "ttc"             # following distance judged by "ttc", "drac", "ttc_or_drac" or "ttc_and_drac"
+SAFE_DRAC_MPS2 = 3.35         # deceleration needed to avoid the crash above this = not maintained (Archer 2005)
+SAFE_FALLBACK_S = 1.0         # (chosen on all clips) B not tracked at the judging moment: use its nearest tracked frame within this many s
+SAFE_UNKNOWN = "Maintained"   # decision when the gap to B is not closing (no TTC, no DRAC)
+SAFE_SUDDEN_STOP = False      # True: a sudden stop of B followed by the impact = distance not maintained
 SAFE_TTC_MODE = "at_ref"     # "at_ref": TTC at SAFE_REF_S before the impact; "min_before_ref": minimum TTC up to that moment
 OVERTAKE_MIN_FRAMES = 5
 

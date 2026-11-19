@@ -22,9 +22,10 @@ from sklearn.model_selection import RepeatedStratifiedKFold
 
 OLD = {"LANE_SIDE_M": 2.2, "LANE_SHIFT_M": 0.4, "LANE_IN_M": 0.8, "LANE_ONSET_MPS": 0.4, "EGO_YAW_DEG": 20.0,
        "TTC_SUDDEN_STOP_S": 1.6, "SAFE_TTC_S": 2.0, "SAFE_REF_S": 2.0, "LANE_DETECT_MPS": None, "SAFE_TTC_MODE": "at_ref"}
-NEW = {"LANE_LINE_RULE"}       # options compared by cross_validate.py itself
+NEW = {"LANE_LINE_RULE", "COLLISION_LOST_WIN", "LANE_REQUIRE_IN", "LANE_END_AT_IMPACT", "LANE_FALLBACK_S", "SAFE_RULE",
+       "SAFE_DRAC_MPS2", "SAFE_UNKNOWN", "SAFE_SUDDEN_STOP", "SAFE_FALLBACK_S"}   # options compared by cross_validate.py
 G = {k: v for k, v in GRID.items() if k not in NEW}
-STAGES = [(tuple(k for k in keys if k not in NEW), m) for keys, m in STAGES if any(k not in NEW for k in keys)]
+STAGES = [(tuple(keys), m) for keys, m, *_ in STAGES if not any(k in NEW for k in keys)]
 G["LANE_DETECT_MPS"] = [None, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0]
 G["SAFE_TTC_MODE"] = ["at_ref", "min_before_ref"] if variant == "min_ttc" else ["at_ref"]
 LC_STAGES = [s for s in STAGES if s[1] == "lane_change"]

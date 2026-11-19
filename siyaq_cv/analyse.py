@@ -53,7 +53,7 @@ def _lane_summary(evs, votes, times=None):
     out = {"model": "TwinLiteNet (BDD100K)", "left_line": left, "right_line": right,
            "visible": bool(li["frames_seen"] or ri["frames_seen"]), "crossed_line_type": None}
     lc = next((e for e in evs if e["type"] == "lane_change"), None)
-    if lc:
+    if lc and lc["measures"].get("direction"):
         d = lc["measures"]["direction"]
         if lc["vehicle"] == "B":
             # B moving left came from the right lane, so it crossed the recording car's right line (and the other way round)

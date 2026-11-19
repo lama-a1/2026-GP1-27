@@ -151,6 +151,15 @@ def collision(meas_b, jolt, n):
         s = 2.0 * size + 0.35 * min(jz[f], 8)
         if s > best_s:
             best, best_s = f, s
+    # B lost just before the impact: at very short range the box is cut by the picture and the detector drops it.
+    # If B was still at its closest when it was lost, the jolt in the next COLLISION_LOST_WIN frames (at most the
+    # tracker's 1 s buffer, ByteTrack) can be the impact.
+    last = frames[-1]
+    if config.COLLISION_LOST_WIN and meas_b[last]["height_frac"] / hmax >= config.COLLISION_SIZE_MIN:
+        for f in range(last + 4, min(n, last + 1 + config.COLLISION_LOST_WIN)):
+            s = 2.0 * meas_b[last]["height_frac"] / hmax + 0.35 * min(jz[f], 8)
+            if s > best_s:
+                best, best_s = f, s
     if best is None:
         best = max(frames, key=lambda k: meas_b[k]["height_frac"])
     return best, float(jz[best])
@@ -224,9 +233,9 @@ def analyse(meas, b, flow, times, accident_type=None, scene=None):
     per = config.LANE_BY_TYPE.get(t) if t else None
     if not per:
         return _analyse(meas, b, flow, times, scene)
-    saved = {k: getattr(config, k) for k in LANE_KEYS}
+    saved = {k: getattr(config, k) for k in per}
     try:
-        for k in LANE_KEYS:
+        for k in per:
             setattr(config, k, per[k])
         return _analyse(meas, b, flow, times, scene)
     finally:
@@ -296,7 +305,9 @@ def _analyse(meas, b, flow, times, scene=None):
                 vin = [-side_p * mb[fr[i]]["lateral_speed_mps"] for i in range(p, e + 1)
                        if mb[fr[i]].get("lateral_speed_mps") is not None and not mb[fr[i]].get("at_edge", False)]
                 gate_ok = bool(vin) and max(vin) >= config.LANE_DETECT_MPS
-            if gate_ok and ax[p] - ax[e] >= config.LANE_SHIFT_M and crash - fr[p] >= 3:
+            # LANE_REQUIRE_IN: B must reach the recording car's lane (a lane change = crossing the marking, highD)
+            entered = ax[e] <= config.LANE_IN_M or not config.LANE_REQUIRE_IN
+            if gate_ok and entered and ax[p] - ax[e] >= config.LANE_SHIFT_M and crash - fr[p] >= 3:
                 start, end = _lane_change_bounds(mb, fr, xs, p, e, crash)
                 seg = [mb[k] for k in fr if start <= k <= end]
                 lat = [abs(m["lateral_speed_mps"]) for m in seg if m["lateral_speed_mps"] is not None]
@@ -347,6 +358,8 @@ def _analyse(meas, b, flow, times, scene=None):
             cross = b_line_crossing(states)
             if lc is not None and cross is None and config.LANE_LINE_RULE in ("and", "line"):
                 lc = None                                   # the lines show that B did not enter the lane
+            elif lc is not None and lc["vehicle"] == "B" and config.LANE_LINE_RULE == "confirm" and all(x[1] for x in states):
+                lc = None                                   # B inside the recording car's lane in every checked frame
             elif lc is None and cross is not None and config.LANE_LINE_RULE in ("or", "line"):
                 s0, e0 = cross
                 box = _box_near(scene["b_boxes"], e0) or [0.5, 0, 0.5, 0]
@@ -355,6 +368,18 @@ def _analyse(meas, b, flow, times, scene=None):
                     "event_end": {"basis": "observed", "frame": int(e0), "time_s": _t(e0, times), "from": "lane lines"},
                 }, "measures": {"direction": "right" if (box[0] + box[2]) / 2 < 0.5 else "left",
                                 "duration_s": _r((e0 - s0) / config.FPS, 1), "detected_by": "lane-line crossing",
+                                "seconds_before_collision": _r((crash - s0) / config.FPS, 1)}}
+        if lc is None and config.LANE_LINE_RULE == "add":
+            # B's road contact point outside the recording car's lane at least 0.3 s before the impact
+            outs = [f for f, inside in states if not inside and crash - f >= 3]
+            if outs:
+                s0 = outs[0]
+                box = _box_near(scene["b_boxes"], s0) or [0.5, 0, 0.5, 0]
+                lc = {"type": "lane_change", "vehicle": "B", "track_id": b, "start": int(s0), "end": int(crash), "sources": {
+                    "event_start": {"basis": "observed", "frame": int(s0), "time_s": _t(s0, times), "from": "lane lines"},
+                    "event_end": {"basis": "inferred", "frame": int(crash), "time_s": _t(crash, times), "from": "collision"},
+                }, "measures": {"direction": "right" if (box[0] + box[2]) / 2 < 0.5 else "left",
+                                "duration_s": _r((crash - s0) / config.FPS, 1), "detected_by": "lane lines (outside the lane)",
                                 "seconds_before_collision": _r((crash - s0) / config.FPS, 1)}}
     # 3) lane change of the recording car (heading change from the background optical flow)
     if lc is None:
@@ -384,11 +409,32 @@ def _analyse(meas, b, flow, times, scene=None):
                     "b_lateral_start_m": m_s and m_s["lateral_m"],
                     "seconds_before_collision": _r((crash - start) / config.FPS, 1),
                 }}
+    # (the sudden-stop and following-distance rules use Vehicle B's lane change as the rules found it)
+    found_b = lc if lc and lc["vehicle"] == "B" else None
+    rule_end, rule_end_src = (lc["end"], lc["sources"]["event_end"]) if found_b else (None, None)
+    # B's lane change that cuts in ends at the impact (B is still moving across when it hits)
+    if found_b and config.LANE_END_AT_IMPACT and lc["end"] < crash:
+        lc["end"] = crash
+        lc["sources"]["event_end"] = {"basis": "inferred", "frame": int(crash), "time_s": _t(crash, times),
+                                      "from": "collision"}
+    # nothing found although the report says the accident followed a lane change: Vehicle B's lane change in the
+    # LANE_FALLBACK_S before the impact, marked as inferred from the report (B makes most lane changes; Duda et al.
+    # 2001). It does not change the sudden-stop or following-distance rules.
+    if lc is None and config.LANE_FALLBACK_S and b is not None:
+        s0 = max(0, crash - int(round(config.LANE_FALLBACK_S * config.FPS)))
+        m0, _ = _near_f(mb, s0, tol=10)
+        side0 = m0.get("lateral_m") if m0 else None
+        lc = {"type": "lane_change", "vehicle": "B", "track_id": b, "start": s0, "end": crash, "sources": {
+            "event_start": {"basis": "inferred", "frame": int(s0), "time_s": _t(s0, times), "from": "report type"},
+            "event_end": {"basis": "inferred", "frame": int(crash), "time_s": _t(crash, times), "from": "collision"},
+        }, "measures": {"direction": None if not side0 else ("left" if side0 > 0 else "right"),   # from B's side
+                        "duration_s": _r((crash - s0) / config.FPS, 1), "detected_by": "report type (inferred)",
+                        "seconds_before_collision": _r((crash - s0) / config.FPS, 1)}}
     if lc:
         events.append(lc)
 
     # 4) sudden stop / hard braking of Vehicle B ahead (the time-to-collision collapses)
-    if not (lc and lc["vehicle"] == "B"):
+    if not found_b:
         ahead = [k for k in sorted(mb) if k < crash and abs(mb[k]["centre_offset"]) <= 0.15]
         lows = [k for k in ahead if mb[k]["ttc_s"] is not None and mb[k]["ttc_s"] < config.TTC_SUDDEN_STOP_S]
         if lows:
@@ -419,14 +465,23 @@ def _analyse(meas, b, flow, times, scene=None):
     # 5) following distance, SAFE_REF_S before the impact (or when Vehicle B finished its lane change),
     #    judged by the time-to-collision with Vehicle B (see config.SAFE_TTC_S)
     ref_frames = int(round(config.SAFE_REF_S * config.FPS))
-    ref = lc["end"] if lc and lc["vehicle"] == "B" else crash - ref_frames
+    ref = rule_end if found_b else crash - ref_frames
     m, f_m = _near_f(mb, ref)
+    if m is None and config.SAFE_FALLBACK_S:
+        # B not tracked at the reference moment: judge at its nearest tracked frame within SAFE_FALLBACK_S
+        m, f_m = _near_f(mb, ref, tol=int(round(config.SAFE_FALLBACK_S * config.FPS)))
+        if m is not None:
+            ref = f_m
+    if m is None and mb and max(mb) < ref:
+        # B lost (cut by the picture at short range) before the reference moment: its last tracked frame
+        ref = f_m = max(mb)
+        m = mb[f_m]
     if m:
         cl = _closing([x for k, x in mb.items() if ref - 5 <= k <= ref])
         c = _mean(cl)
         at_m = _src_at(ref, f_m, times)
         w_c = _src_win([k for k in mb if ref - 5 <= k <= ref and mb[k]["rel_speed_mps"] is not None], times)
-        lc_end = lc["sources"]["event_end"] if lc and lc["vehicle"] == "B" else None
+        lc_end = rule_end_src if found_b else None
         moment = (dict(lc_end, from_event="lane_change_end") if lc_end else
                   {"basis": "observed", "frame": int(ref), "time_s": _t(ref, times),
                    "from": f"{config.SAFE_REF_S:g} s before the collision"})
@@ -437,6 +492,19 @@ def _analyse(meas, b, flow, times, scene=None):
             low = [mb[k]["ttc_s"] for k in mb if k <= ref and mb[k].get("ttc_s") is not None and mb[k]["ttc_s"] > 0]
             if low:
                 safety_ttc = _r(min(low + ([safety_ttc] if safety_ttc is not None else [])))
+        # deceleration rate to avoid the crash (Archer 2005): closing speed^2 / (2 x gap)
+        drac = _r(c * c / (2 * m["distance_m"])) if c and c > 0.2 and m.get("distance_m") else None
+        by_ttc = None if safety_ttc is None else safety_ttc < config.SAFE_TTC_S
+        by_drac = None if drac is None else drac > config.SAFE_DRAC_MPS2
+        rule = config.SAFE_RULE
+        votes = [x for x in ((by_ttc,) if rule == "ttc" else (by_drac,) if rule == "drac" else (by_ttc, by_drac))
+                 if x is not None]
+        verdict = (config.SAFE_UNKNOWN if not votes else
+                   "Not maintained" if (all(votes) if rule == "ttc_and_drac" else any(votes)) else "Maintained")
+        # a safe distance lets the driver stop when the vehicle ahead brakes (2-second rule, SWOV 2012): a sudden
+        # stop of Vehicle B followed by the impact means the distance was not enough
+        if config.SAFE_SUDDEN_STOP and any(e["type"] == "sudden_stop" for e in events):
+            verdict = "Not maintained"
         sd_src = at_m if m.get("ttc_s") is not None and m["ttc_s"] > 0 else w_c
         events.append({"type": "following_distance", "vehicle": "B", "track_id": b, "start": ref, "end": ref, "sources": {
             "safety_ttc_s": sd_src, "safe_distance": sd_src,
@@ -453,7 +521,8 @@ def _analyse(meas, b, flow, times, scene=None):
             "gap_closing_time_s": _r(m["distance_m"] / c) if c and c > 0.2 else None,
             "safety_ttc_s": safety_ttc,
             "safe_distance_ttc_threshold_s": config.SAFE_TTC_S,
-            "safe_distance": "Not maintained" if safety_ttc is not None and safety_ttc < config.SAFE_TTC_S else "Maintained",
+            "drac_mps2": drac,
+            "safe_distance": verdict,
         }})
 
     # 6) overtaking: a vehicle passes the recording car on the side (comes from beside it and pulls ahead)

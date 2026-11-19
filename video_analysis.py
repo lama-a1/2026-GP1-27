@@ -42,6 +42,7 @@ MEASURE_AR = {
     'b_distance_m': ('المسافة بين المركبتين', 'م'), 'closing_speed_mps': ('سرعة الاقتراب', 'م/ث'), 'ttc_s': ('الزمن المتبقي للاصطدام', 'ث'),
     'gap_closing_time_s': ('الوقت حتى تنعدم المسافة بالسرعة الحالية', 'ث'), 'safe_distance': ('مسافة الأمان', ''),
     'safety_ttc_s': ('الوقت قبل الاصطدام (لحكم مسافة الأمان)', 'ث'), 'safe_distance_ttc_threshold_s': ('حد مسافة الأمان', 'ث'),
+    'drac_mps2': ('التباطؤ اللازم لتفادي الاصطدام (DRAC)', 'م/ث²'), 'detected_by': ('طريقة الكشف', ''),
     'side': ('الجانب', ''), 'distance_start_m': ('المسافة في البداية', 'م'), 'distance_end_m': ('المسافة في النهاية', 'م'),
     'mean_rel_speed_mps': ('متوسط السرعة النسبية', 'م/ث'), 'mean_rel_speed_kmh': ('متوسط السرعة النسبية', 'كم/س'),
     'crossed_line_side': ('خط المسار الذي قُطع (من جهة مركبة صاحب الفيديو)', ''),
@@ -107,6 +108,8 @@ def summarise(result):
                                    'الخط المتصل لا يجوز قطعه' if lt == 'Solid' else ('يحتاج تحقق الخبير' if lt == 'Unclear' else None)))
             if m.get('seconds_before_collision') is not None:
                 facts.append(_fact('متى', 'قبل الاصطدام بـ {} ث'.format(_n(m['seconds_before_collision']))))
+            if 'report' in str(m.get('detected_by') or ''):
+                facts.append(_fact('طريقة الكشف', 'مستنتج من نوع البلاغ', None, 'لم يُرصد في الفيديو؛ يحتاج تحقق الخبير'))
         elif e['type'] == 'following_distance':
             ok = m.get('safe_distance') == 'Maintained'
             lim = m.get('safe_distance_ttc_threshold_s')
@@ -116,6 +119,8 @@ def summarise(result):
             if m.get('safety_ttc_s') is not None:
                 facts.append(_fact('الوقت المتبقي قبل الاصطدام', '{} ث'.format(_n(m['safety_ttc_s'])), ok,
                                    'الآمن {} ث أو أكثر'.format(_n(lim)) if lim else None))
+            if m.get('drac_mps2') is not None:
+                facts.append(_fact('التباطؤ اللازم لتفادي الاصطدام', '{} م/ث²'.format(_n(m['drac_mps2'])), None, 'تقديري'))
             if m.get('b_distance_m') is not None:
                 facts.append(_fact('المسافة بين المركبتين', 'حوالي {} م'.format(_n(m['b_distance_m'])), None, 'تقديرية'))
         elif e['type'] == 'collision':

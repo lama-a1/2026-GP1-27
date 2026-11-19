@@ -47,6 +47,6 @@ def test_every_tuned_threshold_has_candidates_and_a_config_value():
         if all(isinstance(v, (int, float)) for v in vals):          # numeric candidates in order; rule options keep
             assert vals == sorted(vals)                             # the original rule first
         else:
-            assert vals[0] == 'off'
-    assert {k for keys, _ in STAGES for k in keys} == set(GRID)
+            assert vals[0] in ('off', 'ttc', 'Maintained')            # the rule as it was before the option
+    assert {k for keys, *_ in STAGES for k in keys} == set(GRID)
     assert not hasattr(config, "HEADWAY_FRAC")

@@ -8,18 +8,23 @@ How it works
      code changes). Detection, tracking and the measures do not depend on the thresholds, so the folds only replay
      the event rules (siyaq_cv.events.analyse) with different thresholds, which takes milliseconds.
   2. The clips are split with RepeatedStratifiedKFold (scikit-learn), stratified by source dataset x accident type.
-  3. In every fold the thresholds are chosen by grid search on the TRAINING folds only (the lane-change thresholds
-     separately for each accident type of the report, as the engine uses them: siyaq_cv/config.py LANE_BY_TYPE) (candidate values and their
+  3. In every fold the thresholds are chosen by grid search on the TRAINING folds only (the lane-change, sudden-stop
+     and following-distance settings separately for each accident type of the report, as the engine uses them:
+     siyaq_cv/config.py LANE_BY_TYPE; threshold_grid.STAGES says which) (candidate values and their
      published sources: siyaq_cv/threshold_grid.py), then the held-out fold is scored with them. The held-out fold
      never takes part in the choice, which avoids the optimistic bias of choosing thresholds on all clips first
      (Varma & Simon 2006; Cawley & Talbot 2010; Vabalas et al. 2019).
-  4. The same folds score three reference systems: the engine with its default thresholds, and two simple
+  4. The same folds score three reference systems: the engine with its settings before cross-validation (DEFAULTS
+     below, fixed so the column does not change when config.py changes), and two simple
      baselines (majority class of the training folds; impact at the median impact frame of the training folds).
   5. Results: mean +- standard deviation over the folds, a bootstrap 95 % confidence interval over the clips,
      how often each threshold value was chosen, and the thresholds chosen on all clips (the values to put in
      siyaq_cv/config.py).
 
 Outputs (in --out): cv_results.xlsx, cv_results.json, per_clip.csv
+
+    --fix KEY=VALUE   keeps one setting at one value (e.g. --fix LANE_FALLBACK_S=0 scores the engine without the lane
+                      change inferred from the report type)
 """
 import argparse
 import copy
@@ -44,6 +49,12 @@ METRICS = ["collision", "vehicle_b", "lane_change", "sudden_stop", "safe_distanc
 # lane_change_vehicle: the same lane-change labels scored on WHICH vehicle changed lane (A, B or none) only, without the
 # timing (temporal IoU); reported next to lane_change, never used to choose thresholds
 TUNED = list(GRID)
+# the engine's settings before cross-validation (Sprint 2), scored as "default thresholds" in every fold
+DEFAULTS = {"LANE_SIDE_M": 2.2, "LANE_SHIFT_M": 0.4, "LANE_IN_M": 0.8, "LANE_ONSET_MPS": 0.4, "EGO_YAW_DEG": 20.0,
+            "TTC_SUDDEN_STOP_S": 1.6, "SAFE_TTC_S": 2.0, "SAFE_REF_S": 2.0, "LANE_LINE_RULE": "off",
+            "COLLISION_LOST_WIN": 0, "LANE_REQUIRE_IN": False, "LANE_END_AT_IMPACT": False, "LANE_FALLBACK_S": 0.0,
+            "SAFE_RULE": "ttc", "SAFE_DRAC_MPS2": 3.35, "SAFE_UNKNOWN": "Maintained", "SAFE_SUDDEN_STOP": False,
+            "SAFE_FALLBACK_S": 0.0}
 
 
 # ----------------------------------------------------------------------------------------- engine runs (cached)
@@ -162,37 +173,39 @@ TYPES = ("REAR_END", "LANE_CHANGE")
 LANE_KEYS = events.LANE_KEYS
 
 
-def _search(clips, stages, start, th_of, refs, runs):
-    """Greedy staged grid search; th_of(cand, clip) gives the thresholds used for a clip."""
-    th = dict(start)
-    for keys, metric in stages:
-        best = None
-        for vals in itertools.product(*[GRID[k] for k in keys]):
-            cand = dict(th, **dict(zip(keys, vals)))
-            rows = [score(refs[c], replay(runs[c], th_of(cand, c))) for c in clips]
-            a = accuracy(rows, metric)
-            if a is not None and (best is None or a > best[0] + 1e-9):
-                best = (a, dict(zip(keys, vals)))
-        if best:
-            th.update(best[1])
-    return th
+GRID_USED = dict(GRID)          # --fix narrows a setting to one value
+PER_TYPE_KEYS = {k for keys, _, per_type in STAGES if per_type for k in keys}
+_memo = {}
+
+
+def _score_memo(c, th, refs, runs):
+    key = (c, json.dumps(th, sort_keys=True, default=str))
+    if key not in _memo:
+        _memo[key] = score(refs[c], replay(runs[c], th))
+    return _memo[key]
 
 
 def choose(clips, preds_cache, refs, runs, types=None):
     """Staged grid search on the given (training) clips. Returns {report type: thresholds}.
 
-    The lane-change stages are searched separately on the clips of each report type (the accident type given by the
-    user; config.LANE_BY_TYPE); the other stages are searched on all clips with those lane-change values."""
-    start = {k: getattr(config, k) for k in TUNED}
-    lane_stages = [st_ for st_ in STAGES if st_[1] == "lane_change"]
-    other = [st_ for st_ in STAGES if st_[1] != "lane_change"]
-    per = {t: _search([c for c in clips if types[c] == t], lane_stages, start, lambda cand, c: cand, refs, runs)
-           for t in TYPES}
-
-    def th_of(cand, c):
-        return dict(cand, **{k: per[types[c]][k] for k in LANE_KEYS})
-    shared = _search(clips, other, start, th_of, refs, runs)
-    return {t: dict(shared, **{k: per[t][k] for k in LANE_KEYS}) for t in TYPES}
+    The stages run in threshold_grid.STAGES order, each with the earlier ones fixed. A stage marked per type is searched
+    separately on the clips of each report type (the accident type given by the user; config.LANE_BY_TYPE); the
+    others on all clips."""
+    shared = {k: getattr(config, k) for k in TUNED}
+    per = {t: {} for t in TYPES}
+    for keys, metric, per_type in STAGES:
+        for t in (TYPES if per_type else (None,)):
+            cl = [c for c in clips if t is None or types[c] == t]
+            best = None
+            for vals in itertools.product(*[GRID_USED[k] for k in keys]):
+                upd = dict(zip(keys, vals))
+                rows = [_score_memo(c, {**shared, **per[types[c]], **upd}, refs, runs) for c in cl]
+                a = accuracy(rows, metric)
+                if a is not None and (best is None or a > best[0] + 1e-9):
+                    best = (a, upd)
+            if best:
+                (per[t] if t else shared).update(best[1])
+    return {t: dict(shared, **per[t]) for t in TYPES}
 
 
 def baseline_rows(train, test, refs):
@@ -247,7 +260,19 @@ def main():
     ap.add_argument("--folds", type=int, default=5)
     ap.add_argument("--repeats", type=int, default=5)
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--fix", action="append", default=[], help="KEY=VALUE: keep this setting at one value")
     a = ap.parse_args()
+    for kv in a.fix:
+        k, v = kv.split("=", 1)
+        val = next((g for g in GRID[k] if str(g) == v or (isinstance(g, (int, float)) and not isinstance(g, bool)
+                                                            and v.replace(".", "", 1).isdigit() and float(v) == g)), None)
+        if val is None:
+            raise SystemExit(f"--fix {kv}: not one of {GRID[k]}")
+        GRID_USED[k] = [val]
+        setattr(config, k, val)
+        for t in config.LANE_BY_TYPE:
+            if k in config.LANE_BY_TYPE[t]:
+                config.LANE_BY_TYPE[t][k] = val
     from sklearn.model_selection import RepeatedStratifiedKFold
 
     idx = {r["clip_id"]: r for r in csv.DictReader(open(a.index))}
@@ -262,7 +287,7 @@ def main():
         runs[c] = run_engine(c, Path(a.videos) / idx[c]["file"], cache)
         print(f"\rengine {k}/{len(clips)}  {time.time() - t0:.0f} s", end="", flush=True)
     print()
-    default1 = {k: getattr(config, k) for k in TUNED}
+    default1 = dict(DEFAULTS)
     default = {t: default1 for t in TYPES}
     types = {c: events.report_type(idx[c]["accident_type"]) for c in clips}
     group = [f"{idx[c]['source']}|{idx[c]['accident_type']}" for c in clips]
@@ -310,7 +335,7 @@ def main():
 
     stability = []
     for k in TUNED:
-        for t in (TYPES if k in LANE_KEYS else (None,)):
+        for t in (TYPES if k in PER_TYPE_KEYS else (None,)):
             counts = {}
             for th in chosen:
                 v = th[t or TYPES[0]][k]
@@ -328,6 +353,7 @@ def main():
               "summary": summary, "lane_change_prf": {"precision": lc_p, "recall": lc_r, "f1": lc_f},
               "sudden_stop_prf": {"precision": ss_p, "recall": ss_r, "f1": ss_f},
               "threshold_stability": stability, "final_thresholds_all_clips": final,
+              "fixed": a.fix,
               "folds": folds}
     (out / "cv_results.json").write_text(json.dumps(result, indent=1, default=str))
     with open(out / "per_clip.csv", "w", newline="") as fh:
