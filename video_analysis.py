@@ -110,7 +110,8 @@ def summarise(result):
         elif e['type'] == 'following_distance':
             ok = m.get('safe_distance') == 'Maintained'
             lim = m.get('safe_distance_ttc_threshold_s')
-            line = 'مسافة الأمان بعد دخول المركبة الأخرى: ' + ('محافظ عليها' if ok else 'غير محافظ عليها')
+            cut_in = any(x['type'] == 'lane_change' and x.get('vehicle') == 'B' for x in events)
+            line = ('مسافة الأمان بعد دخول المركبة الأخرى: ' if cut_in else 'مسافة الأمان قبل الاصطدام: ') + ('محافظ عليها' if ok else 'غير محافظ عليها')
             facts.append(_fact('مسافة الأمان', 'محافظ عليها' if ok else 'غير محافظ عليها', ok))
             if m.get('safety_ttc_s') is not None:
                 facts.append(_fact('الوقت المتبقي قبل الاصطدام', '{} ث'.format(_n(m['safety_ttc_s'])), ok,

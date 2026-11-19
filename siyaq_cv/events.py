@@ -493,7 +493,7 @@ def reversing(mb, b, still, crash, times):
     if moving > config.STILL_PX or len(ks) < 3:
         return None
     d0, d1 = mb[ks[0]]["distance_m"], mb[ks[-1]]["distance_m"]
-    if d0 is None or d1 is None or d0 - d1 < config.REVERSE_CLOSE_M:
+    if not d0 or not d1 or d0 / d1 < config.REVERSE_CLOSE_RATIO:
         return None
     win = {"basis": "estimated", "frames": [ks[0], ks[-1]], "time_s": [_t(ks[0], times), _t(ks[-1], times)]}
     e = {"type": "reversing", "vehicle": "B", "track_id": b, "start": ks[0], "end": crash,

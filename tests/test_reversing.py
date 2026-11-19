@@ -24,7 +24,7 @@ def test_moving_car_is_not_reversing():
 
 def test_b_not_coming_closer_is_not_reversing():
     times = [i / 10 for i in range(50)]
-    assert events.reversing(_mb(3.4, 3.3), 1, _still(0.02), 30, times) is None
+    assert events.reversing(_mb(3.4, 3.2), 1, _still(0.02), 30, times) is None
 
 
 def test_no_impact_or_no_b():
