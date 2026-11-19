@@ -55,6 +55,64 @@ def _src_win(frames, times, inferred_from=None):
     return d
 
 
+def _safety_ttc(m, closing):
+    """Seconds until contact with Vehicle B: the box-scale TTC (Dagan et al. 2004) or, without it, distance / closing
+    speed. None when the gap is not closing (then the distance is kept)."""
+    if m.get("ttc_s") is not None and m["ttc_s"] > 0:
+        return m["ttc_s"]
+    if closing and closing > 0.2 and m.get("distance_m"):
+        return _r(m["distance_m"] / closing)
+    return None
+
+
+def _line_x(points, y):
+    """x of a straight lane line (least-squares fit of its points) at height y; all values are shares of the image."""
+    ys = np.array([p[1] for p in points], float)
+    xs = np.array([p[0] for p in points], float)
+    if len(points) < 2 or np.ptp(ys) < 1e-6:
+        return None
+    a, c = np.polyfit(ys, xs, 1)
+    return float(a * y + c)
+
+
+def _box_near(boxes, f, tol=1):
+    ks = [k for k in boxes if abs(k - f) <= tol]
+    return boxes[min(ks, key=lambda k: abs(k - f))] if ks else None
+
+
+def b_lane_states(scene, crash):
+    """Per lane-analysed frame up to the impact: is the bottom centre of Vehicle B's box (where it touches the road)
+    inside the recording car's lane, between its two lane lines? [(frame, inside)] - frames without a usable line on
+    B's side are left out. A lane change is the crossing of the lane marking (Krajewski et al. 2018)."""
+    out = []
+    boxes, lanes = (scene or {}).get("b_boxes") or {}, (scene or {}).get("lanes") or {}
+    for f in sorted(lanes):
+        if crash is not None and f > crash:
+            continue
+        box = _box_near(boxes, f)
+        if box is None:
+            continue
+        xc, yb = (box[0] + box[2]) / 2, box[3]
+        ego = {ln["ego_side"]: ln for ln in lanes[f] if ln.get("ego_side") in ("left", "right")}
+        xl = _line_x(ego["left"]["points"], yb) if "left" in ego else None
+        xr = _line_x(ego["right"]["points"], yb) if "right" in ego else None
+        if (xc < 0.5 and xl is None) or (xc >= 0.5 and xr is None):
+            continue
+        out.append((f, (xl is None or xc > xl) and (xr is None or xc < xr)))
+    return out
+
+
+def b_line_crossing(states):
+    """(last frame outside, first frame inside) when B is outside the lane and then stays inside for at least
+    LANE_LINE_MIN_IN analysed frames; None otherwise."""
+    for i, (f, inside) in enumerate(states):
+        if inside and i > 0 and not states[i - 1][1]:
+            run = [s_ for s_ in states[i:i + config.LANE_LINE_MIN_IN]]
+            if len(run) >= config.LANE_LINE_MIN_IN and all(x[1] for x in run):
+                return states[i - 1][0], f
+    return None
+
+
 def pick_vehicle_b(tracks, width, height, n):
     """Vehicle B = the track that comes closest to the recording car in front of it, late in the clip."""
     best, best_s = None, 0
@@ -149,7 +207,34 @@ def _lane_change_bounds(mb, fr, xs, p, e, crash):
     return start, end
 
 
-def analyse(meas, b, flow, times):
+LANE_KEYS = ("LANE_SIDE_M", "LANE_SHIFT_M", "LANE_IN_M", "LANE_ONSET_MPS", "EGO_YAW_DEG", "LANE_LINE_RULE")
+
+
+def report_type(accident_type):
+    """REAR_END / LANE_CHANGE from the report's accident type (also accepts the dataset's Rear-end / Lane-change)."""
+    t = str(accident_type or "").upper().replace("-", "_").replace(" ", "_")
+    return t if t in ("REAR_END", "LANE_CHANGE") else None
+
+
+def analyse(meas, b, flow, times, accident_type=None, scene=None):
+    """Events of one clip. The lane-change thresholds depend on the accident type in the user's report
+    (config.LANE_BY_TYPE): a lane-change report makes a lane change far more likely than a rear-end report, so the
+    evidence needed differs (thresholds chosen per report type by tools/cross_validate.py)."""
+    t = report_type(accident_type)
+    per = config.LANE_BY_TYPE.get(t) if t else None
+    if not per:
+        return _analyse(meas, b, flow, times, scene)
+    saved = {k: getattr(config, k) for k in LANE_KEYS}
+    try:
+        for k in LANE_KEYS:
+            setattr(config, k, per[k])
+        return _analyse(meas, b, flow, times, scene)
+    finally:
+        for k, v in saved.items():
+            setattr(config, k, v)
+
+
+def _analyse(meas, b, flow, times, scene=None):
     n = len(times)
     mb = meas.get(b, {}) if b is not None else {}
     events = []
@@ -202,7 +287,16 @@ def analyse(meas, b, flow, times):
             after = list(range(p + 1, len(fr)))
             inside = [i for i in after if ax[i] <= config.LANE_IN_M and np.sign(xs[i]) in (np.sign(xs[p]), 0)]
             e = inside[0] if inside else (min(after, key=lambda i: ax[i]) if after else p)
-            if ax[p] - ax[e] >= config.LANE_SHIFT_M and crash - fr[p] >= 3:
+            gate_ok = True
+            if config.LANE_DETECT_MPS is not None:
+                # optional extra check: B must also move towards the lane fast enough at some point between its
+                # outermost position and the end (lateral-speed criterion of lane-change detectors, Geurts et al. 2022;
+                # a 3.6 m change in 5-6 s averages about 0.65 m/s, Ramanujam 2007)
+                side_p = np.sign(xs[p]) or 1.0
+                vin = [-side_p * mb[fr[i]]["lateral_speed_mps"] for i in range(p, e + 1)
+                       if mb[fr[i]].get("lateral_speed_mps") is not None and not mb[fr[i]].get("at_edge", False)]
+                gate_ok = bool(vin) and max(vin) >= config.LANE_DETECT_MPS
+            if gate_ok and ax[p] - ax[e] >= config.LANE_SHIFT_M and crash - fr[p] >= 3:
                 start, end = _lane_change_bounds(mb, fr, xs, p, e, crash)
                 seg = [mb[k] for k in fr if start <= k <= end]
                 lat = [abs(m["lateral_speed_mps"]) for m in seg if m["lateral_speed_mps"] is not None]
@@ -246,6 +340,22 @@ def analyse(meas, b, flow, times):
                     "b_distance_start_m": ms["distance_m"], "b_distance_end_m": me["distance_m"],
                     "seconds_before_collision": _r((crash - start) / config.FPS, 1),
                 }}
+    # 2b) optional: Vehicle B's lane change from the lane lines (B's road contact point crosses the lane marking)
+    if config.LANE_LINE_RULE != "off" and scene:
+        states = b_lane_states(scene, crash)
+        if len(states) >= config.LANE_LINE_MIN_FRAMES:
+            cross = b_line_crossing(states)
+            if lc is not None and cross is None and config.LANE_LINE_RULE in ("and", "line"):
+                lc = None                                   # the lines show that B did not enter the lane
+            elif lc is None and cross is not None and config.LANE_LINE_RULE in ("or", "line"):
+                s0, e0 = cross
+                box = _box_near(scene["b_boxes"], e0) or [0.5, 0, 0.5, 0]
+                lc = {"type": "lane_change", "vehicle": "B", "track_id": b, "start": int(s0), "end": int(e0), "sources": {
+                    "event_start": {"basis": "observed", "frame": int(s0), "time_s": _t(s0, times), "from": "lane lines"},
+                    "event_end": {"basis": "observed", "frame": int(e0), "time_s": _t(e0, times), "from": "lane lines"},
+                }, "measures": {"direction": "right" if (box[0] + box[2]) / 2 < 0.5 else "left",
+                                "duration_s": _r((e0 - s0) / config.FPS, 1), "detected_by": "lane-line crossing",
+                                "seconds_before_collision": _r((crash - s0) / config.FPS, 1)}}
     # 3) lane change of the recording car (heading change from the background optical flow)
     if lc is None:
         lo = max(1, crash - 30)
@@ -306,8 +416,10 @@ def analyse(meas, b, flow, times):
                 "duration_s": _r(dur, 1),
             }})
 
-    # 5) following distance, 1 s before the impact (or when Vehicle B finished its lane change)
-    ref = lc["end"] if lc and lc["vehicle"] == "B" else crash - 10
+    # 5) following distance, SAFE_REF_S before the impact (or when Vehicle B finished its lane change),
+    #    judged by the time-to-collision with Vehicle B (see config.SAFE_TTC_S)
+    ref_frames = int(round(config.SAFE_REF_S * config.FPS))
+    ref = lc["end"] if lc and lc["vehicle"] == "B" else crash - ref_frames
     m, f_m = _near_f(mb, ref)
     if m:
         cl = _closing([x for k, x in mb.items() if ref - 5 <= k <= ref])
@@ -316,10 +428,20 @@ def analyse(meas, b, flow, times):
         w_c = _src_win([k for k in mb if ref - 5 <= k <= ref and mb[k]["rel_speed_mps"] is not None], times)
         lc_end = lc["sources"]["event_end"] if lc and lc["vehicle"] == "B" else None
         moment = (dict(lc_end, from_event="lane_change_end") if lc_end else
-                  {"basis": "observed", "frame": int(ref), "time_s": _t(ref, times), "from": "1 s before the collision"})
+                  {"basis": "observed", "frame": int(ref), "time_s": _t(ref, times),
+                   "from": f"{config.SAFE_REF_S:g} s before the collision"})
+        safety_ttc = _safety_ttc(m, c)
+        if config.SAFE_TTC_MODE == "min_before_ref":
+            # minimum TTC of the approach up to the reference moment (van der Horst 1991: an interaction is critical
+            # when its minimum TTC falls below the threshold)
+            low = [mb[k]["ttc_s"] for k in mb if k <= ref and mb[k].get("ttc_s") is not None and mb[k]["ttc_s"] > 0]
+            if low:
+                safety_ttc = _r(min(low + ([safety_ttc] if safety_ttc is not None else [])))
+        sd_src = at_m if m.get("ttc_s") is not None and m["ttc_s"] > 0 else w_c
         events.append({"type": "following_distance", "vehicle": "B", "track_id": b, "start": ref, "end": ref, "sources": {
+            "safety_ttc_s": sd_src, "safe_distance": sd_src,
             "event_start": moment,
-            "b_distance_m": at_m, "b_box_height_frac": at_m, "ttc_s": at_m, "safe_distance": at_m,
+            "b_distance_m": at_m, "b_box_height_frac": at_m, "ttc_s": at_m,
             "closing_speed_mps": w_c,
             "gap_closing_time_s": None if w_c is None else
                                   _src_win(list(range(w_c["frames"][0], w_c["frames"][1] + 1)) + [f_m], times,
@@ -329,7 +451,9 @@ def analyse(meas, b, flow, times):
             "closing_speed_mps": _r(c), "ttc_s": m["ttc_s"],
             # seconds until the gap closes at the current closing speed (distance / closing speed)
             "gap_closing_time_s": _r(m["distance_m"] / c) if c and c > 0.2 else None,
-            "safe_distance": "Not maintained" if m["height_frac"] > config.HEADWAY_FRAC else "Maintained",
+            "safety_ttc_s": safety_ttc,
+            "safe_distance_ttc_threshold_s": config.SAFE_TTC_S,
+            "safe_distance": "Not maintained" if safety_ttc is not None and safety_ttc < config.SAFE_TTC_S else "Maintained",
         }})
 
     # 6) overtaking: a vehicle passes the recording car on the side (comes from beside it and pulls ahead)

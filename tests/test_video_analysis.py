@@ -87,7 +87,7 @@ def test_other_users_cannot_see_the_analysis():
         assert client.post(f'/videos/{vid}/analyse', headers={'X-CSRF-Token': 'va-csrf'}).status_code == 403
 
 
-@pytest.mark.skipif(not (Path(__file__).resolve().parents[1] / 'siyaq_cv/models/yolov8n.onnx').exists(), reason='model missing')
+@pytest.mark.skipif(not Path(__import__('siyaq_cv.config', fromlist=['MODEL_PATH']).MODEL_PATH).exists(), reason='model missing')
 def test_real_engine_on_a_generated_video(tmp_path):
     # a tiny synthetic video: the engine must run end to end without PyTorch
     import cv2, numpy as np

@@ -75,15 +75,24 @@ def analyse_video(path, accident_type=None, thumbnails=True):
     flow = motion.flow_series(frames, tracks)
     meas = {tid: motion.vehicle_measures(tr, classes[tid], W, H, flow["box_flow"].get(tid)) for tid, tr in tracks.items()}
     b = events.pick_vehicle_b(tracks, W, H, len(frames))
-    evs, crash = events.analyse(meas, b, flow, times)
+    evs, crash = events.analyse(meas, b, flow, times, accident_type)
     t1 = time.time()
-    lane_frames, lane_info = {}, None
+    lane_frames, lane_info, lane_band = {}, None, None
     try:
-        lane_frames, votes, _ = lanes.analyse(frames, tracks, lanes.masks(frames, lanes.frames_to_check(len(frames), crash)))
+        lane_frames, votes, lane_band = lanes.analyse(frames, tracks, lanes.masks(frames, lanes.frames_to_check(len(frames), crash)))
         lane_info = _lane_summary(evs, votes, times)
     except Exception as exc:                       # the lane model is an extra: the analysis goes on without it
         lane_info = {"error": str(exc)[:200]}
     t_lane = time.time() - t1
+    uses_lines = config.LANE_LINE_RULE != "off" or any(v.get("LANE_LINE_RULE", "off") != "off" for v in config.LANE_BY_TYPE.values())
+    if lane_frames and uses_lines:
+        # the lane lines need the impact frame, so the rules that use them run once the lines are known
+        scene = {"b_boxes": {f: [x1 / W, y1 / H, x2 / W, y2 / H] for f, (x1, y1, x2, y2, *_) in tracks.get(b, {}).items()},
+                 "lanes": {f: [{"points": [[x / W, y / H] for x, y in ln["points"]], "ego_side": ln["ego_side"]} for ln in lns]
+                           for f, lns in lane_frames.items()},
+                 "lane_band": None if not lane_band else [lane_band[0] / H, lane_band[1] / H]}
+        evs, crash = events.analyse(meas, b, flow, times, accident_type, scene)
+        lane_info = _lane_summary(evs, votes, times)
     if thumbnails:
         for e in evs:
             near = min(lane_frames, key=lambda k: abs(k - e["start"])) if lane_frames and e["type"] == "lane_change" else None
@@ -115,6 +124,9 @@ def analyse_video(path, accident_type=None, thumbnails=True):
         "events": evs,
         "lane_markings": lane_info,
         "crossed_line_type": (lane_info or {}).get("crossed_line_type"),
+        # road band used for the lane lines, as shares of the image height: [top, bottom]; the bottom is where the
+        # road meets the bonnet (90th percentile of the lane lines' lowest points)
+        "lane_band": None if not lane_band else [round(lane_band[0] / H, 4), round(lane_band[1] / H, 4)],
         # lane lines on the frames the lane model read, points normalised to 0..1 like the boxes
         "lanes": [{"frame": f, "points": [[round(x / W, 4), round(y / H, 4)] for x, y in ln["points"]],
                    "line_type": ln["line_type"], "ego_side": ln["ego_side"]}

@@ -31,7 +31,7 @@ The project scope covers minor, two-vehicle accidents with no injuries, with cle
 - Case lists and progress statuses for accident parties.
 - Authorized expert registration and login with read-only case lists and a rules page.
 - Local face-blurring support through the optional OpenCV dependency.
-- Sprint 2 automatic video analysis (`siyaq_cv/`, no PyTorch): vehicle detection (YOLOv8n ONNX + onnxruntime) and tracking, Farneback optical-flow motion, and detected events (collision, lane change, sudden stop, following distance, overtaking) with their measures, shown on a demo page with a tracking overlay. Details in `siyaq_cv/README_AR.md`.
+- Sprint 2 automatic video analysis (`siyaq_cv/`, no PyTorch): vehicle detection (YOLOv8s ONNX + onnxruntime; YOLOv8n with `SIYAQ_DETECTOR=yolov8n`) and tracking, Farneback optical-flow motion, and detected events (collision, lane change, sudden stop, following distance, overtaking) with their measures, shown on a demo page with a tracking overlay. Details in `siyaq_cv/README_AR.md`.
 
 Expert case review, editing, and approval are not yet available. Case-status emails are sent to users who turn them on; final-result emails are not implemented yet. Local face blurring requires manual review and does not include license-plate blurring or cloud-video processing. Automatic retention cleanup is also pending.
 
@@ -63,7 +63,7 @@ The suggested assessment is intended to support expert review. It does not indep
 | Development environment | Visual Studio Code |
 | Project management | Jira and Confluence |
 | Version control | Git and GitHub |
-| Planned vehicle detection | YOLO |
+| Vehicle detection | YOLOv8s (COCO weights, ONNX, onnxruntime) |
 
 ## Repository Structure
 
@@ -76,7 +76,15 @@ The suggested assessment is intended to support expert review. It does not indep
 | `database/` | EER mapping document and SQL scripts for SQLite and PostgreSQL |
 | `templates/` | Arabic interface templates |
 | `static/` | Stylesheets, browser scripts, and logos |
-| `tests/` | Application tests |
+| `siyaq_cv/` | Video-analysis engine: detection, tracking, optical flow, measures and events (`threshold_grid.py`: candidate thresholds and their published sources) |
+| `video_analysis.py` | Routes and page that run the engine on an uploaded video |
+| `data/dataset/` | Final dataset index (136 clips), train/validation/test splits, excluded clips, CVAT job map |
+| `data/ground_truth/` | Labels extracted from CVAT (`cvat_labels.json`) and the team-reviewed clips |
+| `tools/cvat_labels.py` | Extracts the CVAT project export into `data/ground_truth/cvat_labels.json` |
+| `tools/cross_validate.py` | Repeated stratified 5-fold cross-validation of the event rules against the CVAT labels |
+| `tools/rule_variants.py` | Cross-validated comparison of the rule variants reported in Section 5.1 |
+| `tools/scoring.py` | Evaluation rules (collision within 0.5 s, Vehicle B box IoU, lane-change temporal IoU, ...) |
+| `tests/` | Application and engine tests |
 | `docs/sprints/sprint-1/` | Sprint 1 report and files |
 | `docs/deployment/` | Neon and Vercel deployment settings |
 | `docs/images/` | Images used in the documentation |
@@ -163,6 +171,20 @@ python -m pytest -q
 ```
 
 The tests use SQLite and mocked external services. Live email delivery, hosted databases, and cloud storage require separate deployment checks.
+
+## Evaluating the Video Analysis
+
+```bash
+python -m pip install -r requirements-eval.txt
+# 1. labels: export the CVAT project as "Datumaro 1.0" (without images), then
+python tools/cvat_labels.py --export Siyaq_Datumaro.zip
+# 2. cross-validation: --videos is the folder with dataset_index.csv and the clip videos
+python tools/cross_validate.py --videos /path/to/Siyaq_Part1/dataset --out cv_output
+```
+
+`cv_output/cv_results.xlsx` holds the mean, standard deviation and 95% confidence interval of each measure over the folds, the same for the default thresholds and a simple baseline, how often each threshold value was chosen, and the thresholds chosen on all clips (to copy into `siyaq_cv/config.py`). The engine output of each clip is cached in `.cv_cache/`. The lane-change settings are chosen separately for each accident type of the report (`LANE_BY_TYPE` in `siyaq_cv/config.py`), including whether the lane lines are used to confirm Vehicle B's lane change; `lane_change_vehicle` scores the lane change without its timing (reported only).
+
+The rule variants compared in the report (shared thresholds, lateral-speed check, minimum-TTC option, per-type thresholds) can be repeated with `python tools/rule_variants.py . <variant> <out.json>` after a cross-validation run has filled `.cv_cache/`.
 
 ## Siyaq Team
 
