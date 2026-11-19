@@ -1,0 +1,14 @@
+clip_id,old_split,accident_type,source,reason
+000008,train,Lane-change,CCD,snow or rain seen during team review although the source label is Normal (outside the clear-weather scope)
+000227,train,Rear-end,CCD,snow or rain seen during team review although the source label is Normal (outside the clear-weather scope)
+001461,train,Rear-end,CCD,snow or rain seen during team review although the source label is Normal (outside the clear-weather scope)
+000259,val,Lane-change,CCD,job rejected by the team in CVAT (2026-11-18): no usable Vehicle B
+dada_testing_type12_17,test,Lane-change,DADA-2000,job rejected by the team in CVAT (2026-11-18): no usable Vehicle B
+dada_training_type10_44,test,Lane-change,DADA-2000,job rejected by the team in CVAT (2026-11-18): no usable Vehicle B
+dada_training_type11_5,train,Lane-change,DADA-2000,job rejected by the team in CVAT (2026-11-18): no usable Vehicle B
+dada_training_type40_16,train,Lane-change,DADA-2000,job rejected by the team in CVAT (2026-11-18): no usable Vehicle B
+dada_validation_type11_74,train,Lane-change,DADA-2000,job rejected by the team in CVAT (2026-11-18): no usable Vehicle B
+000160,test,Rear-end,CCD,job rejected by the team in CVAT (2026-11-18): no usable Vehicle B
+000192,train,Rear-end,CCD,job rejected by the team in CVAT (2026-11-18): no usable Vehicle B
+000669,train,Rear-end,CCD,job rejected by the team in CVAT (2026-11-18): no usable Vehicle B
+000932,train,Rear-end,CCD,job rejected by the team in CVAT (2026-11-18): no usable Vehicle B

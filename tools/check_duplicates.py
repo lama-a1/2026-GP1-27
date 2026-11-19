@@ -4,7 +4,7 @@ Five frames per clip (first, quarter, middle, three-quarter, last) are reduced t
 For every pair of clips the smallest Hamming distance over the 5 x 5 frame pairs is computed. Near-identical
 frames usually differ by fewer than 15 bits.
 
-    python tools/check_duplicates.py --dataset /path/to/Siyaq_Part1/dataset [--out experiments/history/duplicate_check.json]
+    python tools/check_duplicates.py --dataset /path/to/Siyaq_Part1/dataset [--out data/dataset/duplicate_check.json]
 """
 import argparse, csv, itertools, json
 from pathlib import Path
@@ -21,7 +21,7 @@ def dhash(im, n=16):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dataset", required=True)
-    ap.add_argument("--out", default="experiments/history/duplicate_check.json")
+    ap.add_argument("--out", default="data/dataset/duplicate_check.json")
     ap.add_argument("--threshold", type=int, default=15)
     a = ap.parse_args()
     rows = list(csv.DictReader(open(Path(a.dataset) / "dataset_index.csv")))

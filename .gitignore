@@ -8,3 +8,7 @@ uploads/
 
 # GP report is kept in Word outside the repository (see tools/report_paths.py)
 docs/gp_report/
+
+# evaluation outputs
+.cv_cache/
+cv_output/
