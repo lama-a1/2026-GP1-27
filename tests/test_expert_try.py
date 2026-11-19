@@ -96,19 +96,3 @@ def test_expert_try_passes_the_rear_camera(monkeypatch):
                      data={'accident_type': 'REAR_END', 'camera': 'side', 'video': (io.BytesIO(b'fake video'), 'crash.mp4')},
                      content_type='multipart/form-data')
         assert bad.status_code == 400
-
-
-def test_large_video_sound_removed_in_the_background(monkeypatch):
-    # Cloudinary removes the sound during the upload only for videos under the plan's size limit; a larger one
-    # failed with "Video is too large to process synchronously", so it gets an asynchronous eager copy instead
-    for k, v in {'CLOUDINARY_CLOUD_NAME': 'demo', 'CLOUDINARY_API_KEY': 'k', 'CLOUDINARY_API_SECRET': 's'}.items():
-        monkeypatch.setenv(k, v)
-    app.config['TESTING'] = True
-    with app.test_client() as c:
-        expert(c)
-        small = c.post('/expert/try/presign', json={'filename': 'a.mp4', 'size': 1000}, headers={'X-CSRF-Token': 't'}).get_json()
-        big = c.post('/expert/try/presign', json={'filename': 'b.mov', 'size': 150 * 1024 * 1024}, headers={'X-CSRF-Token': 't'}).get_json()
-    assert small['upload_params'] == {'transformation': 'ac_none'}
-    assert big['upload_params'] == {'eager': 'ac_none', 'eager_async': 'true'} and 'transformation' not in big['upload_params']
-    signed = {'public_id': big['public_id'], 'timestamp': big['timestamp'], 'type': 'authenticated', **big['upload_params']}
-    assert big['signature'] == module.cloudinary_sign(signed)

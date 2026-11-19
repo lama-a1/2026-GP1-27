@@ -86,22 +86,3 @@ def test_end_card_of_a_repost_is_found():
     jolt2[80], jolt2[20] = 1.0, 105.0                 # a cut in the first half is not an end card
     spread2 = [90.0] * 20 + [0.0] * 80
     assert video._end_card(times, jolt2, spread2) is None
-
-
-def test_short_analysis_window_keeps_the_impact(monkeypatch, tmp_path):
-    # 14 s video, strongest jolt at 3 s, and a 6 s window (SIYAQ_MAX_SECONDS on the server): the window must hold
-    # the jolt (it used to keep 8 s after it, so the window started after the impact)
-    import cv2, numpy as np
-    path = str(tmp_path / "v.mp4")
-    w = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), 10, (160, 90))
-    xs = np.linspace(0, 4 * np.pi, 160)
-    base = np.repeat(np.repeat((128 + 60 * np.sin(xs)).astype(np.uint8)[None, :, None], 90, 0), 3, 2)   # smooth stripes
-    for k in range(140):
-        fr = np.roll(base, k, axis=1)
-        if k == 30:
-            fr = 255 - fr                       # the jolt
-        w.write(fr)
-    w.release()
-    monkeypatch.setattr(config, "MAX_SECONDS", 6.0)
-    v = video.load(path)
-    assert v["times"][0] <= 3.0 <= v["times"][-1]

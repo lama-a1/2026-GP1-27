@@ -29,16 +29,6 @@ def cloudinary_ready():
     return all(os.getenv(k, '').strip() for k in ('CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'))
 
 MUTE = 'ac_none'   # Cloudinary: remove the audio track
-# Cloudinary processes a video during the upload only up to a size that depends on the plan; a larger one fails with
-# "Video is too large to process synchronously, please use an eager transformation with eager_async=true".
-MUTE_SYNC_MAX_BYTES = int(os.getenv('CLOUDINARY_SYNC_MAX_MB', '40')) * 1024 * 1024
-
-def mute_params(size):
-    # signed upload fields that remove the sound: small videos are stored without it (incoming transformation);
-    # larger ones get a sound-free copy made in the background (eager, eager_async). The players always play muted.
-    if size <= MUTE_SYNC_MAX_BYTES:
-        return {'transformation': MUTE}
-    return {'eager': MUTE, 'eager_async': 'true'}
 
 def cloudinary_sign(params):
     values = '&'.join(f'{key}={params[key]}' for key in sorted(params))
@@ -1276,8 +1266,7 @@ def video_presign(case_id):
         public_id = f'siyaq/cases/{case_id}/parties/{party["national_id"]}/{uuid.uuid4().hex}'
         timestamp = int(time.time())
         # ac_none = incoming transformation: Cloudinary stores the video without its sound (voices in the car stay private)
-        mute = mute_params(size)
-        params = {'public_id': public_id, 'timestamp': timestamp, 'type': 'authenticated', **mute}
+        params = {'public_id': public_id, 'timestamp': timestamp, 'type': 'authenticated', 'transformation': MUTE}
         session['pending_video'] = {'provider': 'cloudinary', 'public_id': public_id,
                                     'case_id': case_id, 'party_id': party['national_id'],
                                     'name': secure_filename(original) or 'video.'+ext,
@@ -1286,8 +1275,7 @@ def video_presign(case_id):
                        quote(os.environ['CLOUDINARY_CLOUD_NAME'], safe='') + '/video/upload',
                        api_key=os.environ['CLOUDINARY_API_KEY'], timestamp=timestamp,
                        signature=cloudinary_sign(params), public_id=public_id,
-                       delivery_type='authenticated', upload_params=mute, transformation=mute.get('transformation'),
-                       content_type=VIDEO_MIME[ext])
+                       delivery_type='authenticated', transformation=MUTE, content_type=VIDEO_MIME[ext])
     key = f'cases/{case_id}/parties/{party["national_id"]}/{uuid.uuid4().hex}.{ext}'
     mime = VIDEO_MIME[ext]
     try:

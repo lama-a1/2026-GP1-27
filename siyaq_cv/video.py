@@ -96,10 +96,7 @@ def load(path):
     start, end = 0.0, (times[-1] + 0.5 / config.FPS if card is not None else None)
     if duration > config.MAX_SECONDS:
         peak = times[int(np.argmax(jolt))]
-        # keep the 22 s : 8 s split around the jolt also when the window is shorter (SIYAQ_MAX_SECONDS on the server):
-        # a full 8 s after the jolt in a 6 s window used to leave the impact itself outside the window
-        post = config.MAX_SECONDS * config.POST_IMPACT_S / (config.PRE_IMPACT_S + config.POST_IMPACT_S)
-        end = min(duration, max(peak + post, config.MAX_SECONDS))
+        end = min(duration, max(peak + config.POST_IMPACT_S, config.MAX_SECONDS))
         start = max(0.0, end - config.MAX_SECONDS)
     # pass 2: the frames we analyse
     frames, ftimes = [], []
