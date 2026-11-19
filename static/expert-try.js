@@ -53,7 +53,8 @@
 
   form.addEventListener('submit', function (ev) {
     ev.preventDefault();
-    var file = input.files[0], kind = (form.querySelector('[name="accident_type"]:checked') || {}).value;
+    var file = input.files[0], kind = (form.querySelector('[name="accident_type"]:checked') || {}).value,
+        camera = (form.querySelector('[name="camera"]:checked') || {}).value || 'front';
     if (!file) { say('اختر فيديو أولًا.'); return; }
     if (file.size > maxMb * 1024 * 1024) { say('حجم الفيديو أكبر من ' + maxMb + ' ميجابايت.'); return; }
     go.disabled = true; out.innerHTML = '';
@@ -66,11 +67,11 @@
         var body;
         if (ticket.provider === 'cloudinary') {
           return upload(ticket, file).then(function () {
-            body = JSON.stringify({accident_type: kind});
+            body = JSON.stringify({accident_type: kind, camera: camera});
             return {body: body, headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf}};
           });
         }
-        body = new FormData(); body.append('video', file); body.append('accident_type', kind);
+        body = new FormData(); body.append('video', file); body.append('accident_type', kind); body.append('camera', camera);
         return {body: body, headers: {'X-CSRF-Token': csrf}};
       })
       .then(function (req) {

@@ -60,13 +60,13 @@ LANE_BY_TYPE = {   # repeated 5x5 CV with YOLOv8s, chosen on all 136 clips per r
     "REAR_END": {
         "LANE_SIDE_M": 1.0, "LANE_SHIFT_M": 1.5, "LANE_IN_M": 0.6, "LANE_ONSET_MPS": 0.2,
         "EGO_YAW_DEG": 20.0, "TTC_SUDDEN_STOP_S": 2.0, "SAFE_TTC_S": 4.5, "SAFE_REF_S": 1.5,
-        "LANE_LINE_RULE": "and", "COLLISION_LOST_WIN": 5, "LANE_REQUIRE_IN": True,
+        "LANE_LINE_RULE": "and", "COLLISION_LOST_WIN": 5, "COLLISION_GAP_MIN": 0.5, "LANE_REQUIRE_IN": True,
         "LANE_END_AT_IMPACT": False, "LANE_FALLBACK_S": 0.0, "SAFE_RULE": "ttc", "SAFE_DRAC_MPS2": 2.0,
         "SAFE_UNKNOWN": "Not maintained", "SAFE_SUDDEN_STOP": True, "SAFE_FALLBACK_S": 1.0},
     "LANE_CHANGE": {
         "LANE_SIDE_M": 1.0, "LANE_SHIFT_M": 0.3, "LANE_IN_M": 0.6, "LANE_ONSET_MPS": 0.6,
         "EGO_YAW_DEG": 16.0, "TTC_SUDDEN_STOP_S": 1.0, "SAFE_TTC_S": 1.5, "SAFE_REF_S": 1.0,
-        "LANE_LINE_RULE": "add", "COLLISION_LOST_WIN": 5, "LANE_REQUIRE_IN": False,
+        "LANE_LINE_RULE": "add", "COLLISION_LOST_WIN": 5, "COLLISION_GAP_MIN": 0.5, "LANE_REQUIRE_IN": False,
         "LANE_END_AT_IMPACT": True, "LANE_FALLBACK_S": 1.0, "SAFE_RULE": "drac", "SAFE_DRAC_MPS2": 2.0,
         "SAFE_UNKNOWN": "Maintained", "SAFE_SUDDEN_STOP": True, "SAFE_FALLBACK_S": 1.0},
 }
@@ -77,6 +77,8 @@ LANE_LINE_MIN_FRAMES = 3      # lane-analysed frames with a usable line needed b
 LANE_LINE_MIN_IN = 2          # B must stay inside the lane for this many analysed frames after crossing
 LANE_DETECT_MPS = None        # optional: B's inward lateral speed must reach this (m/s) for a lane change; None = no check
 COLLISION_LOST_WIN = 5        # (chosen on all clips) frames after B's last box in which the impact jolt may still be taken (0 = off)
+COLLISION_GAP_MIN = 0.5       # (chosen on all clips, 20 of 25 folds) > 0: B lost mid-track at its closest so far (and at least this share of its largest
+                              # size) - the jolt in the gap can be the impact (0 = off)
 LANE_REQUIRE_IN = False       # True: B's lane change counts only if B reaches the recording car's lane
 LANE_END_AT_IMPACT = False    # True: Vehicle B's lane change ends at the impact
 LANE_FALLBACK_S = 0.0         # > 0: no lane change found -> B's lane change in this many s before the impact (inferred)
@@ -97,6 +99,11 @@ STILL_MIN_POINTS = 15         # corner points needed on the background in a fram
 STILL_BONNET_FRAC = 0.7       # rows below this share of the height are bonnet / dashboard, left out
 REVERSE_CLOSE_RATIO = 1.10    # B must come closer: distance at the start / at the end of the window (= growth of its
                               # image size, the scale change TTC is built on [Dagan]); metres alone are unreliable close up
+# Rear camera (the user chose "rear" for the video: Vehicle B is behind the recording car)
+REAR_MIRRORED = False         # False: the rear picture is not mirrored, so its left is the car's right
+REAR_STOP_DROP = 0.5          # recording car's sudden stop: background motion falls to at most this share (exploratory)
+END_CARD_JOLT = 30.0          # end card of a repost: a cut at least this strong (and 10x the median frame change) ...
+END_CARD_SPREAD = 12.0        # ... to frames whose 10th-90th percentile grey levels differ by less than this (flat screen)
 BAR_LEVEL = 30               # a row/column whose brightest pixels stay at or below this in every sample = black bar
 BAR_MIN_KEEP = 0.25          # never crop the picture to less than this share of the frame
 BAR_MIN_CUT = 0.10           # bars are cut only when together they are at least this share of the width / height

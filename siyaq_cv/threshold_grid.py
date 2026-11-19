@@ -56,6 +56,7 @@ GRID = {
     "LANE_LINE_RULE": ["off", "or", "and", "line", "confirm", "add"],
     # impact after Vehicle B is lost at short range: up to the tracker's 1 s buffer (10 frames at 10 fps) [ByteTrack].
     "COLLISION_LOST_WIN": [0, 5, 10],
+    "COLLISION_GAP_MIN": [0.0, 0.5, 0.7],
     # B must reach the recording car's lane for a lane change (a lane change = crossing the marking) [highD].
     "LANE_REQUIRE_IN": [False, True],
     # B's lane change that cuts in ends at the impact (the team's labels: median end = impact frame).
@@ -81,7 +82,7 @@ GRID = {
 # same stages, each with the earlier stages fixed. Each stage is scored on the event it changes. The third item says
 # whether the stage is searched separately for each accident type of the report [Duda] (config.LANE_BY_TYPE).
 STAGES = [
-    (("COLLISION_LOST_WIN",), "collision", False),
+    (("COLLISION_LOST_WIN", "COLLISION_GAP_MIN"), "collision", False),
     (("LANE_SIDE_M", "LANE_SHIFT_M", "LANE_IN_M"), "lane_change", True),
     (("LANE_REQUIRE_IN",), "lane_change", True),
     (("LANE_ONSET_MPS",), "lane_change", True),

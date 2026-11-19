@@ -160,6 +160,21 @@ def collision(meas_b, jolt, n):
             s = 2.0 * meas_b[last]["height_frac"] / hmax + 0.35 * min(jz[f], 8)
             if s > best_s:
                 best, best_s = f, s
+    # B lost in the middle of its track while at its closest so far, then found again: the impact itself can hide
+    # B (its box fills the picture, or the impact pushes it out of view), and when B stays near after the impact it
+    # can look larger later than before it, so its size at the loss is far below the clip's largest. The jolt within
+    # COLLISION_LOST_WIN frames of the loss can then be the impact (B's size counted against its size so far).
+    if config.COLLISION_GAP_MIN and config.COLLISION_LOST_WIN:
+        so_far = 0.0
+        for a, z in zip(frames, frames[1:]):
+            h = meas_b[a]["height_frac"]
+            so_far = max(so_far, h)
+            if z - a < 4 or h / so_far < config.COLLISION_SIZE_MIN or h / hmax < config.COLLISION_GAP_MIN:
+                continue
+            for f in range(a + 1, min(z, n, a + 1 + config.COLLISION_LOST_WIN)):
+                s = 2.0 * h / so_far + 0.35 * min(jz[f], 8)
+                if s > best_s:
+                    best, best_s = f, s
     if best is None:
         best = max(frames, key=lambda k: meas_b[k]["height_frac"])
     return best, float(jz[best])
@@ -225,25 +240,28 @@ def report_type(accident_type):
     return t if t in ("REAR_END", "LANE_CHANGE") else None
 
 
-def analyse(meas, b, flow, times, accident_type=None, scene=None):
+def analyse(meas, b, flow, times, accident_type=None, scene=None, camera="front"):
     """Events of one clip. The lane-change thresholds depend on the accident type in the user's report
     (config.LANE_BY_TYPE): a lane-change report makes a lane change far more likely than a rear-end report, so the
-    evidence needed differs (thresholds chosen per report type by tools/cross_validate.py)."""
+    evidence needed differs (thresholds chosen per report type by tools/cross_validate.py).
+    camera = the camera the user chose for the video: "front" (Vehicle B is ahead of the recording car) or "rear"
+    (Vehicle B is behind it, e.g. the front car's video of a rear-end collision)."""
     t = report_type(accident_type)
     per = config.LANE_BY_TYPE.get(t) if t else None
     if not per:
-        return _analyse(meas, b, flow, times, scene)
+        return _analyse(meas, b, flow, times, scene, camera)
     saved = {k: getattr(config, k) for k in per}
     try:
         for k in per:
             setattr(config, k, per[k])
-        return _analyse(meas, b, flow, times, scene)
+        return _analyse(meas, b, flow, times, scene, camera)
     finally:
         for k, v in saved.items():
             setattr(config, k, v)
 
 
-def _analyse(meas, b, flow, times, scene=None):
+def _analyse(meas, b, flow, times, scene=None, camera="front"):
+    rear = camera == "rear"
     n = len(times)
     mb = meas.get(b, {}) if b is not None else {}
     events = []
@@ -433,8 +451,10 @@ def _analyse(meas, b, flow, times, scene=None):
     if lc:
         events.append(lc)
 
-    # 4) sudden stop / hard braking of Vehicle B ahead (the time-to-collision collapses)
-    if not found_b:
+    # 4) sudden stop / hard braking of Vehicle B ahead (the time-to-collision collapses). With the rear camera B is
+    #    behind the recording car, so B's braking is not a sudden stop ahead (the recording car's own stop is read
+    #    from the background in analyse.py)
+    if not found_b and not rear:
         ahead = [k for k in sorted(mb) if k < crash and abs(mb[k]["centre_offset"]) <= 0.15]
         lows = [k for k in ahead if mb[k]["ttc_s"] is not None and mb[k]["ttc_s"] < config.TTC_SUDDEN_STOP_S]
         if lows:
@@ -523,6 +543,9 @@ def _analyse(meas, b, flow, times, scene=None):
             "safe_distance_ttc_threshold_s": config.SAFE_TTC_S,
             "drac_mps2": drac,
             "safe_distance": verdict,
+            # the vehicle that had to keep the distance: the recording car behind B (front camera) or B behind the
+            # recording car (rear camera)
+            "following_vehicle": "B" if rear else "A",
         }})
 
     # 6) overtaking: a vehicle passes the recording car on the side (comes from beside it and pulls ahead)
@@ -531,8 +554,11 @@ def _analyse(meas, b, flow, times, scene=None):
         if len(ks) < config.OVERTAKE_MIN_FRAMES:
             continue
         a, z = mt[ks[0]], mt[ks[-1]]
-        if (abs(a["centre_offset"]) >= 0.25 and a["height_frac"] >= 0.12 and z["distance_m"] > a["distance_m"] * 1.5
-                and abs(z["centre_offset"]) < abs(a["centre_offset"])):
+        # rear camera: the passing vehicle comes from behind (far, near the centre) and leaves beside the car,
+        # the same movement seen the other way round
+        near, far = (z, a) if rear else (a, z)
+        if (abs(near["centre_offset"]) >= 0.25 and near["height_frac"] >= 0.12 and far["distance_m"] > near["distance_m"] * 1.5
+                and abs(far["centre_offset"]) < abs(near["centre_offset"])):
             rel = _mean([mt[k]["rel_speed_mps"] for k in ks])
             a0, z0 = _src_at(ks[0], ks[0], times), _src_at(ks[-1], ks[-1], times)
             wr = _src_win([k for k in ks if mt[k]["rel_speed_mps"] is not None], times)
@@ -541,7 +567,7 @@ def _analyse(meas, b, flow, times, scene=None):
                                "side": a0, "duration_s": _src_win(ks, times), "distance_start_m": a0, "distance_end_m": z0,
                                "mean_rel_speed_mps": wr, "mean_rel_speed_kmh": wr,
                            }, "measures": {
-                               "side": "left" if a["centre_offset"] < 0 else "right",
+                               "side": "left" if near["centre_offset"] < 0 else "right",
                                "duration_s": _r((ks[-1] - ks[0]) / config.FPS, 1),
                                "distance_start_m": a["distance_m"], "distance_end_m": z["distance_m"],
                                "mean_rel_speed_mps": _r(rel), "mean_rel_speed_kmh": _r(rel * 3.6 if rel else None, 1),

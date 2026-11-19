@@ -28,7 +28,7 @@ FAKE = {'version': 'test', 'accident_type': 'LANE_CHANGE', 'vehicle_b': 2, 'coll
 def setup_case(db):
     a, _ = factory.make_party(db, 'Party A')
     case_id = factory.make_case(db, a, accident_type='LANE_CHANGE', with_vehicles=True)
-    vid = factory.add_video(db, case_id, a, uuid.uuid4().hex + '.mp4')
+    vid = factory.add_video(db, case_id, a, uuid.uuid4().hex + '.mp4', camera='rear')
     return a, case_id, vid
 
 
@@ -48,7 +48,7 @@ def test_analyse_saves_result_and_eer_events(monkeypatch):
     app.config['TESTING'] = True
     import siyaq_cv.analyse
     seen = {}
-    monkeypatch.setattr(siyaq_cv.analyse, 'analyse_video', lambda path, typ: seen.update(type=typ) or FAKE)
+    monkeypatch.setattr(siyaq_cv.analyse, 'analyse_video', lambda path, typ, camera='front': seen.update(type=typ, camera=camera) or FAKE)
     with module.conn() as db:
         nid, case_id, vid = setup_case(db)
     with app.test_client() as client:
@@ -56,6 +56,7 @@ def test_analyse_saves_result_and_eer_events(monkeypatch):
         r = client.post(f'/videos/{vid}/analyse', headers={'X-CSRF-Token': 'va-csrf'})
         assert r.get_json()['status'] == 'done'
         assert seen['type'] == 'LANE_CHANGE'                     # the accident type chosen in the case form
+        assert seen['camera'] == 'rear'                          # and the camera chosen for the video
         # the party does not see the technical analysis page, the expert does
         assert client.get(f'/videos/{vid}/analysis').status_code == 403
     with app.test_client() as expert:
@@ -105,7 +106,7 @@ def test_real_engine_on_a_generated_video(tmp_path):
 
 def test_second_party_cannot_reach_the_first_party_video(monkeypatch):
     import siyaq_cv.analyse
-    monkeypatch.setattr(siyaq_cv.analyse, 'analyse_video', lambda path, typ: FAKE)
+    monkeypatch.setattr(siyaq_cv.analyse, 'analyse_video', lambda path, typ, camera='front': FAKE)
     with module.conn() as db:
         a, case_id, vid = setup_case(db)
         b, _ = factory.make_party(db, 'Party B')
@@ -120,7 +121,7 @@ def test_second_party_cannot_reach_the_first_party_video(monkeypatch):
 
 def test_status_page_starts_the_analysis_and_expert_list_shows_it(monkeypatch):
     import siyaq_cv.analyse
-    monkeypatch.setattr(siyaq_cv.analyse, 'analyse_video', lambda path, typ: FAKE)
+    monkeypatch.setattr(siyaq_cv.analyse, 'analyse_video', lambda path, typ, camera='front': FAKE)
     with module.conn() as db:
         nid, case_id, vid = setup_case(db)
         db.execute('UPDATE participation_progress SET completed=1 WHERE case_id=?', (case_id,))

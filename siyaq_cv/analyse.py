@@ -75,7 +75,54 @@ def _lane_summary(evs, votes, times=None):
     return out
 
 
-def analyse_video(path, accident_type=None, thumbnails=True):
+def _rear_stop(frames, tracks, mb, b, crash, times, evs):
+    """Rear camera: sudden stop of the recording car (the front vehicle). Vehicle B behind closes in fast (its
+    time-to-collision falls below TTC_SUDDEN_STOP_S) while the background, seen through the rear camera, almost stops
+    moving (the recording car slows sharply). Exploratory: there are no rear-camera clips in the evaluation data."""
+    lows = [k for k in sorted(mb) if k < crash and abs(mb[k]["centre_offset"]) <= 0.15
+            and mb[k]["ttc_s"] is not None and mb[k]["ttc_s"] < config.TTC_SUDDEN_STOP_S]
+    if not lows:
+        return None
+    s0 = lows[0]
+    bg = motion.background_still(frames, tracks, s0 - 15, crash - 1)
+    pre = [v for k, v in bg.items() if k < s0]
+    post = [v for k, v in bg.items() if k >= s0]
+    if len(pre) < 3 or len(post) < 3:
+        return None
+    m_pre, m_post = float(np.median(pre)), float(np.median(post))
+    if m_pre <= config.STILL_PX or m_post > config.REAR_STOP_DROP * m_pre:
+        return None
+    win = {"basis": "estimated", "frames": [max(1, s0 - 15), crash - 1],
+           "time_s": [events._t(max(1, s0 - 15), times), events._t(crash - 1, times)]}
+    at0 = {"basis": "observed", "frame": int(s0), "time_s": events._t(s0, times)}
+    e = {"type": "sudden_stop", "vehicle": "A", "track_id": None, "start": s0, "end": crash,
+         "sources": {"ttc_at_start_s": at0, "b_distance_start_m": at0, "background_motion_before_px": win,
+                     "background_motion_after_px": win, "slowdown_share": win},
+         "measures": {"ttc_at_start_s": mb[s0]["ttc_s"], "b_distance_start_m": mb[s0]["distance_m"],
+                      "background_motion_before_px": events._r(m_pre), "background_motion_after_px": events._r(m_post),
+                      "slowdown_share": events._r(1 - m_post / m_pre), "duration_s": events._r((crash - s0) / config.FPS, 1),
+                      "status": "exploratory"}}
+    e["start_t"], e["end_t"] = events._t(e["start"], times), events._t(e["end"], times)
+    return e
+
+
+def _rear_sides(evs):
+    """Rear camera that is not mirrored: the left of the picture is the car's right. Sides of Vehicle B and of the
+    passing vehicles are turned into the car's own left/right (the recording car's own lane change is read from the
+    background's rotation, which has the same sign for a front and a rear camera)."""
+    flip = {"left": "right", "right": "left"}
+    for e in evs:
+        m = e.get("measures") or {}
+        if e["type"] == "lane_change" and e["vehicle"] == "B" and m.get("direction") in flip:
+            m["direction"] = flip[m["direction"]]
+        if e["type"] == "overtaking" and m.get("side") in flip:
+            m["side"] = flip[m["side"]]
+        if e["type"] == "lane_change" and m.get("crossed_line_side") in flip:
+            m["crossed_line_side"] = flip[m["crossed_line_side"]]
+
+
+def analyse_video(path, accident_type=None, thumbnails=True, camera="front"):
+    camera = "rear" if camera == "rear" else "front"
     t0 = time.time()
     v = video.load(path)
     frames, times, W, H = v["frames"], v["times"], v["width"], v["height"]
@@ -84,7 +131,7 @@ def analyse_video(path, accident_type=None, thumbnails=True):
     flow = motion.flow_series(frames, tracks)
     meas = {tid: motion.vehicle_measures(tr, classes[tid], W, H, flow["box_flow"].get(tid)) for tid, tr in tracks.items()}
     b = events.pick_vehicle_b(tracks, W, H, len(frames))
-    evs, crash = events.analyse(meas, b, flow, times, accident_type)
+    evs, crash = events.analyse(meas, b, flow, times, accident_type, camera=camera)
     t1 = time.time()
     lane_frames, lane_info, lane_band = {}, None, None
     try:
@@ -100,10 +147,25 @@ def analyse_video(path, accident_type=None, thumbnails=True):
                  "lanes": {f: [{"points": [[x / W, y / H] for x, y in ln["points"]], "ego_side": ln["ego_side"]} for ln in lns]
                            for f, lns in lane_frames.items()},
                  "lane_band": None if not lane_band else [lane_band[0] / H, lane_band[1] / H]}
-        evs, crash = events.analyse(meas, b, flow, times, accident_type, scene)
+        evs, crash = events.analyse(meas, b, flow, times, accident_type, scene, camera=camera)
         lane_info = _lane_summary(evs, votes, times)
+    if camera == "rear" and crash is not None and b is not None:
+        stop = _rear_stop(frames, tracks, meas.get(b, {}), b, crash, times, evs)
+        if stop:
+            evs.append(stop)
+            per = config.LANE_BY_TYPE.get(events.report_type(accident_type)) or {}
+            if per.get("SAFE_SUDDEN_STOP", config.SAFE_SUDDEN_STOP):
+                for e in evs:     # the recording car stopped and B behind could not: B's distance was not enough
+                    if e["type"] == "following_distance":
+                        e["measures"]["safe_distance"] = "Not maintained"
+        if not config.REAR_MIRRORED:
+            _rear_sides(evs)
+            if lane_info and "left_line" in lane_info:
+                lane_info["left_line"], lane_info["right_line"] = lane_info["right_line"], lane_info["left_line"]
+        evs.sort(key=lambda e: (e["start"], e["type"] != "collision"))
     # R4 (exploratory): the front vehicle reverses into a standing recording car; added beside the other events
-    if crash is not None and b is not None:
+    # (front camera only: with the rear camera B is the vehicle behind)
+    if camera == "front" and crash is not None and b is not None:
         rev = events.reversing(meas.get(b), b, motion.background_still(frames, tracks, crash - config.REVERSE_WINDOW, crash - 1),
                                crash, times)
         if rev:
@@ -123,9 +185,14 @@ def analyse_video(path, accident_type=None, thumbnails=True):
               "b_rel_speed_mps": [mb[k]["rel_speed_mps"] if k in mb else None for k in range(len(frames))]}
     return {
         "version": config.VERSION, "detector": config.MODEL, "accident_type": accident_type,
+        # camera chosen by the user; with "rear" Vehicle B is behind the recording car, and left/right are the car's
+        # own sides (the rear picture is taken as not mirrored, config.REAR_MIRRORED)
+        "camera": camera,
         "video": {"fps": config.FPS, "frames": len(frames), "duration_s": v["duration_s"],
                   "window_start_s": v["window_start_s"], "width": v.get("src_width"), "height": v.get("src_height"),
                   "source_fps": round(v.get("src_fps", 0), 2),
+                  # an end card of a repost (TikTok, Instagram...) cut off before the analysis: where it started (s)
+                  "end_card_s": v.get("end_card_s"),
                   # black bars cut off before the analysis: the picture's [left, top, width, height] as shares of the
                   # original frame (the boxes below are relative to that picture), or None
                   "picture": _picture(v)},
@@ -157,9 +224,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("video")
     ap.add_argument("--type", choices=["REAR_END", "LANE_CHANGE"])
+    ap.add_argument("--camera", choices=["front", "rear"], default="front")
     ap.add_argument("--out", default="result.json")
     a = ap.parse_args()
-    r = analyse_video(a.video, a.type)
+    r = analyse_video(a.video, a.type, camera=a.camera)
     json.dump(r, open(a.out, "w"), ensure_ascii=False)
     for e in r["events"]:
         print(f"{e['start_t']:6.1f}s  {e['type']:<19} {e['vehicle']:<6} {json.dumps(e['measures'], ensure_ascii=False)}")

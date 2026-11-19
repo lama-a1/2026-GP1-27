@@ -32,7 +32,7 @@ def test_local_upload_is_analysed_and_nothing_is_saved(monkeypatch):
     app.config['TESTING'] = True
     import siyaq_cv.analyse
     seen = {}
-    monkeypatch.setattr(siyaq_cv.analyse, 'analyse_video', lambda path, kind: seen.update(path=path, kind=kind, exists=os.path.exists(path)) or FAKE)
+    monkeypatch.setattr(siyaq_cv.analyse, 'analyse_video', lambda path, kind, camera='front': seen.update(path=path, kind=kind, camera=camera, exists=os.path.exists(path)) or FAKE)
     monkeypatch.setattr(module, 'cloudinary_ready', lambda: False)
     with module.conn() as db:
         before = db.execute('SELECT COUNT(*) AS n FROM video_analysis').fetchone()['n']
@@ -43,7 +43,7 @@ def test_local_upload_is_analysed_and_nothing_is_saved(monkeypatch):
         r = c.post('/expert/try/analyse', headers={'X-CSRF-Token': 't'},
                    data={'accident_type': 'LANE_CHANGE', 'video': (io.BytesIO(b'fake video'), 'crash.mp4')}, content_type='multipart/form-data')
     body = r.get_json()
-    assert r.status_code == 200 and seen['kind'] == 'LANE_CHANGE' and seen['exists']
+    assert r.status_code == 200 and seen['kind'] == 'LANE_CHANGE' and seen['camera'] == 'front' and seen['exists']
     assert not os.path.exists(seen['path'])                     # the temporary copy is gone
     assert 'id="va-data"' in body['html'] and 'id="va-video"' in body['html']
     with module.conn() as db:
@@ -63,7 +63,7 @@ def test_cloudinary_copy_is_deleted_after_the_analysis(monkeypatch, fails):
         path = os.path.join(folder, 'video.mp4'); open(path, 'wb').write(b'x'); return path
     monkeypatch.setattr(video_analysis, 'fetch_video', fake_fetch)
 
-    def fake_analyse(path, kind):
+    def fake_analyse(path, kind, camera='front'):
         if fails:
             raise RuntimeError('boom')
         return FAKE
@@ -77,3 +77,22 @@ def test_cloudinary_copy_is_deleted_after_the_analysis(monkeypatch, fails):
             assert 'expert_trial' not in s
     assert r.status_code == (500 if fails else 200)
     assert deleted == ['cloudinary://' + ticket['public_id']]
+
+
+def test_expert_try_passes_the_rear_camera(monkeypatch):
+    app.config['TESTING'] = True
+    import siyaq_cv.analyse
+    seen = {}
+    monkeypatch.setattr(siyaq_cv.analyse, 'analyse_video', lambda path, kind, camera='front': seen.update(camera=camera) or FAKE)
+    monkeypatch.setattr(module, 'cloudinary_ready', lambda: False)
+    with app.test_client() as c:
+        expert(c)
+        assert 'الكاميرا الخلفية' in c.get('/expert/try').get_data(as_text=True)
+        r = c.post('/expert/try/analyse', headers={'X-CSRF-Token': 't'},
+                   data={'accident_type': 'REAR_END', 'camera': 'rear', 'video': (io.BytesIO(b'fake video'), 'crash.mp4')},
+                   content_type='multipart/form-data')
+        assert r.status_code == 200 and seen['camera'] == 'rear'
+        bad = c.post('/expert/try/analyse', headers={'X-CSRF-Token': 't'},
+                     data={'accident_type': 'REAR_END', 'camera': 'side', 'video': (io.BytesIO(b'fake video'), 'crash.mp4')},
+                     content_type='multipart/form-data')
+        assert bad.status_code == 400

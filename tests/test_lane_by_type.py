@@ -10,7 +10,7 @@ def test_report_type_names():
 def test_lane_thresholds_follow_the_report_type(monkeypatch):
     seen = {}
 
-    def fake(meas, b, flow, times, scene=None):
+    def fake(meas, b, flow, times, scene=None, camera='front'):
         seen['side'] = config.LANE_SIDE_M
         return [], None
     monkeypatch.setattr(events, '_analyse', fake)

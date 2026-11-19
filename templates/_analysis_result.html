@@ -20,6 +20,8 @@
   {% set S = va_summary(result) %}
   {% if q.flags %}<div class="va-note va-note-warn"><i data-lucide="triangle-alert"></i> جودة الفيديو: {% for f in q.flags %}{{ value_ar.get(f, f) }}{% if not loop.last %}، {% endif %}{% endfor %}. قد تكون النتائج أقل دقة.</div>{% endif %}
 
+  {% if result.camera == 'rear' %}<div class="va-note"><i data-lucide="camera"></i> فيديو الكاميرا الخلفية: المركبة الأخرى خلف مركبة صاحب الفيديو، واليمين واليسار بالنسبة لمركبة صاحب الفيديو.</div>{% endif %}
+  {% if result.video and result.video.end_card_s %}<div class="va-note"><i data-lucide="scissors"></i> قُصّت شاشة النهاية من الثانية {{ result.video.end_card_s }} (فيديو منشور على منصة)، ولم تدخل في التحليل.</div>{% endif %}
   <!-- plain-language summary: what happened, in order -->
   <section class="va-card va-summary">
     <h2>ملخص ما حدث</h2>
@@ -48,7 +50,7 @@
       </div>
     </div>
     <div class="va-player">
-      <video id="va-video" controls playsinline preload="metadata" src="{{ video_src }}"></video>
+      <video id="va-video" controls muted playsinline preload="metadata" src="{{ video_src }}"></video>
       <canvas id="va-overlay" aria-hidden="true"></canvas>
     </div>
 

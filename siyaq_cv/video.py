@@ -49,10 +49,27 @@ def _bars(peak_rows, peak_cols):
     return t, b, l, r
 
 
+def _end_card(times, jolt, spread):
+    """Index of the first frame of an end card (a social-media repost: TikTok, Instagram...), or None. The picture
+    cuts hard (the image changes far more than in any driving frame) to a flat, almost one-colour screen that lasts
+    to the end of the video. A road picture is never that flat; the end card is cut off before the analysis, so
+    its jolt cannot steer the analysis window or the impact."""
+    if len(times) < 10:
+        return None
+    med = float(np.median(jolt))
+    for k in range(len(times) // 2, len(times)):
+        if jolt[k] < max(config.END_CARD_JOLT, 10 * med):
+            continue
+        after = spread[k:]
+        if len(after) >= 5 and np.mean(np.array(after) < config.END_CARD_SPREAD) >= 0.8:
+            return k
+    return None
+
+
 def load(path):
     """Returns {frames (BGR, 640 px), times (s, original video time), fps, width, height, src_*}."""
     # pass 1: cheap scan of the whole video (tiny grayscale) to find the strongest jolt
-    times, jolt, prev, meta = [], [], None, {}
+    times, jolt, spread, prev, meta = [], [], [], None, {}
     peak_rows = peak_cols = None
     for k, (t, fr, src_fps) in enumerate(_frames(path)):
         if k % 5 == 0:                       # brightest value per row / column over a sample of frames
@@ -62,15 +79,21 @@ def load(path):
             peak_cols = pc if peak_cols is None else np.maximum(peak_cols, pc)
         g = _small(fr)
         jolt.append(0.0 if prev is None else float(np.abs(g - prev).mean()))
+        spread.append(float(np.percentile(g, 90) - np.percentile(g, 10)))
         prev = g
         times.append(t)
         meta = {"src_fps": src_fps, "src_width": fr.shape[1], "src_height": fr.shape[0]}
     if not times:
         raise ValueError("the video has no frames")
+    card = _end_card(times, jolt, spread)
+    meta["end_card_s"] = None
+    if card is not None:
+        meta["end_card_s"] = round(times[card], 2)
+        times, jolt = times[:card], jolt[:card]
     top, bot, lef, rig = _bars(peak_rows, peak_cols)
     meta["crop"] = [top, bot, lef, rig] if (top, bot, lef, rig) != (0, meta["src_height"], 0, meta["src_width"]) else None
     duration = times[-1] + 1 / config.FPS
-    start, end = 0.0, None
+    start, end = 0.0, (times[-1] + 0.5 / config.FPS if card is not None else None)
     if duration > config.MAX_SECONDS:
         peak = times[int(np.argmax(jolt))]
         end = min(duration, max(peak + config.POST_IMPACT_S, config.MAX_SECONDS))

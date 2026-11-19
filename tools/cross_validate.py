@@ -52,7 +52,7 @@ TUNED = list(GRID)
 # the engine's settings before cross-validation (Sprint 2), scored as "default thresholds" in every fold
 DEFAULTS = {"LANE_SIDE_M": 2.2, "LANE_SHIFT_M": 0.4, "LANE_IN_M": 0.8, "LANE_ONSET_MPS": 0.4, "EGO_YAW_DEG": 20.0,
             "TTC_SUDDEN_STOP_S": 1.6, "SAFE_TTC_S": 2.0, "SAFE_REF_S": 2.0, "LANE_LINE_RULE": "off",
-            "COLLISION_LOST_WIN": 0, "LANE_REQUIRE_IN": False, "LANE_END_AT_IMPACT": False, "LANE_FALLBACK_S": 0.0,
+            "COLLISION_LOST_WIN": 0, "COLLISION_GAP_MIN": 0.0, "LANE_REQUIRE_IN": False, "LANE_END_AT_IMPACT": False, "LANE_FALLBACK_S": 0.0,
             "SAFE_RULE": "ttc", "SAFE_DRAC_MPS2": 3.35, "SAFE_UNKNOWN": "Maintained", "SAFE_SUDDEN_STOP": False,
             "SAFE_FALLBACK_S": 0.0}
 

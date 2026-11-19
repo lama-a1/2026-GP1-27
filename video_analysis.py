@@ -50,6 +50,10 @@ MEASURE_AR = {
     'background_motion_px': ('حركة الخلفية قبل الاصطدام', 'بكسل/إطار'), 'closing_m': ('مقدار اقتراب المركبة الأخرى', 'م'),
     'crossed_line_frames': ('عدد اللقطات التي قُرئ فيها نوع الخط', ''),
     'crossed_line_solid_share': ('نسبة اللقطات التي ظهر فيها الخط متصلًا', ''),
+    'following_vehicle': ('المركبة المطالبة بمسافة الأمان', ''),
+    'background_motion_before_px': ('حركة الخلفية قبل التوقف', 'بكسل/إطار'),
+    'background_motion_after_px': ('حركة الخلفية بعد التوقف', 'بكسل/إطار'),
+    'slowdown_share': ('نسبة انخفاض حركة مركبة صاحب الفيديو', ''), 'status': ('حالة الكشف', ''),
 }
 # one short explanation per measure, shown under its label in "more details"
 MEASURE_HINT = {
@@ -65,6 +69,7 @@ MEASURE_HINT = {
     'mean_box_flow_dx_px': 'موجب = نحو اليمين، سالب = نحو اليسار',
     'crossed_line_solid_share': '0 = متقطع في كل اللقطات، 1 = متصل في كل اللقطات',
     'background_motion_px': 'قريب من 0 = سيارة صاحب الفيديو واقفة',
+    'slowdown_share': 'من 0 إلى 1؛ 1 = توقفت تمامًا',
 }
 # measures left out of "more details" because another row already says the same thing
 MEASURE_HIDE = {'direction', 'closing_speed_last_1s_mps', 'mean_rel_speed_mps', 'time_s'}
@@ -72,7 +77,8 @@ VALUE_AR = {'left': 'يسار', 'right': 'يمين', 'Maintained': 'محافظ �
             'approaching': 'تقترب', 'moving away': 'تبتعد', 'steady gap': 'مسافة ثابتة', 'moving left': 'تتحرك يسارًا',
             'moving right': 'تتحرك يمينًا', 'same position': 'لا حركة جانبية', 'car': 'سيارة', 'bus': 'حافلة', 'truck': 'شاحنة',
             'Solid': 'متصل', 'Dashed': 'متقطع', 'Unclear': 'غير واضح',
-            'dark_or_night': 'إضاءة منخفضة أو ليل', 'blurred': 'صورة غير واضحة'}
+            'dark_or_night': 'إضاءة منخفضة أو ليل', 'blurred': 'صورة غير واضحة',
+            'A': 'مركبة صاحب الفيديو', 'B': 'المركبة الأخرى', 'exploratory': 'تجريبي، يحتاج تحقق الخبير'}
 
 
 def _n(x, d=1):
@@ -89,6 +95,7 @@ def summarise(result):
     Only re-words the engine's own measures; no rule and no fault percentage."""
     events = result.get('events') or []
     lm = result.get('lane_markings') or {}
+    rear = result.get('camera') == 'rear'      # rear camera: Vehicle B is behind the recording car
     crash = next((e for e in events if e['type'] == 'collision'), None)
     items = []
     order = {'lane_change': 0, 'overtaking': 0, 'reversing': 1, 'sudden_stop': 1, 'following_distance': 2, 'collision': 3}
@@ -98,7 +105,7 @@ def summarise(result):
         if e['type'] == 'lane_change':
             side = {'left': 'اليمين', 'right': 'اليسار'}.get(m.get('direction'))     # B moving left = it came from the right
             if who == 'B':
-                line = 'المركبة الأخرى دخلت مسار صاحب الفيديو' + (' من جهة ' + side if side else '')
+                line = ('المركبة الأخرى (خلف صاحب الفيديو) دخلت مساره' if rear else 'المركبة الأخرى دخلت مسار صاحب الفيديو') + (' من جهة ' + side if side else '')
             else:
                 line = 'مركبة صاحب الفيديو غيّرت مسارها إلى ' + VALUE_AR.get(m.get('direction'), '—')
             facts.append(_fact('الجهة', ('من ' + side) if who == 'B' and side else VALUE_AR.get(m.get('direction'), '—')))
@@ -114,8 +121,12 @@ def summarise(result):
             ok = m.get('safe_distance') == 'Maintained'
             lim = m.get('safe_distance_ttc_threshold_s')
             cut_in = any(x['type'] == 'lane_change' and x.get('vehicle') == 'B' for x in events)
-            line = ('مسافة الأمان بعد دخول المركبة الأخرى: ' if cut_in else 'مسافة الأمان قبل الاصطدام: ') + ('محافظ عليها' if ok else 'غير محافظ عليها')
-            facts.append(_fact('مسافة الأمان', 'محافظ عليها' if ok else 'غير محافظ عليها', ok))
+            if rear:       # the vehicle behind (B) had to keep the distance from the recording car
+                line = 'مسافة الأمان من المركبة الأخرى (الخلفية): ' + ('محافظ عليها' if ok else 'غير محافظ عليها')
+            else:
+                line = ('مسافة الأمان بعد دخول المركبة الأخرى: ' if cut_in else 'مسافة الأمان قبل الاصطدام: ') + ('محافظ عليها' if ok else 'غير محافظ عليها')
+            facts.append(_fact('مسافة الأمان', 'محافظ عليها' if ok else 'غير محافظ عليها', ok,
+                               'المطالبة بها: المركبة الأخرى (خلف صاحب الفيديو)' if rear else None))
             if m.get('safety_ttc_s') is not None:
                 facts.append(_fact('الوقت المتبقي قبل الاصطدام', '{} ث'.format(_n(m['safety_ttc_s'])), ok,
                                    'الآمن {} ث أو أكثر'.format(_n(lim)) if lim else None))
@@ -129,6 +140,13 @@ def summarise(result):
             h = m.get('a_heading_change_last_1s_deg')
             if h is not None:
                 facts.append(_fact('مركبة صاحب الفيديو قبل الاصطدام', 'مستقيمة' if abs(h) < 3 else 'انعطفت {}°'.format(_n(abs(h), 0))))
+        elif e['type'] == 'sudden_stop' and who == 'A':
+            line = 'مركبة صاحب الفيديو (الأمامية) توقفت فجأة'
+            if m.get('ttc_at_start_s') is not None:
+                facts.append(_fact('الوقت المتبقي قبل الاصطدام لحظة التوقف', '{} ث'.format(_n(m['ttc_at_start_s']))))
+            if m.get('slowdown_share') is not None:
+                facts.append(_fact('انخفاض حركتها', '{}%'.format(_n(100 * m['slowdown_share'], 0)), None, 'من حركة الخلفية'))
+            facts.append(_fact('حالة الكشف', 'تجريبي', None, 'يحتاج تحقق الخبير'))
         elif e['type'] == 'sudden_stop':
             line = 'المركبة الأمامية توقفت فجأة'
             if m.get('ttc_at_start_s') is not None:
@@ -153,7 +171,7 @@ def summarise(result):
             if it['event']['type'] == 'following_distance':
                 it['line'] = 'مسافة الأمان: لا تنطبق، لأن سيارة صاحب الفيديو كانت واقفة'
                 it['facts'] = [_fact('مسافة الأمان', 'لا تنطبق', None, 'المركبة الأخرى هي اللي رجعت للخلف')]
-    return {'items': items, 'crash_t': crash['start_t'] if crash else None,
+    return {'items': items, 'crash_t': crash['start_t'] if crash else None, 'camera': 'rear' if rear else 'front',
             'lanes': (VALUE_AR.get(lm.get('left_line')), VALUE_AR.get(lm.get('right_line'))) if lm.get('visible') else None}
 
 
@@ -255,6 +273,9 @@ def register(app, h):
         if not is_expert():
             abort(403)
         kind = request.form.get('accident_type') or (request.get_json(silent=True) or {}).get('accident_type')
+        camera = request.form.get('camera') or (request.get_json(silent=True) or {}).get('camera') or 'front'
+        if camera not in ('front', 'rear'):
+            return jsonify(error='يرجى اختيار الكاميرا.'), 400
         if kind not in TYPES:
             return jsonify(error='يرجى اختيار نوع الحادث.'), 400
         pending = session.pop('expert_trial', None)
@@ -273,7 +294,7 @@ def register(app, h):
                     name = secure_filename(f.filename) or 'video.' + ext
                     path = os.path.join(tmp, 'video.' + ext)
                     f.save(path)
-                result = analyse_video(path, kind)
+                result = analyse_video(path, kind, camera=camera)
         except Exception as e:
             app.logger.exception('Expert trial analysis failed')
             return jsonify(error='تعذر تحليل الفيديو ({}). يرجى المحاولة مرة أخرى.'.format(type(e).__name__)), 500
@@ -319,7 +340,8 @@ def register(app, h):
             with tempfile.TemporaryDirectory(prefix='siyaq_') as tmp:
                 path = fetch_video(h, v, tmp)
                 from siyaq_cv.analyse import analyse_video
-                result = analyse_video(path, case['accident_type'])      # accident type = the user's choice
+                # accident type and camera = the user's choices (the camera tells whether Vehicle B is ahead or behind)
+                result = analyse_video(path, case['accident_type'], camera=v['camera'] or 'front')
             with h.conn() as c:
                 save_result(h, c, video_id, result)
                 c.execute("UPDATE video_processing SET job_status='done', job_details=NULL, updated_at=? WHERE video_id=?", (_now(), video_id))

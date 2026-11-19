@@ -26,6 +26,11 @@
         <label><input type="radio" name="accident_type" value="REAR_END" checked> تصادم خلفي</label>
         <label><input type="radio" name="accident_type" value="LANE_CHANGE"> حادث تغيير مسار</label>
       </fieldset>
+      <fieldset class="try-type">
+        <legend>الكاميرا</legend>
+        <label><input type="radio" name="camera" value="front" checked> الكاميرا الأمامية</label>
+        <label><input type="radio" name="camera" value="rear"> الكاميرا الخلفية</label>
+      </fieldset>
       <button class="btn primary" type="submit" id="try-go">حلّل الفيديو</button>
     </form>
     <div id="try-status" class="upload-progress" role="status" aria-live="polite" hidden>

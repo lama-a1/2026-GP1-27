@@ -6,6 +6,11 @@ window.siyaqAnalysisView = function (root) {
   var D = JSON.parse(dataEl.textContent);
   var video = root.querySelector('#va-video'), canvas = root.querySelector('#va-overlay'), ctx = canvas.getContext('2d');
   var show = root.querySelector('#va-show-boxes'), playhead = root.querySelector('#va-playhead');
+  // no sound: the videos are stored without audio, and a file that still has a sound track is never played aloud
+  if (video) {
+    video.muted = true; video.volume = 0;
+    video.addEventListener('volumechange', function () { if (!video.muted || video.volume) { video.muted = true; video.volume = 0; } });
+  }
   var byFrame = {};
   Object.keys(D.tracks).forEach(function (tid) {
     D.tracks[tid].forEach(function (b) { (byFrame[b[0]] = byFrame[b[0]] || []).push([tid].concat(b.slice(1))); });
