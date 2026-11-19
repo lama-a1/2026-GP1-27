@@ -68,6 +68,9 @@ SAFE_TTC_MODE = "at_ref"     # "at_ref": TTC at SAFE_REF_S before the impact; "m
 OVERTAKE_MIN_FRAMES = 5
 
 # ---- lane lines (TwinLiteNet, lane-line segmentation trained on BDD100K, MIT licence)
+BAR_LEVEL = 30               # a row/column whose brightest pixels stay at or below this in every sample = black bar
+BAR_MIN_KEEP = 0.25          # never crop the picture to less than this share of the frame
+BAR_MIN_CUT = 0.10           # bars are cut only when together they are at least this share of the width / height
 LANE_MODEL_PATH = os.path.join(HERE, "models", "twinlitenet.onnx")
 LANE_SECONDS = 5              # lane lines are read in the last 5 s before the impact ...
 LANE_STEP = 2                 # ... on every 2nd frame (the model takes about 0.5 s a frame on a CPU)

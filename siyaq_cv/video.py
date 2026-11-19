@@ -34,11 +34,32 @@ def _small(fr):
     return cv2.cvtColor(cv2.resize(fr, (160, 90), interpolation=cv2.INTER_AREA), cv2.COLOR_BGR2GRAY).astype(np.float32)
 
 
+def _bars(peak_rows, peak_cols):
+    """(top, bottom, left, right) of the picture inside black bars (a phone recording of a screen, a portrait
+    TikTok repost). A bar row/column is dark in every sampled frame; night sky still has lamps or noise."""
+    def span(v):
+        on = np.nonzero(v > config.BAR_LEVEL)[0]
+        return (int(on[0]), int(on[-1]) + 1) if on.size else (0, len(v))
+    (t, b), (l, r) = span(peak_rows), span(peak_cols)
+    H, W = len(peak_rows), len(peak_cols)
+    if (b - t) < config.BAR_MIN_KEEP * H or H - (b - t) < config.BAR_MIN_CUT * H:
+        t, b = 0, H                          # no bars, or only a few dark edge rows: keep the full height
+    if (r - l) < config.BAR_MIN_KEEP * W or W - (r - l) < config.BAR_MIN_CUT * W:
+        l, r = 0, W
+    return t, b, l, r
+
+
 def load(path):
     """Returns {frames (BGR, 640 px), times (s, original video time), fps, width, height, src_*}."""
     # pass 1: cheap scan of the whole video (tiny grayscale) to find the strongest jolt
     times, jolt, prev, meta = [], [], None, {}
-    for t, fr, src_fps in _frames(path):
+    peak_rows = peak_cols = None
+    for k, (t, fr, src_fps) in enumerate(_frames(path)):
+        if k % 5 == 0:                       # brightest value per row / column over a sample of frames
+            g8 = cv2.cvtColor(fr, cv2.COLOR_BGR2GRAY)
+            pr, pc = np.percentile(g8, 99, axis=1), np.percentile(g8, 99, axis=0)
+            peak_rows = pr if peak_rows is None else np.maximum(peak_rows, pr)
+            peak_cols = pc if peak_cols is None else np.maximum(peak_cols, pc)
         g = _small(fr)
         jolt.append(0.0 if prev is None else float(np.abs(g - prev).mean()))
         prev = g
@@ -46,6 +67,8 @@ def load(path):
         meta = {"src_fps": src_fps, "src_width": fr.shape[1], "src_height": fr.shape[0]}
     if not times:
         raise ValueError("the video has no frames")
+    top, bot, lef, rig = _bars(peak_rows, peak_cols)
+    meta["crop"] = [top, bot, lef, rig] if (top, bot, lef, rig) != (0, meta["src_height"], 0, meta["src_width"]) else None
     duration = times[-1] + 1 / config.FPS
     start, end = 0.0, None
     if duration > config.MAX_SECONDS:
@@ -55,6 +78,7 @@ def load(path):
     # pass 2: the frames we analyse
     frames, ftimes = [], []
     for t, fr, _ in _frames(path, start, end):
+        fr = fr[top:bot, lef:rig]           # drop black bars, so the models see the road picture only
         s = config.WORK_WIDTH / fr.shape[1]
         frames.append(cv2.resize(fr, (config.WORK_WIDTH, int(round(fr.shape[0] * s))), interpolation=cv2.INTER_AREA))
         ftimes.append(round(t, 3))

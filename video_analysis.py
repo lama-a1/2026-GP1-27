@@ -88,7 +88,8 @@ def summarise(result):
     lm = result.get('lane_markings') or {}
     crash = next((e for e in events if e['type'] == 'collision'), None)
     items = []
-    for e in events:
+    order = {'lane_change': 0, 'overtaking': 0, 'sudden_stop': 1, 'following_distance': 2, 'collision': 3}
+    for e in sorted(events, key=lambda e: (e['start_t'], order.get(e['type'], 1))):
         m, t, who = e.get('measures') or {}, e['start_t'], e.get('vehicle')
         facts, line = [], ''
         if e['type'] == 'lane_change':

@@ -92,6 +92,9 @@ def replay(r, th):
         for k, v in saved.items():
             setattr(config, k, v)
     boxes = r["tracks"].get(str(b), []) if b is not None else []
+    P = (r.get("video") or {}).get("picture")
+    if P:       # boxes are relative to the picture inside black bars; CVAT boxes are relative to the full frame
+        boxes = [[f, P[0] + x1 * P[2], P[1] + y1 * P[3], P[0] + x2 * P[2], P[1] + y2 * P[3]] for f, x1, y1, x2, y2 in boxes]
     return {"events": evs, "collision_frame": crash, "vehicle_b": b, "vehicle_b_boxes": boxes}
 
 
@@ -196,7 +199,8 @@ def baseline_rows(train, test, refs):
     """Simple references fitted on the training clips: majority class, median impact frame."""
     def maj(values, default):
         values = [x for x in values if x is not None]
-        return max(set(values), key=values.count) if values else default
+        # sorted first, so a tie is broken the same way on every run (set order changes between Python runs)
+        return max(sorted(set(values), key=str), key=values.count) if values else default
     lc_maj = maj([_vehicle(refs[c]["lane_change"] and refs[c]["lane_change"].get("vehicle")) for c in train
                   if refs[c]["valid_for"]["lane_change"]], "none")
     ss_maj = maj([bool(refs[c]["sudden_stop"]) for c in train if refs[c]["valid_for"]["sudden_stop"]], False)

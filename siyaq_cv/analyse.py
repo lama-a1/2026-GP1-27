@@ -37,6 +37,15 @@ def _thumb(frame, tracks, f, highlight, width=480, lines=None):
     return base64.b64encode(buf.tobytes()).decode()
 
 
+def _picture(v):
+    c = v.get("crop")
+    if not c:
+        return None
+    t, b, l, r = c
+    W, H = v["src_width"], v["src_height"]
+    return [round(l / W, 4), round(t / H, 4), round((r - l) / W, 4), round((b - t) / H, 4)]
+
+
 def _lane_summary(evs, votes, times=None):
     """Type of the recording car's two lane lines, and of the line crossed in the lane change."""
     left, li = lanes.side_type(votes, "left")
@@ -110,7 +119,10 @@ def analyse_video(path, accident_type=None, thumbnails=True):
         "version": config.VERSION, "detector": config.MODEL, "accident_type": accident_type,
         "video": {"fps": config.FPS, "frames": len(frames), "duration_s": v["duration_s"],
                   "window_start_s": v["window_start_s"], "width": v.get("src_width"), "height": v.get("src_height"),
-                  "source_fps": round(v.get("src_fps", 0), 2)},
+                  "source_fps": round(v.get("src_fps", 0), 2),
+                  # black bars cut off before the analysis: the picture's [left, top, width, height] as shares of the
+                  # original frame (the boxes below are relative to that picture), or None
+                  "picture": _picture(v)},
         "assumptions": {"camera_fov_deg": config.CAMERA_FOV_DEG, "real_heights_m": config.REAL_HEIGHT_M},
         "quality": video.quality(frames),
         "vehicle_b": b, "collision_frame": crash,

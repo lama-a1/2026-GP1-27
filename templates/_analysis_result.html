@@ -27,7 +27,7 @@
     <ol class="va-story">
       {% for it in S['items'] %}
       <li class="st-{{ it.event.type }}">
-        <span class="va-story-t" dir="ltr">{{ it.event.start_t }} s</span>
+        <span class="va-story-t" dir="ltr">{{ it.event.start_t|round(1) }} s</span>
         <span class="va-story-line">{{ it.line }}</span>
         <button type="button" class="va-seek" data-t="{{ it.event.start_t }}"><i data-lucide="play"></i> شاهد</button>
       </li>
@@ -68,7 +68,7 @@
       <div class="va-event-head">
         <div>
           <h3>{{ event_ar[e.type] }}</h3>
-          <p class="va-muted">{{ vehicle_ar[e.vehicle] }} · <span dir="ltr">{{ e.start_t }}{% if e.end_t != e.start_t %} – {{ e.end_t }}{% endif %} s</span></p>
+          <p class="va-muted">{{ vehicle_ar[e.vehicle] }} · <span dir="ltr">{{ e.start_t|round(1) }}{% if e.end_t != e.start_t %} – {{ e.end_t|round(1) }}{% endif %} s</span></p>
         </div>
         <button type="button" class="va-seek" data-t="{{ e.start_t }}"><i data-lucide="play"></i> عرض في الفيديو</button>
       </div>
@@ -98,7 +98,7 @@
       <span class="va-src src-inferred">مستنتج</span> لم يُقس في الوقت المعروض، ومأخوذ من آخر لقطة ظهرت فيها المركبة</p>
     {% for e in result.events %}
     <section class="va-more-part">
-      <h3>{{ event_ar[e.type] }} <small dir="ltr">{{ e.start_t }}{% if e.end_t != e.start_t %} – {{ e.end_t }}{% endif %} s</small>{% if e.track_id %} <small>· رقم التتبع {{ e.track_id }}</small>{% endif %}</h3>
+      <h3>{{ event_ar[e.type] }} <small dir="ltr">{{ e.start_t|round(1) }}{% if e.end_t != e.start_t %} – {{ e.end_t|round(1) }}{% endif %} s</small>{% if e.track_id %} <small>· رقم التتبع {{ e.track_id }}</small>{% endif %}</h3>
           {% set SRC = e.sources or {} %}
           {% if SRC.event_end and SRC.event_end.basis == 'inferred' and SRC.event_end.last_tracked_s is defined %}
           <p class="va-src-note">نهاية الحدث ({{ SRC.event_end.time_s }} ث) مستنتجة من لحظة الاصطدام؛ آخر ظهور للمركبة في التتبع عند {{ SRC.event_end.last_tracked_s }} ث.</p>
@@ -162,4 +162,4 @@
     </ul>
   </section>
   </details>
-  <script id="va-data" type="application/json">{{ {'tracks': result.tracks, 'series': result.series, 'b': result.vehicle_b|string, 'start': result.video.window_start_s, 'fps': result.video.fps}|tojson }}</script>
+  <script id="va-data" type="application/json">{{ {'tracks': result.tracks, 'series': result.series, 'b': result.vehicle_b|string, 'start': result.video.window_start_s, 'fps': result.video.fps, 'picture': result.video.get('picture')}|tojson }}</script>

@@ -25,7 +25,9 @@ window.siyaqAnalysisView = function (root) {
     (byFrame[f] || byFrame[f - 1] || []).forEach(function (b) {
       var isB = b[0] === D.b;
       ctx.strokeStyle = isB ? '#d93025' : '#2fae66'; ctx.lineWidth = isB ? 3 : 1.5;
-      var x = ox + b[1] * pw, y = oy + b[2] * ph, bw = (b[3] - b[1]) * pw, bh = (b[4] - b[2]) * ph;
+      // boxes are relative to the analysed picture; black bars cut off before the analysis are added back
+      var P = D.picture || [0, 0, 1, 1];
+      var x = ox + (P[0] + b[1] * P[2]) * pw, y = oy + (P[1] + b[2] * P[3]) * ph, bw = (b[3] - b[1]) * P[2] * pw, bh = (b[4] - b[2]) * P[3] * ph;
       ctx.strokeRect(x, y, bw, bh);
       ctx.fillStyle = isB ? '#d93025' : '#2fae66'; ctx.font = 'bold 12px Tajawal, system-ui, sans-serif';
       ctx.fillText(isB ? 'B' : b[0], x + 3, Math.max(12, y - 4));
