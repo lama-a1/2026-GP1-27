@@ -197,6 +197,21 @@ def protect():
         supplied=request.form.get('csrf_token','') or request.headers.get('X-CSRF-Token','')
         if not expected or not secrets.compare_digest(supplied, expected): abort(400,'Invalid CSRF token. Refresh and retry.')
 
+_STATIC_V = {}
+
+@app.url_defaults
+def static_version(endpoint, values):
+    # ?v=<content hash> on every static file, so a browser never keeps an old app.js / siyaq.css after a deploy
+    if endpoint == 'static' and 'filename' in values and 'v' not in values:
+        name = values['filename']
+        if name not in _STATIC_V:
+            try:
+                _STATIC_V[name] = hashlib.sha1((Path(app.static_folder) / name).read_bytes()).hexdigest()[:10]
+            except OSError:
+                _STATIC_V[name] = None
+        if _STATIC_V[name]:
+            values['v'] = _STATIC_V[name]
+
 @app.after_request
 def no_cache_for_pages(resp):
     if request.endpoint!='static':

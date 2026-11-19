@@ -483,6 +483,27 @@ def _analyse(meas, b, flow, times, scene=None):
     return events, crash
 
 
+def reversing(mb, b, still, crash, times):
+    """Front vehicle B reversing into the recording car: the background stands still (the recording car is not
+    moving) while B comes closer just before the impact. Exploratory rule for R4 (see config.REVERSE_*)."""
+    if b is None or crash is None or not mb or len(still) < config.REVERSE_WINDOW // 2:
+        return None
+    moving = float(np.median(list(still.values())))
+    ks = [k for k in sorted(mb) if crash - config.REVERSE_WINDOW <= k <= crash]
+    if moving > config.STILL_PX or len(ks) < 3:
+        return None
+    d0, d1 = mb[ks[0]]["distance_m"], mb[ks[-1]]["distance_m"]
+    if d0 is None or d1 is None or d0 - d1 < config.REVERSE_CLOSE_M:
+        return None
+    win = {"basis": "estimated", "frames": [ks[0], ks[-1]], "time_s": [_t(ks[0], times), _t(ks[-1], times)]}
+    e = {"type": "reversing", "vehicle": "B", "track_id": b, "start": ks[0], "end": crash,
+         "sources": {k: win for k in ("background_motion_px", "b_distance_start_m", "b_distance_end_m", "closing_m")},
+         "measures": {"background_motion_px": _r(moving, 2), "b_distance_start_m": _r(d0), "b_distance_end_m": _r(d1),
+                      "closing_m": _r(d0 - d1)}}
+    e["start_t"], e["end_t"] = _t(e["start"], times), _t(e["end"], times)
+    return e
+
+
 def behaviour(mt, cls):
     """Movement summary of one vehicle over the clip (driving behaviour, no judgement)."""
     ks = sorted(mt)

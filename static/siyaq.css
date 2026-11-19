@@ -594,3 +594,4 @@ form[data-step="7"] .wizardfooter{display:none}
 .va-player:fullscreen video,.va-player:-webkit-full-screen video{max-height:100vh;height:100%;width:100%;object-fit:contain}
 .va-player.va-cropped:fullscreen .va-stage,.va-player.va-cropped:-webkit-full-screen .va-stage{width:min(100vw,calc(100vh * var(--ar,1.78)))}
 .va-player.va-cropped:fullscreen video,.va-player.va-cropped:-webkit-full-screen video{max-height:none;object-fit:fill}
+.va-mark.mark-reversing,.lgm.mark-reversing{background:#c2185b}.va-event.ev-reversing,.va-story li.st-reversing{border-inline-start-color:#c2185b}

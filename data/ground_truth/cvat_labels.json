@@ -2,7 +2,7 @@
  "_about": "Labels of every active clip, extracted from the CVAT project export by tools/cvat_labels.py. Boxes are normalised 0-1. Do not edit by hand: fix the labels in CVAT and export again.",
  "level": "cvat_labels",
  "export_md5": "a45ae1d822551c80d35eeee8411cba96",
- "extracted_at": "2026-11-19T04:40:02+00:00",
+ "extracted_at": "2026-11-19T07:05:36+00:00",
  "clips": {
   "000014": {
    "job_id": "siyaq_CCD_1#2",
@@ -332,6 +332,7 @@
     "start": 24,
     "end": 44
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -682,6 +683,10 @@
    },
    "lane_change": null,
    "sudden_stop": null,
+   "reversing": {
+    "start": 18,
+    "end": null
+   },
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -973,6 +978,7 @@
     "end": 34
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [
     {
@@ -1325,6 +1331,10 @@
    },
    "lane_change": null,
    "sudden_stop": null,
+   "reversing": {
+    "start": 13,
+    "end": null
+   },
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -1638,6 +1648,7 @@
     "start": 0,
     "end": 30
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -1999,6 +2010,7 @@
     "end": 48
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [
     {
@@ -2348,6 +2360,7 @@
     "start": 21,
     "end": 37
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -2707,6 +2720,7 @@
     "start": 32,
     "end": null
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -3070,6 +3084,7 @@
     "end": 47
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [],
    "lane_markings": 1,
@@ -3424,6 +3439,7 @@
     "end": 45
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Solid",
    "safe_distance": [],
    "lane_markings": 1,
@@ -3776,6 +3792,7 @@
     "start": 25,
     "end": 44
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -4135,6 +4152,7 @@
     "start": 24,
     "end": null
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -4489,6 +4507,10 @@
    },
    "lane_change": null,
    "sudden_stop": null,
+   "reversing": {
+    "start": 35,
+    "end": null
+   },
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -4690,6 +4712,7 @@
     "end": 47
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [
     {
@@ -5045,6 +5068,7 @@
     "start": 17,
     "end": null
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -5402,6 +5426,7 @@
     "start": 0,
     "end": null
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -5713,6 +5738,7 @@
     "end": 41
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [
     {
@@ -6022,6 +6048,7 @@
     "end": 45
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -6257,6 +6284,7 @@
     "start": 25,
     "end": 46
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -6612,6 +6640,10 @@
     "start": 4,
     "end": null
    },
+   "reversing": {
+    "start": 22,
+    "end": 46
+   },
    "crossed_line_type": null,
    "safe_distance": [],
    "lane_markings": 0,
@@ -6961,6 +6993,7 @@
     "end": 48
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [
     {
@@ -7309,6 +7342,7 @@
     "start": 26,
     "end": null
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -7600,6 +7634,7 @@
     "start": 19,
     "end": 38
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -7953,6 +7988,7 @@
     "start": 24,
     "end": null
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -8316,6 +8352,7 @@
     "end": 36
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [],
    "lane_markings": 0,
@@ -8668,6 +8705,7 @@
     "start": 2,
     "end": 29
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -8971,6 +9009,7 @@
     "end": 33
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [],
    "lane_markings": 1,
@@ -9320,6 +9359,10 @@
    },
    "lane_change": null,
    "sudden_stop": null,
+   "reversing": {
+    "start": 21,
+    "end": 37
+   },
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -9605,6 +9648,7 @@
     "end": 35
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [
     {
@@ -9957,6 +10001,10 @@
    },
    "lane_change": null,
    "sudden_stop": null,
+   "reversing": {
+    "start": 23,
+    "end": 36
+   },
    "crossed_line_type": null,
    "safe_distance": [],
    "lane_markings": 0,
@@ -10314,6 +10362,7 @@
     "start": 25,
     "end": 33
    },
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [
     {
@@ -10671,6 +10720,7 @@
     "end": 48
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [],
    "lane_markings": 0,
@@ -11011,6 +11061,7 @@
     "start": 32,
     "end": 44
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -11375,6 +11426,7 @@
     "start": 36,
     "end": 49
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -11732,6 +11784,7 @@
     "end": 41
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [
     {
@@ -12087,6 +12140,7 @@
     "start": 0,
     "end": null
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -12448,6 +12502,7 @@
     "start": 10,
     "end": 33
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -12806,6 +12861,7 @@
     "start": 24,
     "end": 34
    },
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [
     {
@@ -13156,6 +13212,10 @@
    },
    "lane_change": null,
    "sudden_stop": null,
+   "reversing": {
+    "start": 0,
+    "end": 39
+   },
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -13516,6 +13576,7 @@
     "start": 24,
     "end": null
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -13871,6 +13932,7 @@
     "start": 37,
     "end": null
    },
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [
     {
@@ -14230,6 +14292,7 @@
     "end": 40
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [],
    "lane_markings": 0,
@@ -14540,6 +14603,7 @@
     "start": 38,
     "end": null
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -14803,6 +14867,7 @@
     "end": 38
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [
     {
@@ -15152,6 +15217,7 @@
     "start": 28,
     "end": 33
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -15513,6 +15579,7 @@
     "end": 35
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [
     {
@@ -15820,6 +15887,7 @@
     "start": 24,
     "end": 33
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -16176,6 +16244,10 @@
    },
    "lane_change": null,
    "sudden_stop": null,
+   "reversing": {
+    "start": 28,
+    "end": null
+   },
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -16525,6 +16597,7 @@
     "start": 0,
     "end": null
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -16888,6 +16961,7 @@
     "end": 45
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [
     {
@@ -17242,6 +17316,7 @@
     "start": 40,
     "end": 49
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -17590,6 +17665,7 @@
     "start": 36,
     "end": 42
    },
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [
     {
@@ -17949,6 +18025,7 @@
     "start": 32,
     "end": 41
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -18301,6 +18378,7 @@
    },
    "lane_change": null,
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -18662,6 +18740,7 @@
     "end": 37
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -19017,6 +19096,7 @@
     "start": 14,
     "end": null
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -19380,6 +19460,7 @@
     "end": 30
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -19735,6 +19816,7 @@
     "start": 18,
     "end": 31
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -20090,6 +20172,7 @@
     "start": 20,
     "end": 31
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -20451,6 +20534,7 @@
     "end": 35
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [],
    "lane_markings": 2,
@@ -20803,6 +20887,7 @@
     "start": 20,
     "end": 30
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -21164,6 +21249,7 @@
     "end": 36
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [
     {
@@ -21507,6 +21593,7 @@
     "end": 40
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -21871,6 +21958,7 @@
     "start": 32,
     "end": 42
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -22228,6 +22316,7 @@
     "end": 49
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -22584,6 +22673,7 @@
    },
    "lane_change": null,
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -22945,6 +23035,7 @@
     "end": 45
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [
     {
@@ -23309,6 +23400,7 @@
     "start": 4,
     "end": 30
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -23670,6 +23762,7 @@
     "end": 40
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [
     {
@@ -24025,6 +24118,7 @@
     "start": 40,
     "end": 49
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -24383,6 +24477,7 @@
     "start": 34,
     "end": null
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -24740,6 +24835,7 @@
     "start": 28,
     "end": null
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -25106,6 +25202,7 @@
     "start": 24,
     "end": 30
    },
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [
     {
@@ -25311,6 +25408,7 @@
     "end": 49
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [
     {
@@ -25626,6 +25724,7 @@
     "end": 35
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [
     {
@@ -25981,6 +26080,7 @@
     "start": 17,
     "end": 35
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -26327,6 +26427,7 @@
     "start": 24,
     "end": 36
    },
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [
     {
@@ -26688,6 +26789,7 @@
     "end": 35
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [
     {
@@ -27043,6 +27145,7 @@
     "start": 4,
     "end": 16
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -27374,6 +27477,7 @@
     "start": 8,
     "end": null
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -27673,6 +27777,7 @@
     "end": 42
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [
     {
@@ -28028,6 +28133,7 @@
     "start": 32,
     "end": 39
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -28211,6 +28317,7 @@
     "end": 37
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -28560,6 +28667,7 @@
     "start": 24,
     "end": 35
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -28867,6 +28975,7 @@
     "end": 13
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [],
    "lane_markings": 0,
@@ -29220,6 +29329,7 @@
     "start": 22,
     "end": 35
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -29527,6 +29637,7 @@
     "end": 35
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [
     {
@@ -29882,6 +29993,7 @@
     "start": 15,
     "end": 42
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -30241,6 +30353,7 @@
     "start": 28,
     "end": 35
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -30512,6 +30625,7 @@
     "end": 35
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [
     {
@@ -30869,6 +30983,7 @@
     "end": 35
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [],
    "lane_markings": 0,
@@ -31221,6 +31336,7 @@
     "start": 24,
     "end": 35
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -31580,6 +31696,7 @@
     "start": 28,
     "end": 35
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [],
    "lane_markings": 0,
@@ -31932,6 +32049,7 @@
     "start": 28,
     "end": 41
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -32293,6 +32411,7 @@
     "end": 29
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [],
    "lane_markings": 1,
@@ -32634,6 +32753,7 @@
     "start": 19,
     "end": 35
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -32917,6 +33037,7 @@
     "end": 35
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [
     {
@@ -33274,6 +33395,7 @@
     "end": 35
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [],
    "lane_markings": 0,
@@ -33496,6 +33618,7 @@
     "end": 35
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [
     {
@@ -33847,6 +33970,7 @@
     "end": 36
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Solid",
    "safe_distance": [
     {
@@ -34204,6 +34328,7 @@
     "end": 40
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [
     {
@@ -34537,6 +34662,7 @@
     "end": 29
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [
     {
@@ -34810,6 +34936,7 @@
     "end": 31
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [
     {
@@ -35131,6 +35258,7 @@
     "end": 43
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [
     {
@@ -35486,6 +35614,7 @@
     "start": 20,
     "end": 35
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -35651,6 +35780,7 @@
     "end": 42
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [
     {
@@ -36008,6 +36138,7 @@
     "end": 44
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [
     {
@@ -36368,6 +36499,7 @@
     "start": 16,
     "end": 35
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -36727,6 +36859,7 @@
     "start": 28,
     "end": 37
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -37080,6 +37213,7 @@
     "start": 11,
     "end": 35
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -37439,6 +37573,7 @@
     "start": 16,
     "end": null
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -37801,6 +37936,7 @@
     "start": 26,
     "end": null
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -38128,6 +38264,7 @@
     "end": 44
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Solid",
    "safe_distance": [
     {
@@ -38321,6 +38458,7 @@
     "start": 36,
     "end": null
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -38684,6 +38822,7 @@
     "end": 35
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [],
    "lane_markings": 0,
@@ -38984,6 +39123,7 @@
     "end": 35
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [
     {
@@ -39341,6 +39481,7 @@
     "end": 35
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [
     {
@@ -39700,6 +39841,7 @@
     "start": 8,
     "end": null
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -40053,6 +40195,7 @@
     "end": 37
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [
     {
@@ -40408,6 +40551,7 @@
     "start": 25,
     "end": 35
    },
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [
     {
@@ -40763,6 +40907,7 @@
     "start": 24,
     "end": 35
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -40926,6 +41071,7 @@
     "end": 35
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [
     {
@@ -41163,6 +41309,7 @@
     "end": 35
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [],
    "lane_markings": 0,
@@ -41515,6 +41662,7 @@
     "start": 24,
     "end": 36
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -41868,6 +42016,7 @@
     "start": 23,
     "end": 35
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -42215,6 +42364,7 @@
     "start": 19,
     "end": 35
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -42576,6 +42726,7 @@
     "end": 19
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [
     {
@@ -42935,6 +43086,7 @@
     "start": 19,
     "end": 40
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -43116,6 +43268,7 @@
     "end": 22
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [
     {
@@ -43462,6 +43615,7 @@
    },
    "lane_change": null,
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -43821,6 +43975,7 @@
     "start": 28,
     "end": 37
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {
@@ -43980,6 +44135,7 @@
     "end": 40
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [],
    "lane_markings": 0,
@@ -44214,6 +44370,7 @@
     "end": 34
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [
     {
@@ -44571,6 +44728,7 @@
     "end": 35
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Unclear",
    "safe_distance": [
     {
@@ -44754,6 +44912,7 @@
     "end": 35
    },
    "sudden_stop": null,
+   "reversing": null,
    "crossed_line_type": "Dashed",
    "safe_distance": [],
    "lane_markings": 0,
@@ -45076,6 +45235,7 @@
     "start": 22,
     "end": 35
    },
+   "reversing": null,
    "crossed_line_type": null,
    "safe_distance": [
     {

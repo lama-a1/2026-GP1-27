@@ -84,6 +84,7 @@
         localUrl = URL.createObjectURL(file);
         var video = out.querySelector('#va-video');
         if (video) video.src = localUrl;          // played from the expert's own file, never from the server
+        if (video) video.muted = true;            // same as the stored copies, which are kept without sound
         if (window.siyaqAnalysisView) window.siyaqAnalysisView(out);
         if (window.lucide) window.lucide.createIcons();
         say('اكتمل التحليل في ' + res.seconds + ' ث: ' + res.events + ' أحداث. حُذف الفيديو من الخادم.', 100);

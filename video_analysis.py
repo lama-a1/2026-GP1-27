@@ -16,7 +16,7 @@ from werkzeug.utils import secure_filename
 
 EVENT_AR = {
     'collision': 'لحظة الاصطدام', 'lane_change': 'تغيير مسار', 'sudden_stop': 'توقف مفاجئ للمركبة الأمامية',
-    'following_distance': 'مسافة التتابع', 'overtaking': 'تجاوز',
+    'following_distance': 'مسافة التتابع', 'overtaking': 'تجاوز', 'reversing': 'رجوع المركبة الأمامية للخلف',
 }
 VEHICLE_AR = {'A': 'مركبة صاحب الفيديو', 'B': 'المركبة الأخرى في الحادث', 'other': 'مركبة أخرى'}
 # measure -> (Arabic label, unit)
@@ -46,6 +46,7 @@ MEASURE_AR = {
     'mean_rel_speed_mps': ('متوسط السرعة النسبية', 'م/ث'), 'mean_rel_speed_kmh': ('متوسط السرعة النسبية', 'كم/س'),
     'crossed_line_side': ('خط المسار الذي قُطع (من جهة مركبة صاحب الفيديو)', ''),
     'crossed_line_type': ('نوع الخط المقطوع', ''),
+    'background_motion_px': ('حركة الخلفية قبل الاصطدام', 'بكسل/إطار'), 'closing_m': ('مقدار اقتراب المركبة الأخرى', 'م'),
     'crossed_line_frames': ('عدد اللقطات التي قُرئ فيها نوع الخط', ''),
     'crossed_line_solid_share': ('نسبة اللقطات التي ظهر فيها الخط متصلًا', ''),
 }
@@ -62,6 +63,7 @@ MEASURE_HINT = {
     'a_heading_change_last_1s_deg': 'قريب من 0 = مركبة صاحب الفيديو كانت مستقيمة',
     'mean_box_flow_dx_px': 'موجب = نحو اليمين، سالب = نحو اليسار',
     'crossed_line_solid_share': '0 = متقطع في كل اللقطات، 1 = متصل في كل اللقطات',
+    'background_motion_px': 'قريب من 0 = سيارة صاحب الفيديو واقفة',
 }
 # measures left out of "more details" because another row already says the same thing
 MEASURE_HIDE = {'direction', 'closing_speed_last_1s_mps', 'mean_rel_speed_mps', 'time_s'}
@@ -88,7 +90,7 @@ def summarise(result):
     lm = result.get('lane_markings') or {}
     crash = next((e for e in events if e['type'] == 'collision'), None)
     items = []
-    order = {'lane_change': 0, 'overtaking': 0, 'sudden_stop': 1, 'following_distance': 2, 'collision': 3}
+    order = {'lane_change': 0, 'overtaking': 0, 'reversing': 1, 'sudden_stop': 1, 'following_distance': 2, 'collision': 3}
     for e in sorted(events, key=lambda e: (e['start_t'], order.get(e['type'], 1))):
         m, t, who = e.get('measures') or {}, e['start_t'], e.get('vehicle')
         facts, line = [], ''
@@ -127,6 +129,12 @@ def summarise(result):
                 facts.append(_fact('الوقت المتبقي قبل الاصطدام لحظة التوقف', '{} ث'.format(_n(m['ttc_at_start_s']))))
             if m.get('relative_deceleration_mps2') is not None:
                 facts.append(_fact('قوة التباطؤ', '{} م/ث²'.format(_n(m['relative_deceleration_mps2'])), None, 'تقديرية'))
+        elif e['type'] == 'reversing':
+            line = 'المركبة الأمامية رجعت للخلف وسيارة صاحب الفيديو واقفة'
+            facts.append(_fact('سيارة صاحب الفيديو', 'واقفة'))
+            if m.get('closing_m') is not None:
+                facts.append(_fact('المركبة الأخرى رجعت نحوها', 'حوالي {} م'.format(_n(m['closing_m'])), None, 'تقديرية'))
+            facts.append(_fact('حالة الكشف', 'تجريبي', None, 'يحتاج تحقق الخبير'))
         elif e['type'] == 'overtaking':
             line = 'تجاوز من جهة ' + VALUE_AR.get(m.get('side'), '—')
             if m.get('duration_s') is not None:
@@ -134,6 +142,11 @@ def summarise(result):
         else:
             line = EVENT_AR.get(e['type'], e['type'])
         items.append({'event': e, 'line': line, 'facts': facts[:3]})
+    if any(e['type'] == 'reversing' for e in events):
+        for it in items:
+            if it['event']['type'] == 'following_distance':
+                it['line'] = 'مسافة الأمان: لا تنطبق، لأن سيارة صاحب الفيديو كانت واقفة'
+                it['facts'] = [_fact('مسافة الأمان', 'لا تنطبق', None, 'المركبة الأخرى هي اللي رجعت للخلف')]
     return {'items': items, 'crash_t': crash['start_t'] if crash else None,
             'lanes': (VALUE_AR.get(lm.get('left_line')), VALUE_AR.get(lm.get('right_line'))) if lm.get('visible') else None}
 

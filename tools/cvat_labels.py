@@ -114,6 +114,7 @@ def build_reference(job, row, items, labels, idx, extracted=None):
     col = [t for t in tags if t["label"] == "collision"]
     lcs, lce = first(tags, "lane_change_start"), first(tags, "lane_change_end")
     sss, sse = first(tags, "sudden_stop_start"), first(tags, "sudden_stop_end")
+    rvs, rve = first(tags, "reversing_start"), first(tags, "reversing_end")
     sd = [t for t in tags if t["label"] == "safe_distance"]
     clip = row["clip_id"]
     ref = {"job_id": job, "task": task, "task_frames": row["task_frames"], "clip_id": clip, "split": idx[clip]["split"],
@@ -122,7 +123,7 @@ def build_reference(job, row, items, labels, idx, extracted=None):
            "accident_type_in_dataset_index": idx[clip]["accident_type"],
            "source_crash_frame": int(idx[clip]["crash_start_frame"]) if idx[clip].get("crash_start_frame") not in (None, "") else None,
            "collision_frame": col[0]["frame"] if col else None, "collision_visibility": col[0].get("visibility") if col else None,
-           "vehicle_b": None, "lane_change": None, "sudden_stop": None,
+           "vehicle_b": None, "lane_change": None, "sudden_stop": None, "reversing": None,
            "crossed_line_type": (first(tags, "crossed_line_type") or {}).get("value"),
            "safe_distance": [{"frame": t["frame"], "value": t.get("value")} for t in sd],
            "lane_markings": len(lines), "other_vehicle_tracks": len(ot)}
@@ -138,6 +139,8 @@ def build_reference(job, row, items, labels, idx, extracted=None):
                               "start": lcs["frame"] if lcs else None, "end": lce["frame"] if lce else None}
     if sss or sse:
         ref["sudden_stop"] = {"start": sss["frame"] if sss else None, "end": sse["frame"] if sse else None}
+    if rvs or rve:          # rule R4: the front vehicle reverses (tags added on 19 Nov 2026)
+        ref["reversing"] = {"start": rvs["frame"] if rvs else None, "end": rve["frame"] if rve else None}
     # completeness: what a complete clip must contain under the labelling protocol
     issues = []
     if not acc:

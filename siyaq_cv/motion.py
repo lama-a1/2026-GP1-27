@@ -78,6 +78,31 @@ def flow_series(frames, tracks):
     return {"jolt": jolt, "ego_dx": ego_dx, "pitch_px": pitch, "yaw_rate": yaw, "box_flow": box_flow}
 
 
+def background_still(frames, tracks, f0, f1):
+    """Per frame f0..f1: median movement (px per frame, 640 px wide image) of corner points on the background,
+    away from every tracked vehicle and the bonnet. Near 0 = the recording car is standing still. Corner points
+    (Shi-Tomasi + Lucas-Kanade) are used because flat sky and road give no motion even when the car drives."""
+    out = {}
+    for f in range(max(1, f0), min(len(frames), f1 + 1)):
+        a, b = (cv2.cvtColor(frames[k], cv2.COLOR_BGR2GRAY) for k in (f - 1, f))
+        h, w = a.shape
+        mask = np.full((h, w), 255, np.uint8)
+        mask[int(config.STILL_BONNET_FRAC * h):] = 0
+        for t in tracks.values():
+            for k in (f - 1, f):
+                if k in t:
+                    x1, y1, x2, y2 = [int(v) for v in t[k][:4]]
+                    mask[max(0, y1 - 5):y2 + 6, max(0, x1 - 5):x2 + 6] = 0
+        pts = cv2.goodFeaturesToTrack(a, 300, 0.01, 8, mask=mask)
+        if pts is None or len(pts) < config.STILL_MIN_POINTS:
+            continue
+        nxt, st, _ = cv2.calcOpticalFlowPyrLK(a, b, pts, None)
+        d = np.linalg.norm((nxt - pts).reshape(-1, 2)[st.ravel() == 1], axis=1) * (640 / w)
+        if d.size >= config.STILL_MIN_POINTS:
+            out[f] = float(np.median(d))
+    return out
+
+
 def vehicle_measures(boxes, cls, width, height, box_flow=None):
     """Per frame for one track: distance (m), sideways position (m), relative speeds, TTC."""
     f = focal_px(width)

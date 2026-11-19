@@ -102,6 +102,12 @@ def analyse_video(path, accident_type=None, thumbnails=True):
                  "lane_band": None if not lane_band else [lane_band[0] / H, lane_band[1] / H]}
         evs, crash = events.analyse(meas, b, flow, times, accident_type, scene)
         lane_info = _lane_summary(evs, votes, times)
+    # R4 (exploratory): the front vehicle reverses into a standing recording car; added beside the other events
+    if crash is not None and b is not None:
+        rev = events.reversing(meas.get(b), b, motion.background_still(frames, tracks, crash - config.REVERSE_WINDOW, crash - 1),
+                               crash, times)
+        if rev:
+            evs.append(rev)
     if thumbnails:
         for e in evs:
             near = min(lane_frames, key=lambda k: abs(k - e["start"])) if lane_frames and e["type"] == "lane_change" else None

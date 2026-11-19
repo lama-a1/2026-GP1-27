@@ -68,6 +68,13 @@ SAFE_TTC_MODE = "at_ref"     # "at_ref": TTC at SAFE_REF_S before the impact; "m
 OVERTAKE_MIN_FRAMES = 5
 
 # ---- lane lines (TwinLiteNet, lane-line segmentation trained on BDD100K, MIT licence)
+# Reversing of the front vehicle (rule R4), exploratory: read in the last REVERSE_WINDOW frames before the impact.
+# Not tuned by cross-validation and not in the evaluation of Section 5.1: there are no reversing labels yet.
+REVERSE_WINDOW = 12           # frames (1.2 s) before the impact
+STILL_PX = 0.15               # background moves less than this (px/frame at 640 px) = recording car standing still
+STILL_MIN_POINTS = 15         # corner points needed on the background in a frame
+STILL_BONNET_FRAC = 0.7       # rows below this share of the height are bonnet / dashboard, left out
+REVERSE_CLOSE_M = 0.3         # B must come at least this much closer over the window
 BAR_LEVEL = 30               # a row/column whose brightest pixels stay at or below this in every sample = black bar
 BAR_MIN_KEEP = 0.25          # never crop the picture to less than this share of the frame
 BAR_MIN_CUT = 0.10           # bars are cut only when together they are at least this share of the width / height
