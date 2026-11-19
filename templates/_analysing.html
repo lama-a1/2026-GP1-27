@@ -1,7 +1,39 @@
-{# animated "analysing" mark: a dashcam frame, a scan line and a tracked car (red box) - shown while the engine runs #}
-<svg class="va-loader" viewBox="0 0 64 48" aria-hidden="true">
-  <path class="vl-frame" d="M4 14V6a2 2 0 0 1 2-2h8M50 4h8a2 2 0 0 1 2 2v8M60 34v8a2 2 0 0 1-2 2h-8M14 44H6a2 2 0 0 1-2-2v-8"/>
-  <path class="vl-road" d="M24 44 30 18M40 44 34 18"/>
-  <g class="vl-car"><rect x="27" y="24" width="10" height="7" rx="1.5"/><rect class="vl-box" x="24.5" y="21.5" width="15" height="12" rx="1"/></g>
-  <line class="vl-scan" x1="8" x2="56" y1="8" y2="8"/>
+{# animated "analysing" mark: dashcam frame, the tracked car in a red box, a scan line and the road - shown while the engine runs #}
+<svg class="va-loader" viewBox="270 150 990 760" aria-hidden="true">
+  <style>
+    .sl-corner{fill:none;stroke:#066b44;stroke-width:36;stroke-linecap:round}
+    .sl-red{fill:none;stroke:#d9342b;stroke-width:16;stroke-linecap:round}
+    .sl-dark{fill:#143c2b}
+    .sl-glass{fill:#7fbb9b}
+    .sl-lamp{fill:#d4e8dc}
+    .sl-light{fill:none;stroke:#7fbb9b;stroke-linecap:round}
+    .sl-road{stroke-width:26;stroke-dasharray:52 40;animation:sl-road .7s linear infinite}
+    .sl-scan{stroke-width:14;animation:sl-scan 2s ease-in-out infinite}
+    .sl-spark{stroke-width:16;transform-box:fill-box;transform-origin:center;animation:sl-spark 1.6s ease-in-out infinite}
+    .sl-lock{transform-box:fill-box;transform-origin:center;animation:sl-lock 1.6s ease-in-out infinite}
+    .sl-car{animation:sl-car 3s ease-in-out infinite}
+    @keyframes sl-road{to{stroke-dashoffset:-92}}
+    @keyframes sl-scan{0%,100%{transform:translateY(-150px)}50%{transform:translateY(120px)}}
+    @keyframes sl-spark{0%,100%{opacity:.25;transform:scale(.6) rotate(0deg)}50%{opacity:1;transform:scale(1) rotate(45deg)}}
+    @keyframes sl-lock{0%,100%{transform:scale(1.06)}50%{transform:scale(.97)}}
+    @keyframes sl-car{0%,100%{transform:translateX(-10px)}50%{transform:translateX(10px)}}
+    @media (prefers-reduced-motion:reduce){.sl-road,.sl-scan,.sl-spark,.sl-lock,.sl-car{animation:none}}
+  </style>
+  <path class="sl-corner" d="M310 365V260Q310 194 376 194H515M1020 194H1160Q1224 194 1224 260V365M310 688V800Q310 864 376 864H515M1224 688V800Q1224 864 1160 864H1020"/>
+  <path class="sl-light sl-road" d="M575 588 448 802M958 588 1084 802"/>
+  <g class="sl-car">
+    <g class="sl-lock">
+      <rect class="sl-red" x="604" y="406" width="326" height="262" rx="14"/>
+      <path class="sl-red" d="M577 410V395Q577 376 596 376H620M912 376H936Q955 376 955 395V410M577 660V680Q577 698 596 698H620M912 698H936Q955 698 955 680V660"/>
+    </g>
+    <path class="sl-dark" d="M664 490 686 446Q694 432 712 432H822Q840 432 848 446L870 490Z"/>
+    <rect class="sl-dark" x="628" y="482" width="40" height="30" rx="13"/>
+    <rect class="sl-dark" x="866" y="482" width="40" height="30" rx="13"/>
+    <path class="sl-dark" d="M656 486H878L894 540Q900 552 900 566V632Q900 650 882 650H858Q844 650 842 636V628H692V636Q690 650 676 650H652Q636 650 636 632V566Q636 552 642 540Z"/>
+    <path class="sl-glass" d="M678 504 700 458Q704 452 712 452H822Q830 452 834 458L856 504Q858 512 850 512H686Q676 512 678 504Z"/>
+    <rect class="sl-lamp" x="660" y="574" width="46" height="24" rx="8"/>
+    <rect class="sl-lamp" x="830" y="574" width="46" height="24" rx="8"/>
+  </g>
+  <path class="sl-light sl-scan" d="M426 542H1110"/>
+  <path class="sl-light sl-spark" d="M1021 262V296M1021 344V378M966 320H996M1046 320H1076"/>
 </svg>

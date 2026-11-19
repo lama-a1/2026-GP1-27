@@ -562,8 +562,8 @@ form[data-step="7"] .wizardfooter{display:none}
 .va-legend-marks .lgm{width:10px;height:14px;border-radius:3px;background:#006b3b}
 .lgm.mark-collision{background:#d93025}.lgm.mark-lane_change{background:#1f5c99}.lgm.mark-sudden_stop{background:#b26a00}.lgm.mark-following_distance{background:#6b7f73}.lgm.mark-overtaking{background:#7b4fb3}
 /* animated "analysing" mark (expert trial page and case analysis page) */
-.va-loader{width:64px;height:48px;flex:none;display:block}
-.va-wait .va-loader{width:84px;height:63px;margin:0 auto 12px}
+.va-loader{width:78px;height:60px;flex:none;display:block}
+.va-wait .va-loader{width:104px;height:80px;margin:0 auto 12px}
 .va-loader .vl-frame{fill:none;stroke:#006b3b;stroke-width:3;stroke-linecap:round}
 .va-loader .vl-road{stroke:#7fb894;stroke-width:2;stroke-dasharray:3 3;animation:vl-road .6s linear infinite}
 .va-loader .vl-car rect:first-child{fill:#143c2b}
