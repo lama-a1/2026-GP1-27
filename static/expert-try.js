@@ -8,6 +8,16 @@
   var message = document.getElementById('try-message'), go = document.getElementById('try-go');
   var csrf = form.querySelector('[name="csrf_token"]').value, maxMb = +form.dataset.maxMb, localUrl = null;
   var say = function (text, pct) { status.hidden = false; message.textContent = text; if (pct !== undefined) bar.style.width = pct + '%'; };
+  var busy = document.getElementById('try-analysing'), track = document.getElementById('try-track'), elapsed = document.getElementById('try-elapsed'), timer = null;
+  function analysing(on) {      // the engine gives no progress, so: an animated mark and the time passed (no fake percentage)
+    busy.hidden = !on; track.hidden = on; message.hidden = on;
+    clearInterval(timer); timer = null;
+    if (on) {
+      var t0 = Date.now();
+      var tick = function () { var s = Math.floor((Date.now() - t0) / 1000); elapsed.textContent = 'مضى ' + Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); };
+      tick(); timer = setInterval(tick, 1000);
+    }
+  }
 
   input.addEventListener('change', function () {
     var f = input.files[0];
@@ -64,11 +74,12 @@
         return {body: body, headers: {'X-CSRF-Token': csrf}};
       })
       .then(function (req) {
-        say('جارٍ تحليل الفيديو… يستغرق عادةً أقل من دقيقة.', 100);
+        say('', 100); analysing(true);
         return fetch('/expert/try/analyse', {method: 'POST', credentials: 'same-origin', headers: req.headers, body: req.body});
       })
       .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'تعذر تحليل الفيديو.'); return j; }); })
       .then(function (res) {
+        analysing(false);
         out.innerHTML = res.html;
         localUrl = URL.createObjectURL(file);
         var video = out.querySelector('#va-video');
@@ -78,7 +89,7 @@
         say('اكتمل التحليل في ' + res.seconds + ' ث: ' + res.events + ' أحداث. حُذف الفيديو من الخادم.', 100);
         out.scrollIntoView({behavior: 'smooth', block: 'start'});
       })
-      .catch(function (e) { say(e.message || 'حدث خطأ.'); })
+      .catch(function (e) { analysing(false); say(e.message || 'حدث خطأ.'); })
       .then(function () { go.disabled = false; });
   });
 })();

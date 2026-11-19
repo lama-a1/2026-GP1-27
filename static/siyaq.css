@@ -561,3 +561,25 @@ form[data-step="7"] .wizardfooter{display:none}
 .va-measure-hint{display:block;font-size:12px;color:#839488;margin-top:1px}
 .va-legend-marks .lgm{width:10px;height:14px;border-radius:3px;background:#006b3b}
 .lgm.mark-collision{background:#d93025}.lgm.mark-lane_change{background:#1f5c99}.lgm.mark-sudden_stop{background:#b26a00}.lgm.mark-following_distance{background:#6b7f73}.lgm.mark-overtaking{background:#7b4fb3}
+/* animated "analysing" mark (expert trial page and case analysis page) */
+.va-loader{width:64px;height:48px;flex:none;display:block}
+.va-wait .va-loader{width:84px;height:63px;margin:0 auto 12px}
+.va-loader .vl-frame{fill:none;stroke:#006b3b;stroke-width:3;stroke-linecap:round}
+.va-loader .vl-road{stroke:#7fb894;stroke-width:2;stroke-dasharray:3 3;animation:vl-road .6s linear infinite}
+.va-loader .vl-car rect:first-child{fill:#143c2b}
+.va-loader .vl-box{fill:none;stroke:#d93025;stroke-width:1.5}
+.va-loader .vl-car{animation:vl-car 2.4s ease-in-out infinite}
+.va-loader .vl-scan{stroke:#2fae66;stroke-width:1.5;opacity:.85;animation:vl-scan 1.8s ease-in-out infinite}
+@keyframes vl-road{to{stroke-dashoffset:-6}}
+@keyframes vl-car{0%,100%{transform:translateX(-7px)}50%{transform:translateX(7px)}}
+@keyframes vl-scan{0%,100%{transform:translateY(0)}50%{transform:translateY(32px)}}
+.vl-dots{display:inline-flex;gap:3px;margin-inline-start:2px;vertical-align:middle}
+.vl-dots i{width:5px;height:5px;border-radius:50%;background:currentColor;animation:vl-dot 1.2s infinite}
+.vl-dots i:nth-child(2){animation-delay:.2s}.vl-dots i:nth-child(3){animation-delay:.4s}
+@keyframes vl-dot{0%,80%,100%{opacity:.25}40%{opacity:1}}
+.try-analysing{display:flex;align-items:center;gap:16px}
+.try-analysing[hidden]{display:none}
+.try-analysing strong{display:block;font-size:15px;color:#143c2b;margin-bottom:3px}
+.try-analysing span{color:#4d6457;font-size:13px}
+.vl-time{display:inline-block;margin-inline-start:6px;font-weight:700;color:#006b3b;font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){.va-loader *,.vl-dots i{animation:none!important}}

@@ -29,8 +29,8 @@
       <p class="va-muted">{{ row.error }}</p>
       <button class="btn primary" type="button" id="va-start">إعادة المحاولة</button>
     {% else %}
-      <div class="va-spinner"></div>
-      <h2 id="va-wait-title">جارٍ تحليل الفيديو…</h2>
+      {% include '_analysing.html' %}
+      <h2 id="va-wait-title">جارٍ تحليل الفيديو <span class="vl-dots"><i></i><i></i><i></i></span></h2>
       <p class="va-muted">يكشف النظام المركبات في كل إطار ويتتبعها، ويقيس حركتها بالتدفق البصري، ثم يستخرج الأحداث. يستغرق ذلك عادةً أقل من دقيقة.</p>
     {% endif %}
   </section>

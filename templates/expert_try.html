@@ -29,7 +29,14 @@
       <button class="btn primary" type="submit" id="try-go">حلّل الفيديو</button>
     </form>
     <div id="try-status" class="upload-progress" role="status" aria-live="polite" hidden>
-      <div class="upload-progress-track"><div id="try-progress"></div></div>
+      <div class="try-analysing" id="try-analysing" hidden>
+        {% include '_analysing.html' %}
+        <div>
+          <strong>جارٍ تحليل الفيديو <span class="vl-dots"><i></i><i></i><i></i></span></strong>
+          <span>يكشف النظام المركبات ويتتبعها، ويقرأ خطوط المسار، ثم يستخرج الأحداث. <span class="vl-time" id="try-elapsed"></span></span>
+        </div>
+      </div>
+      <div class="upload-progress-track" id="try-track"><div id="try-progress"></div></div>
       <span id="try-message"></span>
     </div>
     <p class="va-muted try-privacy"><i data-lucide="shield-check"></i> لا يُحفظ شيء: الفيديو يُحذف من الخادم بعد التحليل مباشرة، والنتيجة تبقى في هذه الصفحة فقط وتختفي عند إغلاقها.</p>
