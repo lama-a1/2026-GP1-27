@@ -40,7 +40,9 @@
       body.append('file', file.slice(offset, end), file.name);
       body.append('api_key', ticket.api_key); body.append('timestamp', String(ticket.timestamp));
       body.append('signature', ticket.signature); body.append('public_id', ticket.public_id); body.append('type', ticket.delivery_type);
-      if (ticket.transformation) body.append('transformation', ticket.transformation);  // signed: stored without sound
+      // signed fields that remove the sound (incoming transformation, or a background copy for large videos)
+      var extra = ticket.upload_params || (ticket.transformation ? {transformation: ticket.transformation} : {});
+      Object.keys(extra).forEach(function (k) { body.append(k, extra[k]); });
       return new Promise(function (resolve, reject) {
         var xhr = new XMLHttpRequest();
         xhr.open('POST', ticket.upload_url);
