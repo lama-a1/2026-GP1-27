@@ -15,12 +15,6 @@
   <section class="va-card">
     <form id="try-form" class="try-form" data-cloud="{{ '1' if cloud else '0' }}" data-max-mb="{{ max_mb }}" novalidate>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <label class="try-file" for="try-video">
-        <i data-lucide="upload"></i>
-        <span id="try-file-name">اختر فيديو الحادث</span>
-        <small>{{ accept|replace(',', '، ') }} · حتى {{ max_mb }} ميجابايت</small>
-        <input type="file" id="try-video" name="video" accept="video/*,{{ accept }}" required>
-      </label>
       <fieldset class="try-type">
         <legend>نوع الحادث</legend>
         <label><input type="radio" name="accident_type" value="REAR_END" checked> تصادم خلفي</label>
@@ -31,7 +25,12 @@
         <label><input type="radio" name="camera" value="front" checked> الكاميرا الأمامية</label>
         <label><input type="radio" name="camera" value="rear"> الكاميرا الخلفية</label>
       </fieldset>
-      <button class="btn primary" type="submit" id="try-go">حلّل الفيديو</button>
+      <label class="try-file" for="try-video">
+        <i data-lucide="upload"></i>
+        <span id="try-file-name">اختر فيديو الحادث، ويبدأ التحليل مباشرة</span>
+        <small>{{ accept|replace(',', '، ') }} · حتى {{ max_mb }} ميجابايت</small>
+        <input type="file" id="try-video" name="video" accept="video/*,{{ accept }}" required>
+      </label>
     </form>
     <div id="try-status" class="upload-progress" role="status" aria-live="polite" hidden>
       <div class="try-analysing" id="try-analysing" hidden>

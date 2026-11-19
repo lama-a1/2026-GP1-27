@@ -5,7 +5,7 @@
   if (!form) return;
   var input = document.getElementById('try-video'), out = document.getElementById('try-result');
   var status = document.getElementById('try-status'), bar = document.getElementById('try-progress');
-  var message = document.getElementById('try-message'), go = document.getElementById('try-go');
+  var message = document.getElementById('try-message');
   var csrf = form.querySelector('[name="csrf_token"]').value, maxMb = +form.dataset.maxMb, localUrl = null;
   var say = function (text, pct) { status.hidden = false; message.textContent = text; if (pct !== undefined) bar.style.width = pct + '%'; };
   var busy = document.getElementById('try-analysing'), track = document.getElementById('try-track'), elapsed = document.getElementById('try-elapsed'), timer = null;
@@ -19,9 +19,16 @@
     }
   }
 
+  // no analyse button: choosing the video starts the analysis with the accident type and camera already chosen
+  var running = false;
+  function lock(on) {
+    running = on;
+    form.querySelectorAll('input').forEach(function (el) { if (el.type !== 'hidden') el.disabled = on; });
+  }
   input.addEventListener('change', function () {
     var f = input.files[0];
-    document.getElementById('try-file-name').textContent = f ? f.name : 'اختر فيديو الحادث';
+    document.getElementById('try-file-name').textContent = f ? f.name : 'اختر فيديو الحادث، ويبدأ التحليل مباشرة';
+    if (f) start();
   });
 
   function upload(ticket, file) {
@@ -51,13 +58,14 @@
     return next();
   }
 
-  form.addEventListener('submit', function (ev) {
-    ev.preventDefault();
+  form.addEventListener('submit', function (ev) { ev.preventDefault(); });
+  function start() {
+    if (running) return;
     var file = input.files[0], kind = (form.querySelector('[name="accident_type"]:checked') || {}).value,
         camera = (form.querySelector('[name="camera"]:checked') || {}).value || 'front';
     if (!file) { say('اختر فيديو أولًا.'); return; }
     if (file.size > maxMb * 1024 * 1024) { say('حجم الفيديو أكبر من ' + maxMb + ' ميجابايت.'); return; }
-    go.disabled = true; out.innerHTML = '';
+    lock(true); out.innerHTML = '';
     if (localUrl) { URL.revokeObjectURL(localUrl); localUrl = null; }
     say('جارٍ تجهيز الفيديو…', 0);
     fetch('/expert/try/presign', {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf},
@@ -92,6 +100,6 @@
         out.scrollIntoView({behavior: 'smooth', block: 'start'});
       })
       .catch(function (e) { analysing(false); say(e.message || 'حدث خطأ.'); })
-      .then(function () { go.disabled = false; });
-  });
+      .then(function () { lock(false); input.value = ''; });   // the same file can be chosen again
+  }
 })();
