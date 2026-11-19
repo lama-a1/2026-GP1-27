@@ -98,6 +98,7 @@ function showFilename(input){
           payload.append('signature',ticket.signature);
           payload.append('public_id',ticket.public_id);
           payload.append('type',ticket.delivery_type);
+          if(ticket.transformation)payload.append('transformation',ticket.transformation);  // signed: stored without sound
           await new Promise((resolve,reject)=>{
             const xhr=new XMLHttpRequest();
             xhr.open('POST',ticket.upload_url);

@@ -48,15 +48,19 @@
       <video id="va-video" controls playsinline preload="metadata" src="{{ video_src }}"></video>
       <canvas id="va-overlay" aria-hidden="true"></canvas>
     </div>
-    <div class="va-legend"><span class="lg-b"></span> المركبة الأخرى في الحادث (B) <span class="lg-o"></span> مركبات أخرى متتبعة</div>
+
     <div class="va-timeline" id="va-timeline" dir="ltr" aria-label="الأحداث على خط الزمن">
       <div class="va-timeline-bar"><div id="va-playhead"></div></div>
       {% set dur = (result.video.frames / result.video.fps) %}
-      {% for e in result.events %}
-      <button type="button" class="va-mark mark-{{ e.type }}" style="left:{{ ((e.start_t - result.video.window_start_s) / dur * 100)|round(1) }}%"
-              data-t="{{ e.start_t }}" title="{{ event_ar[e.type] }} — {{ e.start_t }} ث"></button>
+      {% set seen = [] %}
+      {% for it in S['items'] %}{% set e = it.event %}
+      {% set n = seen|select('equalto', e.start_t)|list|length %}{% set _ = seen.append(e.start_t) %}
+      <button type="button" class="va-mark mark-{{ e.type }}" style="left:{{ ((e.start_t - result.video.window_start_s) / dur * 100)|round(1) }}%;margin-left:{{ -7 + n * 16 }}px"
+              data-t="{{ e.start_t }}" title="{{ event_ar[e.type] }} — {{ e.start_t|round(1) }} ث"></button>
       {% endfor %}
     </div>
+    <div class="va-legend va-legend-marks">{% for t in S['items']|map(attribute='event')|map(attribute='type')|unique %}<span class="lgm mark-{{ t }}"></span> {{ event_ar[t] }} {% endfor %}</div>
+    <div class="va-legend"><span class="lg-b"></span> المركبة الأخرى في الحادث (B) <span class="lg-o"></span> مركبات أخرى متتبعة</div>
     {% if result.video.window_start_s > 0 %}<p class="va-muted">الفيديو أطول من {{ (result.video.frames / result.video.fps)|int }} ثانية، فحُلل الجزء المحيط بلحظة الاصطدام فقط (من الثانية {{ result.video.window_start_s }}).</p>{% endif %}
   </section>
 

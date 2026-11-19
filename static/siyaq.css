@@ -559,3 +559,5 @@ form[data-step="7"] .wizardfooter{display:none}
 .va-more-part{border-top:1px solid #eef3f0;padding-top:12px;margin-top:12px}
 .va-more-part h3{font-size:15px;margin:0 0 8px;color:#143c2b}.va-more-part h3 small{font-weight:400;color:#6b7f73}
 .va-measure-hint{display:block;font-size:12px;color:#839488;margin-top:1px}
+.va-legend-marks .lgm{width:10px;height:14px;border-radius:3px;background:#006b3b}
+.lgm.mark-collision{background:#d93025}.lgm.mark-lane_change{background:#1f5c99}.lgm.mark-sudden_stop{background:#b26a00}.lgm.mark-following_distance{background:#6b7f73}.lgm.mark-overtaking{background:#7b4fb3}
