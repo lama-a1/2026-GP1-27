@@ -14,8 +14,8 @@
   <label>تاريخ الميلاد<input type="date" name="date_of_birth" value="{{user.birth_date or ''}}" required></label>
   <label>رقم الجوال<input name="phone" value="{{user.phone or ''}}" required inputmode="numeric" maxlength="10" dir="ltr"></label>
   <!-- the password field stays greyed out until the national ID is changed -->
-  <label id="id-password" class="id-password-field">كلمة المرور الحالية <small>(لتغيير رقم الهوية)</small><input type="password" name="current" autocomplete="current-password" disabled></label>
-  <div><button class="btn primary">حفظ البيانات</button></div>
+  <label id="id-password" class="id-password-field">كلمة المرور الحالية <small>(لتغيير رقم الهوية / الإقامة)</small><input type="password" name="current" autocomplete="current-password" disabled></label>
+  <div style="grid-column:1/-1"><button class="btn primary">حفظ البيانات</button></div>
 </form>
 <style>.id-password-field input:disabled{background:#eef1ef;border-color:#dfe5e1;color:#9aa6a0;cursor:not-allowed}</style>
 <script>
