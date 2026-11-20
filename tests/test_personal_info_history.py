@@ -129,7 +129,7 @@ def test_name_and_birth_date_change_without_password_and_under_18_rejected():
         # a birth date that makes the user younger than 18 is rejected
         post(a,'/profile?tab=personal',{'action':'personal','full_name':'Noura Saad Alharbi','national_id':nid,'phone':phone,'date_of_birth':'2020-01-01'})
         html=a.get('/profile').get_data(as_text=True)
-        assert 'id="id-password" hidden' in html
+        assert 'autocomplete="current-password" disabled' in html
     with module.conn() as db:
         u=db.execute('SELECT full_name,date_of_birth FROM accident_party WHERE national_id=?',(nid,)).fetchone()
         assert u['full_name']=='Noura Saad Alharbi' and u['date_of_birth']=='1998-03-03'
