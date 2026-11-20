@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS vehicle (
             vehicle_id BIGSERIAL PRIMARY KEY, plate_number TEXT NOT NULL CHECK (length(plate_number) BETWEEN 1 AND 4),
             plate_letters TEXT NOT NULL CHECK (length(plate_letters) BETWEEN 1 AND 8),
             manufacturer TEXT NOT NULL, model TEXT NOT NULL, year INTEGER NOT NULL, color TEXT NOT NULL,
-            national_id TEXT NOT NULL REFERENCES accident_party(national_id));
+            national_id TEXT NOT NULL REFERENCES accident_party(national_id) ON UPDATE CASCADE);
 
 CREATE TABLE IF NOT EXISTS accident_case (
             case_id TEXT PRIMARY KEY NOT NULL, party_b_email TEXT, accident_type TEXT NOT NULL
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS accident_case (
             reviewed_by_expert_id BIGINT REFERENCES authorized_expert(expert_id));
 
 CREATE TABLE IF NOT EXISTS participates (
-            national_id TEXT NOT NULL REFERENCES accident_party(national_id),
+            national_id TEXT NOT NULL REFERENCES accident_party(national_id) ON UPDATE CASCADE,
             case_id TEXT NOT NULL REFERENCES accident_case(case_id) ON DELETE CASCADE,
             PRIMARY KEY (national_id,case_id));
 
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS dashcam_video (
             camera_type TEXT NOT NULL CHECK (camera_type IN ('front','rear')),
             uploaded_at TEXT NOT NULL DEFAULT (to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS')), case_id TEXT NOT NULL,
             national_id TEXT NOT NULL, UNIQUE (case_id,national_id),
-            FOREIGN KEY (national_id,case_id) REFERENCES participates(national_id,case_id) ON DELETE CASCADE);
+            FOREIGN KEY (national_id,case_id) REFERENCES participates(national_id,case_id) ON UPDATE CASCADE ON DELETE CASCADE);
 
 CREATE TABLE IF NOT EXISTS detected_event (
             event_id BIGSERIAL PRIMARY KEY, event_type TEXT NOT NULL, event_value TEXT, frame_path TEXT,
@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS final_report (
 
 CREATE TABLE IF NOT EXISTS receives (
             report_id BIGINT NOT NULL REFERENCES final_report(report_id) ON DELETE CASCADE,
-            national_id TEXT NOT NULL REFERENCES accident_party(national_id),
+            national_id TEXT NOT NULL REFERENCES accident_party(national_id) ON UPDATE CASCADE,
             PRIMARY KEY (report_id,national_id));
 
 CREATE TABLE IF NOT EXISTS participation_progress (
@@ -80,16 +80,16 @@ CREATE TABLE IF NOT EXISTS participation_progress (
             progress INTEGER NOT NULL DEFAULT 0, completed INTEGER NOT NULL DEFAULT 0 CHECK (completed IN (0,1)),
             joined_at TEXT NOT NULL DEFAULT (to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS')),
             PRIMARY KEY (national_id,case_id), UNIQUE (case_id,position),
-            FOREIGN KEY (national_id,case_id) REFERENCES participates(national_id,case_id) ON DELETE CASCADE);
+            FOREIGN KEY (national_id,case_id) REFERENCES participates(national_id,case_id) ON UPDATE CASCADE ON DELETE CASCADE);
 
 CREATE TABLE IF NOT EXISTS case_invitation (
             invitation_id BIGSERIAL PRIMARY KEY, case_id TEXT NOT NULL REFERENCES accident_case(case_id) ON DELETE CASCADE,
             token_hash TEXT NOT NULL UNIQUE, recipient_email TEXT NOT NULL, expires_at TEXT NOT NULL,
-            claimed_by TEXT REFERENCES accident_party(national_id), revoked_at TEXT,
+            claimed_by TEXT REFERENCES accident_party(national_id) ON UPDATE CASCADE, revoked_at TEXT,
             created_at TEXT NOT NULL DEFAULT (to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS')));
 
 CREATE TABLE IF NOT EXISTS password_reset_link (
-            link_id BIGSERIAL PRIMARY KEY, national_id TEXT NOT NULL REFERENCES accident_party(national_id) ON DELETE CASCADE,
+            link_id BIGSERIAL PRIMARY KEY, national_id TEXT NOT NULL REFERENCES accident_party(national_id) ON UPDATE CASCADE ON DELETE CASCADE,
             token_hash TEXT NOT NULL UNIQUE, expires_at DOUBLE PRECISION NOT NULL, used_at TEXT);
 
 CREATE TABLE IF NOT EXISTS login_attempt (
@@ -107,6 +107,21 @@ CREATE TABLE IF NOT EXISTS video_analysis (
             status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running','done','failed')),
             result_json TEXT, engine_version TEXT, error TEXT,
             started_at TEXT, finished_at TEXT);
+
+CREATE TABLE IF NOT EXISTS party_info_history (
+            history_id BIGSERIAL PRIMARY KEY,
+            national_id TEXT NOT NULL REFERENCES accident_party(national_id) ON UPDATE CASCADE ON DELETE CASCADE,
+            field TEXT NOT NULL CHECK (field IN ('full_name','national_id','phone')),
+            old_value TEXT NOT NULL, new_value TEXT NOT NULL,
+            changed_at TEXT NOT NULL DEFAULT (to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS')));
+
+CREATE TABLE IF NOT EXISTS party_case_snapshot (
+            national_id TEXT NOT NULL, case_id TEXT NOT NULL,
+            snapshot_national_id TEXT NOT NULL, full_name TEXT NOT NULL, date_of_birth TEXT NOT NULL,
+            phone TEXT NOT NULL, email TEXT NOT NULL,
+            captured_at TEXT NOT NULL DEFAULT (to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS')),
+            PRIMARY KEY (national_id,case_id),
+            FOREIGN KEY (national_id,case_id) REFERENCES participates(national_id,case_id) ON UPDATE CASCADE ON DELETE CASCADE);
 
 CREATE INDEX IF NOT EXISTS participates_case_idx ON participates(case_id);
 
@@ -231,3 +246,13 @@ CREATE CONSTRAINT TRIGGER report_recipients_check AFTER INSERT OR UPDATE ON fina
 DROP TRIGGER IF EXISTS receives_minimum ON receives;
 
 CREATE CONSTRAINT TRIGGER receives_minimum AFTER DELETE OR UPDATE ON receives DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION report_recipients_check();
+
+DO $$ DECLARE r record; BEGIN
+        FOR r IN SELECT con.conname AS name, con.conrelid::regclass::text AS tbl, pg_get_constraintdef(con.oid) AS def
+            FROM pg_constraint con
+            WHERE con.contype='f' AND con.confupdtype<>'c'
+              AND con.confrelid IN ('accident_party'::regclass, 'participates'::regclass)
+        LOOP
+            EXECUTE 'ALTER TABLE '||r.tbl||' DROP CONSTRAINT '||quote_ident(r.name);
+            EXECUTE 'ALTER TABLE '||r.tbl||' ADD CONSTRAINT '||quote_ident(r.name)||' '||r.def||' ON UPDATE CASCADE';
+        END LOOP; END $$;

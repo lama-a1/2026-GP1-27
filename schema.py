@@ -8,7 +8,8 @@ TABLES = ENTITY_TABLES | RELATION_TABLES
 # not in the EER: the website needs them to run (invitation links, password reset links,
 # login lockout, each party's step in a case, and the video processing state)
 SUPPORT_TABLES = {'participation_progress', 'case_invitation', 'password_reset_link',
-                  'login_attempt', 'video_processing', 'video_analysis'}
+                  'login_attempt', 'video_processing', 'video_analysis',
+                  'party_info_history', 'party_case_snapshot'}
 # tables from the old design (before matching the EER)
 LEGACY_TABLES = {'detected_vehicle', 'users', 'cases', 'parties', 'vehicles', 'videos', 'invitations',
                  'garage_vehicles', 'analysis_jobs', 'expert_accounts', 'expert_logins',
@@ -32,7 +33,7 @@ def statements(postgres=False):
             vehicle_id {identity}, plate_number TEXT NOT NULL CHECK (length(plate_number) BETWEEN 1 AND 4),
             plate_letters TEXT NOT NULL CHECK (length(plate_letters) BETWEEN 1 AND 8),
             manufacturer TEXT NOT NULL, model TEXT NOT NULL, year INTEGER NOT NULL, color TEXT NOT NULL,
-            national_id TEXT NOT NULL REFERENCES accident_party(national_id))''',
+            national_id TEXT NOT NULL REFERENCES accident_party(national_id) ON UPDATE CASCADE)''',
         '''CREATE TABLE IF NOT EXISTS accident_case (
             case_id TEXT PRIMARY KEY NOT NULL, party_b_email TEXT, accident_type TEXT NOT NULL
                 CHECK (accident_type IN ('REAR_END','LANE_CHANGE')),
@@ -46,7 +47,7 @@ def statements(postgres=False):
             status TEXT NOT NULL DEFAULT 'draft',
             reviewed_by_expert_id BIGINT REFERENCES authorized_expert(expert_id))''',
         '''CREATE TABLE IF NOT EXISTS participates (
-            national_id TEXT NOT NULL REFERENCES accident_party(national_id),
+            national_id TEXT NOT NULL REFERENCES accident_party(national_id) ON UPDATE CASCADE,
             case_id TEXT NOT NULL REFERENCES accident_case(case_id) ON DELETE CASCADE,
             PRIMARY KEY (national_id,case_id))''',
         '''CREATE TABLE IF NOT EXISTS involves (
@@ -58,7 +59,7 @@ def statements(postgres=False):
             camera_type TEXT NOT NULL CHECK (camera_type IN ('front','rear')),
             uploaded_at TEXT NOT NULL DEFAULT ({now}), case_id TEXT NOT NULL,
             national_id TEXT NOT NULL, UNIQUE (case_id,national_id),
-            FOREIGN KEY (national_id,case_id) REFERENCES participates(national_id,case_id) ON DELETE CASCADE)''',
+            FOREIGN KEY (national_id,case_id) REFERENCES participates(national_id,case_id) ON UPDATE CASCADE ON DELETE CASCADE)''',
         f'''CREATE TABLE IF NOT EXISTS detected_event (
             event_id {identity}, event_type TEXT NOT NULL, event_value TEXT, frame_path TEXT,
             start_time {number} NOT NULL, end_time {number} NOT NULL CHECK (end_time >= start_time),
@@ -83,7 +84,7 @@ def statements(postgres=False):
             approved_by_expert_id BIGINT REFERENCES authorized_expert(expert_id))''',
         '''CREATE TABLE IF NOT EXISTS receives (
             report_id BIGINT NOT NULL REFERENCES final_report(report_id) ON DELETE CASCADE,
-            national_id TEXT NOT NULL REFERENCES accident_party(national_id),
+            national_id TEXT NOT NULL REFERENCES accident_party(national_id) ON UPDATE CASCADE,
             PRIMARY KEY (report_id,national_id))''',
         # supporting tables (not in the EER)
         f'''CREATE TABLE IF NOT EXISTS participation_progress (
@@ -92,14 +93,14 @@ def statements(postgres=False):
             progress INTEGER NOT NULL DEFAULT 0, completed INTEGER NOT NULL DEFAULT 0 CHECK (completed IN (0,1)),
             joined_at TEXT NOT NULL DEFAULT ({now}),
             PRIMARY KEY (national_id,case_id), UNIQUE (case_id,position),
-            FOREIGN KEY (national_id,case_id) REFERENCES participates(national_id,case_id) ON DELETE CASCADE)''',
+            FOREIGN KEY (national_id,case_id) REFERENCES participates(national_id,case_id) ON UPDATE CASCADE ON DELETE CASCADE)''',
         f'''CREATE TABLE IF NOT EXISTS case_invitation (
             invitation_id {identity}, case_id TEXT NOT NULL REFERENCES accident_case(case_id) ON DELETE CASCADE,
             token_hash TEXT NOT NULL UNIQUE, recipient_email TEXT NOT NULL, expires_at TEXT NOT NULL,
-            claimed_by TEXT REFERENCES accident_party(national_id), revoked_at TEXT,
+            claimed_by TEXT REFERENCES accident_party(national_id) ON UPDATE CASCADE, revoked_at TEXT,
             created_at TEXT NOT NULL DEFAULT ({now}))''',
         f'''CREATE TABLE IF NOT EXISTS password_reset_link (
-            link_id {identity}, national_id TEXT NOT NULL REFERENCES accident_party(national_id) ON DELETE CASCADE,
+            link_id {identity}, national_id TEXT NOT NULL REFERENCES accident_party(national_id) ON UPDATE CASCADE ON DELETE CASCADE,
             token_hash TEXT NOT NULL UNIQUE, expires_at {number} NOT NULL, used_at TEXT)''',
         f'''CREATE TABLE IF NOT EXISTS login_attempt (
             key TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0, lock_expiration {number})''',
@@ -115,10 +116,27 @@ def statements(postgres=False):
             status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running','done','failed')),
             result_json TEXT, engine_version TEXT, error TEXT,
             started_at TEXT, finished_at TEXT)''',
+        # personal-info history: every change to the name, national ID or phone is kept with the old
+        # and new value and the time of the change (the old value is never lost)
+        f'''CREATE TABLE IF NOT EXISTS party_info_history (
+            history_id {identity},
+            national_id TEXT NOT NULL REFERENCES accident_party(national_id) ON UPDATE CASCADE ON DELETE CASCADE,
+            field TEXT NOT NULL CHECK (field IN ('full_name','national_id','phone')),
+            old_value TEXT NOT NULL, new_value TEXT NOT NULL,
+            changed_at TEXT NOT NULL DEFAULT ({now}))''',
+        # the party's personal info as it was when they submitted their part of a case, with a timestamp;
+        # the case report (Release 2) reads it from here, so a later change does not alter an old report
+        f'''CREATE TABLE IF NOT EXISTS party_case_snapshot (
+            national_id TEXT NOT NULL, case_id TEXT NOT NULL,
+            snapshot_national_id TEXT NOT NULL, full_name TEXT NOT NULL, date_of_birth TEXT NOT NULL,
+            phone TEXT NOT NULL, email TEXT NOT NULL,
+            captured_at TEXT NOT NULL DEFAULT ({now}),
+            PRIMARY KEY (national_id,case_id),
+            FOREIGN KEY (national_id,case_id) REFERENCES participates(national_id,case_id) ON UPDATE CASCADE ON DELETE CASCADE)''',
         'CREATE INDEX IF NOT EXISTS participates_case_idx ON participates(case_id)',
         'CREATE INDEX IF NOT EXISTS vehicle_owner_idx ON vehicle(national_id)',
         'CREATE INDEX IF NOT EXISTS dashcam_case_idx ON dashcam_video(case_id)',
-    ] + relationship_guards(postgres)
+    ] + relationship_guards(postgres) + national_id_cascade(postgres)
 
 
 def relationship_guards(postgres):
@@ -175,6 +193,22 @@ def relationship_guards(postgres):
             result.append(f'''CREATE TRIGGER IF NOT EXISTS {name}_update BEFORE UPDATE ON {table}
                 WHEN {condition} BEGIN SELECT RAISE(ABORT,'{message}'); END''')
     return result + submission_guard(postgres)
+
+
+def national_id_cascade(postgres):
+    # an existing PostgreSQL database was created before ON UPDATE CASCADE was added: rebuild every foreign key
+    # that points to accident_party or participates so that changing a national ID updates the related rows
+    if not postgres:
+        return []
+    return ["""DO $$ DECLARE r record; BEGIN
+        FOR r IN SELECT con.conname AS name, con.conrelid::regclass::text AS tbl, pg_get_constraintdef(con.oid) AS def
+            FROM pg_constraint con
+            WHERE con.contype='f' AND con.confupdtype<>'c'
+              AND con.confrelid IN ('accident_party'::regclass, 'participates'::regclass)
+        LOOP
+            EXECUTE 'ALTER TABLE '||r.tbl||' DROP CONSTRAINT '||quote_ident(r.name);
+            EXECUTE 'ALTER TABLE '||r.tbl||' ADD CONSTRAINT '||quote_ident(r.name)||' '||r.def||' ON UPDATE CASCADE';
+        END LOOP; END $$"""]
 
 
 def submission_guard(postgres):

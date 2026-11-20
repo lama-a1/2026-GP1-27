@@ -154,6 +154,41 @@ def party_vehicle(c, case_id, national_id):
         v.manufacturer, v.model, v.year, v.color, v.national_id FROM involves i JOIN vehicle v ON v.vehicle_id=i.vehicle_id
         WHERE i.case_id=? AND v.national_id=?''',(case_id,national_id)).fetchone()
 
+# personal info: keep the old value of every change, and keep each party's info as it was at submission
+PERSONAL_FIELDS={'full_name':'الاسم','national_id':'رقم الهوية / الإقامة','phone':'رقم الجوال'}
+NATIONAL_ID_REFS=[('vehicle','national_id'),('participates','national_id'),('dashcam_video','national_id'),
+    ('participation_progress','national_id'),('receives','national_id'),('case_invitation','claimed_by'),
+    ('password_reset_link','national_id'),('party_info_history','national_id'),('party_case_snapshot','national_id')]
+
+def record_personal_change(c, national_id, field, old, new):
+    # keep the old and the new value with the time of the change
+    c.execute('INSERT INTO party_info_history(national_id,field,old_value,new_value,changed_at) VALUES(?,?,?,?,?)',
+              (national_id,field,old,new,datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')))
+
+def change_national_id(c, old, new):
+    # the national ID is the account key: PostgreSQL updates the related rows itself (ON UPDATE CASCADE);
+    # SQLite checks the keys at the end of the transaction, so the related rows are updated here
+    if not DATABASE_URL: c.execute('PRAGMA defer_foreign_keys=ON')
+    c.execute('UPDATE accident_party SET national_id=? WHERE national_id=?',(new,old))
+    if not DATABASE_URL:
+        for table,col in NATIONAL_ID_REFS: c.execute(f'UPDATE {table} SET {col}=? WHERE {col}=?',(new,old))
+
+def snapshot_party(c, case_id, national_id):
+    # save the party's personal info as it is now, with a timestamp, for this case's report
+    u=c.execute('SELECT national_id,full_name,date_of_birth,phone,email FROM accident_party WHERE national_id=?',(national_id,)).fetchone()
+    if not u: return
+    c.execute('''INSERT INTO party_case_snapshot(national_id,case_id,snapshot_national_id,full_name,date_of_birth,phone,email,captured_at)
+        VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(national_id,case_id) DO UPDATE SET snapshot_national_id=excluded.snapshot_national_id,
+        full_name=excluded.full_name, date_of_birth=excluded.date_of_birth, phone=excluded.phone, email=excluded.email,
+        captured_at=excluded.captured_at''',
+        (national_id,case_id,u['national_id'],u['full_name'],u['date_of_birth'],u['phone'],u['email'],
+         datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')))
+
+def case_party_info(c, case_id, national_id):
+    # the info to show in a case report: the saved copy from submission, or the current info if not submitted yet
+    row=c.execute('SELECT snapshot_national_id AS national_id,full_name,date_of_birth,phone,email,captured_at FROM party_case_snapshot WHERE case_id=? AND national_id=?',(case_id,national_id)).fetchone()
+    return row or c.execute('SELECT national_id,full_name,date_of_birth,phone,email,NULL AS captured_at FROM accident_party WHERE national_id=?',(national_id,)).fetchone()
+
 def user_cases(c, national_id):
     return c.execute(CASE_SQL+''' WHERE ca.case_id IN (SELECT case_id FROM participates WHERE national_id=?)
         ORDER BY created_at DESC''',(national_id,)).fetchall()
@@ -981,7 +1016,18 @@ def invitation(token):
         if c.execute("SELECT 1 FROM participation_progress WHERE case_id=? AND position='B'",(inv['case_id'],)).fetchone(): valid=False
     user=current_user()
     matched=bool(user and user['email'].strip().lower()==inv['recipient_email'].strip().lower())
-    return render_template('invitation.html',token=token,valid=valid,matched=matched,recipient_email=inv['recipient_email'])
+    summary=None
+    if valid and matched:
+        # the invited party sees the basic accident details before accepting (no personal data of the first party)
+        with conn() as c:
+            case=get_case(c,inv['case_id'])
+            car=party_vehicle(c,inv['case_id'],case['creator_id']) if case else None
+        if case:
+            # the same details the party sees in step 1 after accepting
+            summary={'reference':case['reference'],'date':case['accident_date'],'time':case['accident_time'],
+                     'type':'حادث تغيير مسار' if case['accident_type']=='LANE_CHANGE' else 'حادث اصطدام خلفي',
+                     'location':case['location'],'car':car}
+    return render_template('invitation.html',token=token,valid=valid,matched=matched,recipient_email=inv['recipient_email'],summary=summary)
 
 @app.post('/invite/<token>/accept')
 @login_required
@@ -1205,6 +1251,7 @@ def wizard(case_id,step):
             if request.form.get('consent')!='yes': flash('يجب الموافقة قبل الإرسال.','error');return redirect(request.url)
             with conn() as c:
                 c.execute('UPDATE participation_progress SET completed=1 WHERE case_id=? AND national_id=?',(case_id,nid))
+                snapshot_party(c,case_id,nid)   # keep the personal info as it was when this part was submitted
                 count=c.execute('SELECT COUNT(*) AS total FROM participation_progress WHERE case_id=? AND completed=1',(case_id,)).fetchone()['total']
                 c.execute('UPDATE accident_case SET status=? WHERE case_id=?',('in_progress' if count==2 else 'pending',case_id))
                 # both parties submitted, so the other party's car is known: link the analysed events to it
@@ -1458,6 +1505,34 @@ def profile():
                     with conn() as c: c.execute('UPDATE accident_party SET email=? WHERE national_id=?',(pending['email'],session['uid']))
                     session.pop('pending_email',None); flash('تم تحديث بريدك الإلكتروني.','success')
                 else: flash('رمز التحقق غير صحيح.','error')
+        elif action=='personal':
+            u=current_user()
+            name=' '.join(request.form.get('full_name','').split())
+            nid=normalized_digits(request.form.get('national_id',''))
+            phone=normalized_digits(request.form.get('phone',''))
+            errors=[]
+            if len(name.split())<3: errors.append('الاسم الثلاثي مطلوب (الاسم الأول واسم الأب واسم العائلة).')
+            if not re.fullmatch(r'[12]\d{9}',nid): errors.append('رقم الهوية / الإقامة يجب أن يبدأ بـ 1 أو 2 ويتكون من 10 أرقام.')
+            if not re.fullmatch(r'05\d{8}',phone): errors.append('رقم الجوال يجب أن يبدأ بـ 05 ويتكون من 10 أرقام.')
+            changes={k:v for k,v in (('full_name',name),('national_id',nid),('phone',phone)) if v!=u[k]}
+            if not errors and 'national_id' in changes and not check_password_hash(u['password_hash'],request.form.get('current','')):
+                errors.append('أدخل كلمة المرور الحالية لتغيير رقم الهوية / الإقامة.')
+            if not errors and changes:
+                with conn() as c:
+                    if 'national_id' in changes and c.execute('SELECT 1 FROM accident_party WHERE national_id=?',(nid,)).fetchone():
+                        errors.append('رقم الهوية / الإقامة مسجل بحساب آخر.')
+                    if 'phone' in changes and c.execute('SELECT 1 FROM accident_party WHERE phone=? AND national_id<>?',(phone,u['national_id'])).fetchone():
+                        errors.append('رقم الجوال مسجل بحساب آخر.')
+                    if not errors:
+                        old_id=u['national_id']
+                        for field,value in changes.items(): record_personal_change(c,old_id,field,u[field],value)
+                        c.execute('UPDATE accident_party SET full_name=?,phone=? WHERE national_id=?',(name,phone,old_id))
+                        if 'national_id' in changes: change_national_id(c,old_id,nid)
+                if not errors:
+                    if 'national_id' in changes: session['uid']=nid
+                    flash('تم تحديث بياناتك. البلاغات المرسلة سابقًا تبقى ببياناتك وقت إرسالها.','success')
+            elif not errors: flash('لم يتغير شيء في بياناتك.','success')
+            for e in errors: flash(e,'error')
         elif action=='email_cancel':
             session.pop('pending_email',None)
         elif action=='password':

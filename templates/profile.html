@@ -4,13 +4,18 @@
 <section class="siyaq-profile-panel">
 {% if tab=='personal' %}
 <h2>البيانات الشخصية</h2>
-<p>تظهر هذه البيانات تلقائيًا عند إنشاء حالة جديدة.</p>
-<div class="identity-grid profile-form">
-  <label>الاسم الثلاثي<input value="{{user.full_name}}" readonly></label>
-  <label>رقم الهوية / الإقامة<input value="{{user.national_id or ''}}" readonly dir="ltr"></label>
+<p>تظهر هذه البيانات تلقائيًا عند إنشاء حالة جديدة. تعديلها لا يغيّر البلاغات المرسلة سابقًا، فهي تُحفظ ببياناتك وقت إرسالها.</p>
+<!-- edit the name, national ID and phone; the old values are kept in the history with the time of the change -->
+<form method="post" class="identity-grid profile-form">
+  <input type="hidden" name="csrf_token" value="{{csrf_token()}}">
+  <input type="hidden" name="action" value="personal">
+  <label>الاسم الثلاثي<input name="full_name" value="{{user.full_name}}" required></label>
+  <label>رقم الهوية / الإقامة<input name="national_id" value="{{user.national_id or ''}}" required inputmode="numeric" maxlength="10" dir="ltr"></label>
   <label>تاريخ الميلاد<input value="{{user.birth_date or ''}}" readonly></label>
-  <label>رقم الجوال<input value="{{user.phone or ''}}" readonly dir="ltr"></label>
-</div>
+  <label>رقم الجوال<input name="phone" value="{{user.phone or ''}}" required inputmode="numeric" maxlength="10" dir="ltr"></label>
+  <label>كلمة المرور الحالية <small>(مطلوبة فقط عند تغيير رقم الهوية)</small><input type="password" name="current" autocomplete="current-password"></label>
+  <div><button class="btn primary">حفظ البيانات</button></div>
+</form>
 
 <!-- change the email after checking the verification code -->
 <h2 id="email">البريد الإلكتروني</h2>
@@ -41,4 +46,4 @@
 {% else %}<h2>إعدادات الحساب</h2><p>إدارة كلمة المرور وتفضيلات الإشعارات.</p><h3>تغيير كلمة المرور</h3><form method="post" class="profile-form"><input type="hidden" name="csrf_token" value="{{csrf_token()}}"><input type="hidden" name="action" value="password"><div class="identity-grid"><label>كلمة المرور الحالية<input name="current" type="password" required></label><label>كلمة المرور الجديدة<input name="next" type="password" minlength="8" required></label><label>تأكيد كلمة المرور<input name="confirm" type="password" minlength="8" required></label></div><button class="btn primary">تغيير كلمة المرور</button></form><hr><h3>تفضيلات الإشعارات</h3><form method="post" class="profile-form"><input type="hidden" name="csrf_token" value="{{csrf_token()}}"><input type="hidden" name="action" value="notifications"><label class="check"><input type="checkbox" name="status" {{'checked' if user.notification_status}}> <span>إرسال تحديثات حالة البلاغ إلى بريدي الإلكتروني</span></label><label class="check is-disabled" title="ستتوفر لاحقًا"><input type="checkbox" name="result" disabled> <span>إشعار النتيجة <small>ستتوفر هذه الميزة لاحقًا</small></span></label><button class="btn primary">حفظ الإعدادات</button></form>{% endif %}
 </section></div></div>
 <script>function openGarage(car){const modal=document.getElementById('garageModal');const form=modal.querySelector('form');form.reset();document.getElementById('garageId').value=car?car.id:'';document.getElementById('garageTitle').textContent=car?'تعديل المركبة':'إضافة مركبة';if(car){for(const k of ['manufacturer','model','year','color'])form.elements[k].value=car[k]||'';const parts=String(car.plate||'').trim().split(/\s+/);const num=/^\d+$/.test(parts[parts.length-1]||'')?parts.pop():'';form.elements.plate_letters.value=parts.join(' ');form.elements.plate_numbers.value=num;}form.querySelectorAll('[data-plate-field],[data-color-field]').forEach(b=>{delete b.dataset.tried;b._repaint&&b._repaint();});modal.showModal()}</script>
-{% endblock %}
+{% endblock %}

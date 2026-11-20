@@ -9,6 +9,19 @@
     {% if user %}
       {% if matched %}
         <div class="notice">بريد الحساب يطابق البريد المدعو، ويمكن قبول الدعوة واستكمال البيانات وفيديو الحادث.</div>
+        {% if summary %}
+        <!-- basic accident details shown before accepting, so the party can confirm it is their accident -->
+        <div class="details">
+          <div><span>رقم الحالة</span><b>{{summary.reference}}</b></div>
+          <div><span>نوع الحادث</span><b>{{summary.type}}</b></div>
+          <div><span>تاريخ الحادث</span><b>{{summary.date}}</b></div>
+          <div><span>وقت الحادث</span><b>{{summary.time}}</b></div>
+          {% if summary.car %}
+          <div><span>مركبة الطرف الأول</span><b>{{summary.car.manufacturer}} {{summary.car.model}} — <span dir="ltr">{{summary.car.plate}}</span></b></div>
+          {% endif %}
+          <div><span>موقع الحادث</span><b>{{summary.location}}</b></div>
+        </div>
+        {% endif %}
         <form method="post" action="{{url_for('accept_invitation',token=token)}}">
           <input type="hidden" name="csrf_token" value="{{csrf_token()}}">
           <button class="btn primary full">قبول الدعوة واستكمال بياناتي</button>
@@ -25,6 +38,6 @@
   {% else %}
     <div class="notice">الرابط غير صالح أو انتهت صلاحيته أو سبق استخدامه. يمكن طلب دعوة جديدة من منشئ البلاغ.</div>
   {% endif %}
-  <p class="fineprint">لا تُعرض بيانات البلاغ قبل قبول الدعوة. يُرجى عدم مشاركة الرابط مع الآخرين.</p>
+  <p class="fineprint">تُعرض بيانات الحادث الأساسية فقط للحساب المدعو، دون البيانات الشخصية للطرف الأول. يُرجى عدم مشاركة الرابط مع الآخرين.</p>
 </div>
 {% endblock %}
