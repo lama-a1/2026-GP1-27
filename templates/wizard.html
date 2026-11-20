@@ -235,6 +235,13 @@
         {% endfor %}
         {% endif %}
         <div id="video-upload-status" class="upload-progress" role="status" aria-live="polite" hidden>
+          <div class="try-analysing upload-busy">
+            {% include '_uploading.html' %}
+            <div>
+              <strong><span id="video-upload-title">جارٍ رفع الفيديو</span> <span class="vl-dots"><i></i><i></i><i></i></span></strong>
+              <span id="video-upload-tip">لا تغلق الصفحة حتى يكتمل الرفع.</span> <span class="vl-time" id="video-upload-eta"></span>
+            </div>
+          </div>
           <div class="upload-progress-track"><div id="video-upload-progress"></div></div>
           <span id="video-upload-message">جارٍ رفع الفيديو...</span>
         </div>

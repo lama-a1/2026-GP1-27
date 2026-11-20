@@ -1,0 +1,31 @@
+{# animated "uploading" mark: dashcam frame, the video clip rising toward the cloud, a data stream and the road - shown while the video uploads #}
+<svg class="va-loader" viewBox="0 0 400 300" aria-hidden="true">
+  <style>
+    .su-corner{fill:none;stroke:#066b44;stroke-width:14;stroke-linecap:round}
+    .su-cloud{fill:#d4e8dc;stroke:#066b44;stroke-width:8;stroke-linejoin:round}
+    .su-arrow{fill:none;stroke:#066b44;stroke-width:9;stroke-linecap:round;stroke-linejoin:round}
+    .su-dark{fill:#143c2b}
+    .su-glass{fill:#7fbb9b}
+    .su-light{fill:none;stroke:#7fbb9b;stroke-linecap:round}
+    .su-stream{stroke-width:8;stroke-dasharray:10 12;animation:su-stream .6s linear infinite}
+    .su-road{stroke-width:10;stroke-dasharray:20 16;animation:su-road .7s linear infinite}
+    .su-clip{animation:su-clip 2.2s ease-in-out infinite}
+    .su-arrow-g{animation:su-arrow 1.4s ease-in-out infinite}
+    @keyframes su-stream{to{stroke-dashoffset:22}}
+    @keyframes su-road{to{stroke-dashoffset:-36}}
+    @keyframes su-clip{0%,100%{transform:translateY(6px)}50%{transform:translateY(-8px)}}
+    @keyframes su-arrow{0%,100%{transform:translateY(4px);opacity:.55}50%{transform:translateY(-4px);opacity:1}}
+    @media (prefers-reduced-motion:reduce){.su-stream,.su-road,.su-clip,.su-arrow-g{animation:none}}
+  </style>
+  <path class="su-corner" d="M24 88V48Q24 22 50 22H104M296 22H350Q376 22 376 48V88M24 212V252Q24 278 50 278H104M376 212V252Q376 278 350 278H296"/>
+  <path class="su-cloud" d="M150 96Q126 96 126 74Q126 52 150 52Q156 30 182 30Q204 30 214 46Q222 40 234 40Q258 40 262 62Q280 64 280 80Q280 96 262 96Z"/>
+  <g class="su-arrow-g"><path class="su-arrow" d="M203 84V58M191 68 203 56 215 68"/></g>
+  <path class="su-light su-stream" d="M203 158V108"/>
+  <path class="su-light su-road" d="M150 236 110 282M256 236 296 282"/>
+  <g class="su-clip">
+    <rect class="su-dark" x="150" y="150" width="106" height="78" rx="14"/>
+    <rect class="su-glass" x="160" y="158" width="10" height="8" rx="2"/><rect class="su-glass" x="160" y="174" width="10" height="8" rx="2"/><rect class="su-glass" x="160" y="190" width="10" height="8" rx="2"/><rect class="su-glass" x="160" y="206" width="10" height="8" rx="2"/>
+    <rect class="su-glass" x="236" y="158" width="10" height="8" rx="2"/><rect class="su-glass" x="236" y="174" width="10" height="8" rx="2"/><rect class="su-glass" x="236" y="190" width="10" height="8" rx="2"/><rect class="su-glass" x="236" y="206" width="10" height="8" rx="2"/>
+    <path class="su-glass" d="M193 170V208L222 189Z"/>
+  </g>
+</svg>

@@ -80,12 +80,33 @@ function showFilename(input){
     if(status)status.hidden=false;
     if(button)button.disabled=true;
     const setMessage=(value)=>{if(message)message.textContent=value;};
+    // keep the user company while the video uploads: rotating tips + time left
+    const title=document.getElementById('video-upload-title');
+    const tipEl=document.getElementById('video-upload-tip');
+    const etaEl=document.getElementById('video-upload-eta');
+    const tips=['لا تغلق الصفحة حتى يكتمل الرفع.','الفيديو الأقصر يُرفع أسرع.','سيُحلَّل الفيديو تلقائيًا بعد الرفع.','يمكنك حذف الفيديو واستبداله قبل إرسال البيانات.'];
+    let tipIndex=0;
+    const tipTimer=setInterval(()=>{tipIndex=(tipIndex+1)%tips.length;if(tipEl)tipEl.textContent=tips[tipIndex];},4000);
+    let startedAt=Date.now();
+    const showProgress=(sent)=>{
+      const pct=Math.min(100,Math.round(sent/file.size*100));
+      if(bar)bar.style.width=pct+'%';
+      setMessage('جارٍ رفع الفيديو... '+pct+'٪');
+      const secs=(Date.now()-startedAt)/1000;
+      if(etaEl&&sent>0&&secs>2){
+        const left=Math.max(0,Math.round((file.size-sent)/(sent/secs)));
+        etaEl.textContent=left>=60?('متبقٍ '+Math.ceil(left/60)+' د تقريبًا'):left>0?('متبقٍ '+left+' ث تقريبًا'):'';
+      }
+    };
+    const setTitle=(value)=>{if(title)title.textContent=value;if(etaEl&&value!=='جارٍ رفع الفيديو')etaEl.textContent='';};
     try{
+      setTitle('جارٍ تجهيز الفيديو');
       setMessage('جارٍ تجهيز الفيديو...');
       const response=await fetch(base+'presign',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({filename:file.name,size:file.size,camera:(form.querySelector('[name="camera"]:checked')||{}).value||''})});
       const ticket=await response.json();
       if(!response.ok)throw new Error(ticket.error||'تعذر بدء رفع الفيديو.');
       if(ticket.provider==='cloudinary'){
+        setTitle('جارٍ رفع الفيديو');startedAt=Date.now();
         const chunkSize=20*1024*1024;
         const uploadId='siyaq-'+Date.now()+'-'+Math.random().toString(36).slice(2);
         for(let offset=0;offset<file.size;offset+=chunkSize){
@@ -98,18 +119,13 @@ function showFilename(input){
           payload.append('signature',ticket.signature);
           payload.append('public_id',ticket.public_id);
           payload.append('type',ticket.delivery_type);
-          if(ticket.transformation)payload.append('transformation',ticket.transformation);  // signed: stored without sound
           await new Promise((resolve,reject)=>{
             const xhr=new XMLHttpRequest();
             xhr.open('POST',ticket.upload_url);
             xhr.setRequestHeader('X-Unique-Upload-Id',uploadId);
             xhr.setRequestHeader('Content-Range','bytes '+offset+'-'+(end-1)+'/'+file.size);
             xhr.upload.onprogress=(ev)=>{
-              if(ev.lengthComputable){
-                const pct=Math.round((offset+ev.loaded)/file.size*100);
-                if(bar)bar.style.width=pct+'%';
-                setMessage('جارٍ رفع الفيديو... '+pct+'٪');
-              }
+              if(ev.lengthComputable)showProgress(offset+ev.loaded);
             };
             xhr.onload=()=>{
               let result={};try{result=JSON.parse(xhr.responseText);}catch(_){}
@@ -121,23 +137,25 @@ function showFilename(input){
           });
         }
       }else{
+      setTitle('جارٍ رفع الفيديو');startedAt=Date.now();
       await new Promise((resolve,reject)=>{
         const xhr=new XMLHttpRequest();
         xhr.open('PUT',ticket.upload_url);
         xhr.setRequestHeader('Content-Type',ticket.content_type);
-        xhr.upload.onprogress=(ev)=>{if(ev.lengthComputable){const pct=Math.round(ev.loaded/ev.total*100);if(bar)bar.style.width=pct+'%';setMessage('جارٍ رفع الفيديو... '+pct+'٪');}};
+        xhr.upload.onprogress=(ev)=>{if(ev.lengthComputable)showProgress(ev.loaded/ev.total*file.size);};
         xhr.onload=()=>xhr.status>=200&&xhr.status<300?resolve():reject(new Error('تعذر رفع الفيديو. يرجى المحاولة مرة أخرى.'));
         xhr.onerror=()=>reject(new Error('تعذر الاتصال بخدمة رفع الفيديو.'));
         xhr.send(file);
       });
       }
+      setTitle('جارٍ حفظ الفيديو');
       setMessage('جارٍ حفظ الفيديو...');
       const done=await fetch(base+'complete',{method:'POST',headers:{'X-CSRF-Token':csrf}});
       const result=await done.json();
       if(!done.ok)throw new Error(result.error||'تعذر حفظ الفيديو.');
       // stay on the video step so the user can check or delete the video
       window.location.assign('/cases/'+encodeURIComponent(caseId)+'/steps/5');
-    }catch(error){setMessage(error.message||'حدث خطأ أثناء رفع الفيديو.');if(button)button.disabled=false;}
+    }catch(error){clearInterval(tipTimer);setTitle('تعذر رفع الفيديو');document.querySelector('.upload-busy')?.classList.add('is-error');setMessage(error.message||'حدث خطأ أثناء رفع الفيديو.');if(button)button.disabled=false;}
   });
 })();
 

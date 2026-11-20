@@ -595,3 +595,9 @@ form[data-step="7"] .wizardfooter{display:none}
 .va-player.va-cropped:fullscreen .va-stage,.va-player.va-cropped:-webkit-full-screen .va-stage{width:min(100vw,calc(100vh * var(--ar,1.78)))}
 .va-player.va-cropped:fullscreen video,.va-player.va-cropped:-webkit-full-screen video{max-height:none;object-fit:fill}
 .va-mark.mark-reversing,.lgm.mark-reversing{background:#c2185b}.va-event.ev-reversing,.va-story li.st-reversing{border-inline-start-color:#c2185b}
+
+/* animated "uploading" mark on the video step (templates/_uploading.html) */
+.upload-busy{margin-bottom:12px}
+.upload-busy .va-loader{width:92px;height:69px}
+.upload-busy.is-error .va-loader,.upload-busy.is-error .vl-dots{display:none}
+.upload-busy.is-error strong{color:#b3261e}

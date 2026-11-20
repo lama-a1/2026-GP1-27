@@ -262,9 +262,9 @@ def register(app, h):
         forget_trial()                                  # an earlier upload that was never analysed
         public_id = TRIAL_DIR + uuid.uuid4().hex
         timestamp = int(time.time())
-        params = {'public_id': public_id, 'timestamp': timestamp, 'type': 'authenticated', 'transformation': h.MUTE}
+        params = {'public_id': public_id, 'timestamp': timestamp, 'type': 'authenticated'}
         session['expert_trial'] = {'public_id': public_id, 'name': secure_filename(name) or 'video.' + ext}
-        return jsonify(provider='cloudinary', public_id=public_id, timestamp=timestamp, api_key=os.environ['CLOUDINARY_API_KEY'], transformation=h.MUTE,
+        return jsonify(provider='cloudinary', public_id=public_id, timestamp=timestamp, api_key=os.environ['CLOUDINARY_API_KEY'],
                        signature=h.cloudinary_sign(params), delivery_type='authenticated',
                        upload_url='https://api.cloudinary.com/v1_1/' + quote(os.environ['CLOUDINARY_CLOUD_NAME'], safe='') + '/video/upload')
 

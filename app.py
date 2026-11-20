@@ -28,8 +28,6 @@ VIDEO_MIME = {'mp4':'video/mp4','mov':'video/quicktime','avi':'video/x-msvideo',
 def cloudinary_ready():
     return all(os.getenv(k, '').strip() for k in ('CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'))
 
-MUTE = 'ac_none'   # Cloudinary: remove the audio track
-
 def cloudinary_sign(params):
     values = '&'.join(f'{key}={params[key]}' for key in sorted(params))
     return hashlib.sha1((values + os.environ['CLOUDINARY_API_SECRET']).encode('utf-8')).hexdigest()
@@ -1265,8 +1263,7 @@ def video_presign(case_id):
     if cloudinary_ready():
         public_id = f'siyaq/cases/{case_id}/parties/{party["national_id"]}/{uuid.uuid4().hex}'
         timestamp = int(time.time())
-        # ac_none = incoming transformation: Cloudinary stores the video without its sound (voices in the car stay private)
-        params = {'public_id': public_id, 'timestamp': timestamp, 'type': 'authenticated', 'transformation': MUTE}
+        params = {'public_id': public_id, 'timestamp': timestamp, 'type': 'authenticated'}
         session['pending_video'] = {'provider': 'cloudinary', 'public_id': public_id,
                                     'case_id': case_id, 'party_id': party['national_id'],
                                     'name': secure_filename(original) or 'video.'+ext,
@@ -1275,7 +1272,7 @@ def video_presign(case_id):
                        quote(os.environ['CLOUDINARY_CLOUD_NAME'], safe='') + '/video/upload',
                        api_key=os.environ['CLOUDINARY_API_KEY'], timestamp=timestamp,
                        signature=cloudinary_sign(params), public_id=public_id,
-                       delivery_type='authenticated', transformation=MUTE, content_type=VIDEO_MIME[ext])
+                       delivery_type='authenticated', content_type=VIDEO_MIME[ext])
     key = f'cases/{case_id}/parties/{party["national_id"]}/{uuid.uuid4().hex}.{ext}'
     mime = VIDEO_MIME[ext]
     try:
