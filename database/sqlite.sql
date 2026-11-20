@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS video_analysis (
 CREATE TABLE IF NOT EXISTS party_info_history (
             history_id INTEGER PRIMARY KEY,
             national_id TEXT NOT NULL REFERENCES accident_party(national_id) ON UPDATE CASCADE ON DELETE CASCADE,
-            field TEXT NOT NULL CHECK (field IN ('full_name','national_id','phone')),
+            field TEXT NOT NULL CHECK (field IN ('full_name','national_id','phone','date_of_birth')),
             old_value TEXT NOT NULL, new_value TEXT NOT NULL,
             changed_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP));
 

@@ -5,17 +5,29 @@
 {% if tab=='personal' %}
 <h2>البيانات الشخصية</h2>
 <p>تظهر هذه البيانات تلقائيًا عند إنشاء حالة جديدة. تعديلها لا يغيّر البلاغات المرسلة سابقًا، فهي تُحفظ ببياناتك وقت إرسالها.</p>
-<!-- edit the name, national ID and phone; the old values are kept in the history with the time of the change -->
-<form method="post" class="identity-grid profile-form">
+<!-- edit the name, national ID, date of birth and phone; the old values are kept with the time of the change -->
+<form method="post" class="identity-grid profile-form" id="personal-form">
   <input type="hidden" name="csrf_token" value="{{csrf_token()}}">
   <input type="hidden" name="action" value="personal">
   <label>الاسم الثلاثي<input name="full_name" value="{{user.full_name}}" required></label>
-  <label>رقم الهوية / الإقامة<input name="national_id" value="{{user.national_id or ''}}" required inputmode="numeric" maxlength="10" dir="ltr"></label>
-  <label>تاريخ الميلاد<input value="{{user.birth_date or ''}}" readonly></label>
+  <label>رقم الهوية / الإقامة<input name="national_id" value="{{user.national_id or ''}}" data-original="{{user.national_id or ''}}" required inputmode="numeric" maxlength="10" dir="ltr"></label>
+  <label>تاريخ الميلاد<input type="date" name="date_of_birth" value="{{user.birth_date or ''}}" required></label>
   <label>رقم الجوال<input name="phone" value="{{user.phone or ''}}" required inputmode="numeric" maxlength="10" dir="ltr"></label>
-  <label>كلمة المرور الحالية <small>(مطلوبة فقط عند تغيير رقم الهوية)</small><input type="password" name="current" autocomplete="current-password"></label>
+  <!-- asked for only when the national ID is changed -->
+  <label id="id-password" hidden style="grid-column:1/-1">لتغيير رقم الهوية / الإقامة أدخل كلمة المرور الحالية<input type="password" name="current" autocomplete="current-password"></label>
   <div><button class="btn primary">حفظ البيانات</button></div>
 </form>
+<script>
+(function(){
+  var form=document.getElementById('personal-form'), id=form.elements.national_id, box=document.getElementById('id-password'), pass=form.elements.current;
+  function changed(){ return id.value.trim()!==id.dataset.original; }
+  // the password field appears only when the national ID is changed and the user presses save
+  form.addEventListener('submit',function(e){
+    if(changed() && !pass.value){ e.preventDefault(); box.hidden=false; pass.required=true; pass.focus(); }
+  });
+  id.addEventListener('input',function(){ if(!changed()){ box.hidden=true; pass.required=false; pass.value=''; } });
+})();
+</script>
 
 <!-- change the email after checking the verification code -->
 <h2 id="email">البريد الإلكتروني</h2>

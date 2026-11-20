@@ -47,18 +47,18 @@ def test_old_report_keeps_old_info_and_history_keeps_both(monkeypatch):
         login_as(a,nid)
         case_id=submit_case(a)
         # a national ID change needs the current password
-        post(a,'/profile?tab=personal',{'action':'personal','full_name':'Sara Ali Ahmed','national_id':new_nid,'phone':old_phone,'current':'wrong'})
+        post(a,'/profile?tab=personal',{'action':'personal','full_name':'Sara Ali Ahmed','national_id':new_nid,'phone':old_phone,'date_of_birth':'2000-01-01','current':'wrong'})
         with module.conn() as db:
             assert db.execute('SELECT 1 FROM accident_party WHERE national_id=?',(nid,)).fetchone()
         r=post(a,'/profile?tab=personal',{'action':'personal','full_name':'Sara Mohammed Ahmed','national_id':new_nid,
-                                          'phone':new_phone,'current':'secret123'})
+                                          'phone':new_phone,'date_of_birth':'1999-05-20','current':'secret123'})
         assert r.status_code==302
         # the session follows the new ID, and the user's pages still work
         for page in ('/dashboard','/cases','/profile'):
             assert a.get(page).status_code==200, page
     with module.conn() as db:
         u=db.execute('SELECT * FROM accident_party WHERE national_id=?',(new_nid,)).fetchone()
-        assert u['full_name']=='Sara Mohammed Ahmed' and u['phone']==new_phone
+        assert u['full_name']=='Sara Mohammed Ahmed' and u['phone']==new_phone and u['date_of_birth']=='1999-05-20'
         assert not db.execute('SELECT 1 FROM accident_party WHERE national_id=?',(nid,)).fetchone()
         # related rows moved to the new ID
         assert db.execute('SELECT 1 FROM participates WHERE national_id=? AND case_id=?',(new_nid,case_id)).fetchone()
@@ -68,10 +68,11 @@ def test_old_report_keeps_old_info_and_history_keeps_both(monkeypatch):
         assert rows['full_name']['old_value']=='Sara Ali Ahmed' and rows['full_name']['new_value']=='Sara Mohammed Ahmed'
         assert rows['national_id']['old_value']==nid and rows['national_id']['new_value']==new_nid
         assert rows['phone']['old_value']==old_phone and rows['phone']['new_value']==new_phone
+        assert rows['date_of_birth']['old_value']=='2000-01-01' and rows['date_of_birth']['new_value']=='1999-05-20'
         assert all(r['changed_at'] for r in rows.values())
         # the case submitted before the change keeps the info at submission
         snap=module.case_party_info(db,case_id,new_nid)
-        assert snap['full_name']=='Sara Ali Ahmed' and snap['national_id']==nid and snap['phone']==old_phone and snap['captured_at']
+        assert snap['full_name']=='Sara Ali Ahmed' and snap['date_of_birth']=='2000-01-01' and snap['national_id']==nid and snap['phone']==old_phone and snap['captured_at']
 
 def test_phone_or_id_of_another_account_is_rejected():
     app.config['TESTING']=True
@@ -81,7 +82,7 @@ def test_phone_or_id_of_another_account_is_rejected():
         other_phone=db.execute('SELECT phone FROM accident_party WHERE national_id=?',(other,)).fetchone()['phone']
     with app.test_client() as a:
         login_as(a,nid)
-        post(a,'/profile?tab=personal',{'action':'personal','full_name':'First Test Party','national_id':nid,'phone':other_phone})
+        post(a,'/profile?tab=personal',{'action':'personal','full_name':'First Test Party','national_id':nid,'phone':other_phone,'date_of_birth':'2000-01-01'})
     with module.conn() as db:
         assert db.execute('SELECT phone FROM accident_party WHERE national_id=?',(nid,)).fetchone()['phone']!=other_phone
         assert not db.execute('SELECT 1 FROM party_info_history WHERE national_id=?',(nid,)).fetchone()
@@ -115,3 +116,22 @@ def test_home_button_in_the_bar():
         login_as(a,nid)
         html=a.get('/cases').get_data(as_text=True)
         assert 'href="/dashboard">الرئيسية</a>' in html
+
+def test_name_and_birth_date_change_without_password_and_under_18_rejected():
+    app.config['TESTING']=True
+    with module.conn() as db:
+        nid,_=factory.make_party(db,'Noura Saad Ali')
+        phone=db.execute('SELECT phone FROM accident_party WHERE national_id=?',(nid,)).fetchone()['phone']
+    with app.test_client() as a:
+        login_as(a,nid)
+        # no password needed when the national ID stays the same
+        post(a,'/profile?tab=personal',{'action':'personal','full_name':'Noura Saad Alharbi','national_id':nid,'phone':phone,'date_of_birth':'1998-03-03'})
+        # a birth date that makes the user younger than 18 is rejected
+        post(a,'/profile?tab=personal',{'action':'personal','full_name':'Noura Saad Alharbi','national_id':nid,'phone':phone,'date_of_birth':'2020-01-01'})
+        html=a.get('/profile').get_data(as_text=True)
+        assert 'id="id-password" hidden' in html
+    with module.conn() as db:
+        u=db.execute('SELECT full_name,date_of_birth FROM accident_party WHERE national_id=?',(nid,)).fetchone()
+        assert u['full_name']=='Noura Saad Alharbi' and u['date_of_birth']=='1998-03-03'
+        fields=sorted(r['field'] for r in db.execute('SELECT field FROM party_info_history WHERE national_id=?',(nid,)).fetchall())
+        assert fields==['date_of_birth','full_name']

@@ -155,7 +155,7 @@ def party_vehicle(c, case_id, national_id):
         WHERE i.case_id=? AND v.national_id=?''',(case_id,national_id)).fetchone()
 
 # personal info: keep the old value of every change, and keep each party's info as it was at submission
-PERSONAL_FIELDS={'full_name':'الاسم','national_id':'رقم الهوية / الإقامة','phone':'رقم الجوال'}
+PERSONAL_FIELDS={'full_name':'الاسم','national_id':'رقم الهوية / الإقامة','phone':'رقم الجوال','date_of_birth':'تاريخ الميلاد'}
 NATIONAL_ID_REFS=[('vehicle','national_id'),('participates','national_id'),('dashcam_video','national_id'),
     ('participation_progress','national_id'),('receives','national_id'),('case_invitation','claimed_by'),
     ('password_reset_link','national_id'),('party_info_history','national_id'),('party_case_snapshot','national_id')]
@@ -1510,13 +1510,21 @@ def profile():
             name=' '.join(request.form.get('full_name','').split())
             nid=normalized_digits(request.form.get('national_id',''))
             phone=normalized_digits(request.form.get('phone',''))
+            birth=request.form.get('date_of_birth','').strip()
             errors=[]
             if len(name.split())<3: errors.append('الاسم الثلاثي مطلوب (الاسم الأول واسم الأب واسم العائلة).')
             if not re.fullmatch(r'[12]\d{9}',nid): errors.append('رقم الهوية / الإقامة يجب أن يبدأ بـ 1 أو 2 ويتكون من 10 أرقام.')
             if not re.fullmatch(r'05\d{8}',phone): errors.append('رقم الجوال يجب أن يبدأ بـ 05 ويتكون من 10 أرقام.')
-            changes={k:v for k,v in (('full_name',name),('national_id',nid),('phone',phone)) if v!=u[k]}
+            try:
+                born=datetime.strptime(birth,'%Y-%m-%d').date()
+                if born>datetime.now().date(): errors.append('تاريخ الميلاد لا يمكن أن يكون في المستقبل.')
+                elif age_on(born)<MIN_AGE: errors.append('يجب أن يكون عمرك 18 سنة أو أكثر.')
+            except ValueError: errors.append('تاريخ الميلاد غير صالح.')
+            current={'full_name':u['full_name'],'national_id':u['national_id'],'phone':u['phone'],'date_of_birth':u['birth_date']}
+            changes={k:v for k,v in (('full_name',name),('national_id',nid),('phone',phone),('date_of_birth',birth)) if v!=current[k]}
+            # the current password is asked for only when the national ID changes
             if not errors and 'national_id' in changes and not check_password_hash(u['password_hash'],request.form.get('current','')):
-                errors.append('أدخل كلمة المرور الحالية لتغيير رقم الهوية / الإقامة.')
+                errors.append('كلمة المرور الحالية غير صحيحة. لم يتم تغيير رقم الهوية / الإقامة.' if request.form.get('current') else 'أدخل كلمة المرور الحالية لتغيير رقم الهوية / الإقامة.')
             if not errors and changes:
                 with conn() as c:
                     if 'national_id' in changes and c.execute('SELECT 1 FROM accident_party WHERE national_id=?',(nid,)).fetchone():
@@ -1525,8 +1533,8 @@ def profile():
                         errors.append('رقم الجوال مسجل بحساب آخر.')
                     if not errors:
                         old_id=u['national_id']
-                        for field,value in changes.items(): record_personal_change(c,old_id,field,u[field],value)
-                        c.execute('UPDATE accident_party SET full_name=?,phone=? WHERE national_id=?',(name,phone,old_id))
+                        for field,value in changes.items(): record_personal_change(c,old_id,field,current[field],value)
+                        c.execute('UPDATE accident_party SET full_name=?,phone=?,date_of_birth=? WHERE national_id=?',(name,phone,birth,old_id))
                         if 'national_id' in changes: change_national_id(c,old_id,nid)
                 if not errors:
                     if 'national_id' in changes: session['uid']=nid

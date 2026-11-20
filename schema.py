@@ -116,12 +116,12 @@ def statements(postgres=False):
             status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running','done','failed')),
             result_json TEXT, engine_version TEXT, error TEXT,
             started_at TEXT, finished_at TEXT)''',
-        # personal-info history: every change to the name, national ID or phone is kept with the old
+        # personal-info history: every change to the name, national ID, phone or date of birth is kept with the old
         # and new value and the time of the change (the old value is never lost)
         f'''CREATE TABLE IF NOT EXISTS party_info_history (
             history_id {identity},
             national_id TEXT NOT NULL REFERENCES accident_party(national_id) ON UPDATE CASCADE ON DELETE CASCADE,
-            field TEXT NOT NULL CHECK (field IN ('full_name','national_id','phone')),
+            field TEXT NOT NULL CHECK (field IN ('full_name','national_id','phone','date_of_birth')),
             old_value TEXT NOT NULL, new_value TEXT NOT NULL,
             changed_at TEXT NOT NULL DEFAULT ({now}))''',
         # the party's personal info as it was when they submitted their part of a case, with a timestamp;
@@ -208,7 +208,11 @@ def national_id_cascade(postgres):
         LOOP
             EXECUTE 'ALTER TABLE '||r.tbl||' DROP CONSTRAINT '||quote_ident(r.name);
             EXECUTE 'ALTER TABLE '||r.tbl||' ADD CONSTRAINT '||quote_ident(r.name)||' '||r.def||' ON UPDATE CASCADE';
-        END LOOP; END $$"""]
+        END LOOP; END $$""",
+        # the date of birth can be edited too: a table made before that allowed only three fields
+        'ALTER TABLE party_info_history DROP CONSTRAINT IF EXISTS party_info_history_field_check',
+        """ALTER TABLE party_info_history ADD CONSTRAINT party_info_history_field_check
+            CHECK (field IN ('full_name','national_id','phone','date_of_birth'))"""]
 
 
 def submission_guard(postgres):

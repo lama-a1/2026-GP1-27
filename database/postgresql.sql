@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS video_analysis (
 CREATE TABLE IF NOT EXISTS party_info_history (
             history_id BIGSERIAL PRIMARY KEY,
             national_id TEXT NOT NULL REFERENCES accident_party(national_id) ON UPDATE CASCADE ON DELETE CASCADE,
-            field TEXT NOT NULL CHECK (field IN ('full_name','national_id','phone')),
+            field TEXT NOT NULL CHECK (field IN ('full_name','national_id','phone','date_of_birth')),
             old_value TEXT NOT NULL, new_value TEXT NOT NULL,
             changed_at TEXT NOT NULL DEFAULT (to_char(now() at time zone 'UTC','YYYY-MM-DD HH24:MI:SS')));
 
@@ -256,3 +256,8 @@ DO $$ DECLARE r record; BEGIN
             EXECUTE 'ALTER TABLE '||r.tbl||' DROP CONSTRAINT '||quote_ident(r.name);
             EXECUTE 'ALTER TABLE '||r.tbl||' ADD CONSTRAINT '||quote_ident(r.name)||' '||r.def||' ON UPDATE CASCADE';
         END LOOP; END $$;
+
+ALTER TABLE party_info_history DROP CONSTRAINT IF EXISTS party_info_history_field_check;
+
+ALTER TABLE party_info_history ADD CONSTRAINT party_info_history_field_check
+            CHECK (field IN ('full_name','national_id','phone','date_of_birth'));
