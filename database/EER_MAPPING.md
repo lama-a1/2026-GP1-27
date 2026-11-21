@@ -1,6 +1,6 @@
 # EER mapping
 
-The seven entities map to seven tables. Composite attributes are flattened into columns. Relationship foreign keys are added on the many side; many-to-many relationships and multivalued bounding boxes need their own tables. The resulting schema has 12 tables.
+The eight entities map to eight tables. Composite attributes are flattened into columns. Relationship foreign keys are added on the many side; many-to-many relationships and multivalued bounding boxes need their own tables. The resulting schema has 14 tables.
 
 | EER entity | Table | Primary key | Relationship foreign keys |
 | --- | --- | --- | --- |
@@ -11,6 +11,7 @@ The seven entities map to seven tables. Composite attributes are flattened into 
 | DETECTED_EVENT | `detected_event` | `event_id` | `video_id` produces the event |
 | AUTHORIZED_EXPERT | `authorized_expert` | `expert_id` | — |
 | FINAL_REPORT | `final_report` | `report_id` | unique `case_id`; optional `approved_by_expert_id` |
+| PARTY_INFO_HISTORY (weak entity) | `party_info_history` | `history_id` | `national_id` of the party (Records); `field` is full_name, national_id, phone or date_of_birth; `old_value`, `new_value`, `changed_at` |
 
 | EER relationship or attribute | Table | Key and values |
 | --- | --- | --- |
@@ -20,6 +21,7 @@ The seven entities map to seven tables. Composite attributes are flattened into 
 | Bounding boxes [1..*] | `bounding_box` | PK (`event_id`, `vehicle_role`, `bounding_box`); parent FK to involvement |
 | party_a_description / party_b_description (composite) | `accident_case` | one column per part: `party_a_description_text`, `party_a_pre_impact_event`, `party_a_other_vehicle_side`, `party_a_lane_changer`, `party_a_impact_zone` (and the same for `party_b_`) |
 | Receives | `receives` | PK (`report_id`, `national_id`) |
+| PARTY_CASE_SNAPSHOT (association class of Participates) | `party_case_snapshot` | PK and FK (`national_id`, `case_id`) to participates; the party's `snapshot_national_id`, `full_name`, `date_of_birth`, `phone`, `email` and `captured_at` when they submitted their part of the case |
 
 `vehicle.manufacturer`, `model`, `year` and `color` are the components of `car_details`. Plate letters and numbers are separate fields. All other entity attributes retain the EER names.
 
