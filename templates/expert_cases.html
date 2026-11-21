@@ -10,21 +10,26 @@
     <h2><span class="pill pill-{{key|replace('_','-')}}">{{title}}</span> <small>{{hint}} · {{groups[key]|length}}</small></h2>
     <div class="expert-table-wrap">
       <table class="expert-table">
-        <thead><tr><th>رقم الحالة</th><th>نوع الحادث</th><th>تاريخ الحادث</th><th>وقت الحادث</th><th>التحليل الآلي</th></tr></thead>
+        <thead><tr><th>رقم الحالة</th><th>نوع الحادث</th><th>تاريخ الحادث</th><th>وقت الحادث</th><th>تحليل الفيديوهات</th></tr></thead>
         <tbody>
           {% for c in groups[key] %}
           <tr><td dir="ltr">{{c.reference}}</td><td>{{'حادث تغيير مسار' if c.accident_type=='LANE_CHANGE' else 'تصادم خلفي' if c.accident_type=='REAR_END' else c.accident_type}}</td><td>{{c.accident_date}}</td><td>{{c.accident_time}}</td>
             <td><div class="expert-analysis">{% set ana = case_analysis(c.case_id) %}
+              {% if key=='pending' %}
+              {# the analysis starts only when both parties have submitted, so there is nothing to open yet #}
+              <span class="ana-waiting">ينتظر الطرف الثاني · يبدأ التحليل بعد إرسال الطرفين</span>
+              {% else %}
               {% for v in ana.videos %}
               {# a clear button: action + party, then the analysis state (coloured dot) and an arrow #}
               <a class="ana-link ana-{{v.status}}" href="{{url_for('video_analysis_page',video_id=v.video_id)}}">
                 <span class="ana-title">عرض تحليل {{'الطرف الأول' if v.position=='A' else 'الطرف الثاني'}}</span>
-                <span class="ana-state"><i class="ana-dot" aria-hidden="true"></i>{{ 'ينتظر الطرف الثاني' if v.status=='none' and key=='pending' else {'done':'اكتمل','running':'جارٍ التحليل','failed':'تعذّر','none':'لم يبدأ بعد'}[v.status] }}<span class="ana-arrow" aria-hidden="true">←</span></span>
+                <span class="ana-state"><i class="ana-dot" aria-hidden="true"></i>{{ {'done':'اكتمل','running':'جارٍ التحليل','failed':'تعذّر','none':'لم يبدأ بعد'}[v.status] }}<span class="ana-arrow" aria-hidden="true">←</span></span>
               </a>
               {% else %}<span class="muted">لا يوجد فيديو</span>{% endfor %}
               {# Party B may submit without a video: say so once both parties have submitted #}
-              {% if key!='pending' and ana.videos and not (ana.videos|selectattr('position','equalto','B')|list) %}
+              {% if ana.videos and not (ana.videos|selectattr('position','equalto','B')|list) %}
               <span class="ana-novideo">الطرف الثاني · لم يرفع فيديو</span>
+              {% endif %}
               {% endif %}
             </div></td></tr>
           {% else %}<tr><td colspan="5" class="expert-empty">لا توجد حالات في هذا القسم.</td></tr>{% endfor %}
