@@ -1273,7 +1273,8 @@ def wizard(case_id,step):
         first_vehicle=party_vehicle(c,case_id,case['creator_id']) if party['position']=='B' else None
     try: desc_meta=json.loads(party['description_meta'] or '{}')
     except ValueError: desc_meta={}
-    return render_template('wizard.html',garage=garage,other=other,first_vehicle=first_vehicle,case=case,party=party,vehicle=vehicle,videos=videos,step=step,progress=progress,desc_meta=desc_meta,locked_meta=locked_meta,cameras=allowed_cameras(case,party),steps=STEPS if party['position']=='A' else STEPS[:6]+['اكتمال البلاغ'],invite=invited,other_party=other_party,cloud_upload=bool(os.getenv('VERCEL') or storage_ready() or cloudinary_ready()))
+    with conn() as c2:
+      return render_template('wizard.html',garage=garage,other=other,first_vehicle=first_vehicle,case=case,party=party,vehicle=vehicle,videos=videos,step=step,progress=progress,desc_meta=desc_meta,locked_meta=locked_meta,cameras=allowed_cameras(case,party),steps=STEPS if party['position']=='A' else STEPS[:6]+['اكتمال البلاغ'],invite=invited,other_party=other_party,cloud_upload=bool(os.getenv('VERCEL') or storage_ready() or cloudinary_ready()),progress_key=(progress_key(c2,case,party) if step==7 and party['completed'] else None))
 
 def add_video(c, case_id, national_id, storage_path, camera, original_name):
     # save an uploaded video (DASHCAM_VIDEO) and its processing record (supporting table)
@@ -1287,6 +1288,25 @@ def allowed_cameras(case,party):
     if case['accident_type']=='REAR_END' and party['vehicle_role']=='REAR': return ('front',)
     if case['accident_type']=='REAR_END' and party['vehicle_role']=='FRONT': return ('rear',)
     return ('front','rear')
+
+def progress_key(c, case, party):
+    # what the case status page shows: case status, whether the other party joined / submitted, analysis state
+    other=party_at(c,case,'B' if party['position']=='A' else 'A')
+    state=video_analysis_state(case['id'])
+    return '|'.join([status_key(case['status']),'1' if other and other['user_id'] else '0',
+                     '1' if other and other['completed'] else '0','wait' if state in ('none','running') else state])
+
+def video_analysis_state(case_id):
+    return app.jinja_env.globals['case_analysis'](case_id)['state']
+
+@app.get('/api/cases/<case_id>/progress')
+@login_required
+def case_progress(case_id):
+    # polled by the case status page, so a party sees the other party's submission and the analysis without refreshing
+    case, party = case_access(case_id)
+    if not party: abort(403)
+    with conn() as c:
+        return jsonify(key=progress_key(c,case,party))
 
 @app.post('/api/cases/<case_id>/videos/presign')
 @login_required

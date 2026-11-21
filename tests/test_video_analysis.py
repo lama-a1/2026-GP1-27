@@ -209,3 +209,23 @@ def test_events_are_linked_to_the_other_party_car():
         assert sorted(r['vehicle_role'] for r in rows) == ['ACTOR', 'ACTOR', 'AFFECTED']
         assert all(r['national_id'] == b for r in rows)         # always the other party's car
         assert all(r['boxes'] >= 1 for r in rows)               # bounding boxes [1..*]
+
+
+def test_status_page_polls_until_the_other_party_submits():
+    with module.conn() as db:
+        nid, case_id, vid = setup_case(db, both_submitted=False)
+        db.execute('UPDATE participation_progress SET completed=1 WHERE case_id=?', (case_id,))
+    with app.test_client() as client:
+        login(client, nid)
+        page = client.get(f'/cases/{case_id}/steps/7').data.decode()
+        assert f'/api/cases/{case_id}/progress' in page          # the page checks for changes by itself
+        before = client.get(f'/api/cases/{case_id}/progress').get_json()['key']
+        with module.conn() as db:
+            submit_party_b(db, case_id)
+        after = client.get(f'/api/cases/{case_id}/progress').get_json()['key']
+        assert before != after                                    # so the page reloads and shows both parties done
+    with app.test_client() as stranger:
+        with module.conn() as db:
+            other, _ = factory.make_party(db, 'Not in case')
+        login(stranger, other)
+        assert stranger.get(f'/api/cases/{case_id}/progress').status_code == 403

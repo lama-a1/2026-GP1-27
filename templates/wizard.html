@@ -402,6 +402,24 @@
     {% endif %}
     {% endif %}
 
+    <!-- keep the status page up to date: check every few seconds and reload when something changed
+         (the other party joined or submitted, the analysis finished, the expert approved); stops once the case is completed -->
+    {% if progress_key %}
+    <script>
+    (function(){
+      var key={{ progress_key|tojson }}, url='/api/cases/{{ case.id }}/progress';
+      var parts=key.split('|');
+      if(parts[0]==='completed')return;   // final result approved: nothing more can change
+      function check(){
+        if(document.hidden)return;
+        fetch(url,{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null;})
+          .then(function(d){if(d && d.key && d.key!==key)location.reload();}).catch(function(){});
+      }
+      setInterval(check,8000);
+      document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});
+    })();
+    </script>
+    {% endif %}
   </div>
 </div>
 {% endblock %}
