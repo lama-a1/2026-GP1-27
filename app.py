@@ -292,7 +292,7 @@ def otp_digest(code, email):
 
 def branded_email_html(kicker, title, description, panel_html, footer_note):
     # the design of the emails we send (logo, colors, Arabic layout)
-    base=os.getenv('PUBLIC_BASE_URL','https://siyaq-plum.vercel.app').strip().rstrip('/')
+    base=os.getenv('PUBLIC_BASE_URL','https://siyaq-eta.vercel.app').strip().rstrip('/')
     logo_url=html_escape(base+'/static/siyaq-email-logo.png',quote=True) if re.fullmatch(r'https://[^\s/]+',base) else ''
     brand_logo=(f'<img src="{logo_url}" alt="سياق | SIYAQ" width="134" height="60" style="display:block;max-width:134px;height:auto;margin:auto;" />' if logo_url else 'سياق | SIYAQ')
     return f"""<!doctype html>
