@@ -86,7 +86,7 @@
         <ul class="va-facts">
           {% for f in it.facts %}
           <li class="{{ 'is-ok' if f.ok == true else ('is-bad' if f.ok == false else '') }}">
-            <span class="va-fact-label">{{ f.label }}</span>
+            <span class="va-fact-label">{{ f.label }}{% if f.desc %}<span class="va-fact-desc">{{ f.desc }}</span>{% endif %}</span>
             <span class="va-fact-value">{% if f.ok == true %}<b class="va-tick">✓</b>{% elif f.ok == false %}<b class="va-cross">✗</b>{% endif %}{{ f.value }}</span>
             {% if f.note %}<small>{{ f.note }}</small>{% endif %}
           </li>

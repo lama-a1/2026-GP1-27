@@ -559,6 +559,7 @@ form[data-step="7"] .wizardfooter{display:none}
 .va-fact-label{color:#4d6457;font-size:14px}
 .va-fact-value{font-weight:800;font-size:16px;color:#143c2b}
 .va-facts small{grid-column:1/-1;color:#6b7f73;font-size:12.5px}
+.va-fact-desc{display:block;color:#7b8c83;font-size:12px;line-height:1.6;margin-top:2px}
 .va-tick,.va-cross{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;margin-inline-end:6px;font-size:13px;color:#fff;vertical-align:1px}
 .va-tick{background:#1e8e4f}.va-cross{background:#d93025}
 .va-more>summary{cursor:pointer;font-weight:800;font-size:17px;color:#006b3b;list-style:none;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}

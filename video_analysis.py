@@ -85,9 +85,19 @@ def _n(x, d=1):
     return None if x is None else round(float(x), d)
 
 
+# a short plain-language meaning, shown in small text under the technical facts
+FACT_DESC = {
+    'مسافة الأمان': 'هل تركت المركبة الخلفية مسافة تكفي لتتوقف إذا فرملت المركبة الأمامية.',
+    'الوقت المتبقي قبل الاصطدام': 'عدد الثواني المتبقية حتى الاصطدام لو استمرت المركبتان بالسرعة نفسها؛ كلما قلّ كانت المسافة أقرب.',
+    'التباطؤ اللازم لتفادي الاصطدام': 'قوة الفرملة التي كان يحتاجها السائق الخلفي لتفادي الاصطدام؛ الصفر يعني أن المسافة لم تكن تتناقص.',
+    'الوقت المتبقي قبل الاصطدام لحظة التوقف': 'عدد الثواني المتبقية حتى الاصطدام عندما بدأت المركبة الأمامية بالتوقف.',
+    'قوة التباطؤ': 'مدى شدة توقف المركبة الأمامية؛ كلما زاد الرقم كان التوقف أشد.',
+}
+
+
 def _fact(label, value, ok=None, note=None):
     # ok: True = within the limit (✓), False = outside it (✗), None = information only
-    return {'label': label, 'value': value, 'ok': ok, 'note': note}
+    return {'label': label, 'value': value, 'ok': ok, 'note': note, 'desc': FACT_DESC.get(label)}
 
 
 def summarise(result):
