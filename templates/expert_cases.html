@@ -16,7 +16,7 @@
           <tr><td dir="ltr">{{c.reference}}</td><td>{{'حادث تغيير مسار' if c.accident_type=='LANE_CHANGE' else 'تصادم خلفي' if c.accident_type=='REAR_END' else c.accident_type}}</td><td>{{c.accident_date}}</td><td>{{c.accident_time}}</td>
             <td><div class="expert-analysis">{% set ana = case_analysis(c.case_id) %}
               {% for v in ana.videos %}
-              <a class="ana-link ana-{{v.status}}" href="{{url_for('video_analysis_page',video_id=v.video_id)}}">فيديو {{'الطرف الأول' if v.position=='A' else 'الطرف الثاني'}} · {{ {'done':'اكتمل','running':'جارٍ التحليل','failed':'تعذّر','none':'لم يبدأ'}[v.status] }}</a>
+              <a class="ana-link ana-{{v.status}}" href="{{url_for('video_analysis_page',video_id=v.video_id)}}">فيديو {{'الطرف الأول' if v.position=='A' else 'الطرف الثاني'}} · {{ 'ينتظر الطرف الثاني' if v.status=='none' and key=='pending' else {'done':'اكتمل','running':'جارٍ التحليل','failed':'تعذّر','none':'لم يبدأ'}[v.status] }}</a>
               {% else %}<span class="muted">لا يوجد فيديو</span>{% endfor %}
             </div></td></tr>
           {% else %}<tr><td colspan="5" class="expert-empty">لا توجد حالات في هذا القسم.</td></tr>{% endfor %}

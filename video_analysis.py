@@ -319,12 +319,29 @@ def register(app, h):
         row = dict(row) if row else None
         result = json.loads(row['result_json']) if row and row.get('result_json') else None
         return render_template('video_analysis.html', v=v, case=case, row=row, result=result,
+                               waiting=h.status_key(case['status']) == 'pending',
                                event_ar=EVENT_AR, vehicle_ar=VEHICLE_AR, measure_ar=MEASURE_AR, value_ar=VALUE_AR)
 
     @app.post('/videos/<int:video_id>/analyse')
     @expert_or_party
     def video_analyse(video_id):
-        v, case = load_video(video_id)
+        if is_expert():
+            v, case = load_video(video_id)
+        else:
+            # any party of the case may start the analysis of the case's videos (the reply is only a status,
+            # so the other party's video stays private) - this lets whoever submits last start both videos
+            with h.conn() as c:
+                v = c.execute(h.VIDEO_SQL + ' WHERE v.video_id=?', (video_id,)).fetchone()
+                if not v:
+                    abort(404)
+                v = dict(v)
+                case = h.get_case(c, v['case_id'])
+                if not c.execute('SELECT 1 FROM participation_progress WHERE case_id=? AND national_id=?',
+                                 (v['case_id'], session.get('uid'))).fetchone():
+                    abort(403)
+        # the analysis starts only when the case is IN_PROGRESS, i.e. both parties have submitted (use case: Party B)
+        if h.status_key(case['status']) == 'pending':
+            return jsonify(status='waiting'), 409
         with h.conn() as c:
             row = c.execute('SELECT status, started_at FROM video_analysis WHERE video_id=?', (video_id,)).fetchone()
             if row and row['status'] == 'done' and not is_expert():

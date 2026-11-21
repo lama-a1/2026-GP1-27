@@ -4,7 +4,7 @@
 {% set type_ar = 'حادث تغيير مسار' if case.accident_type=='LANE_CHANGE' else 'تصادم خلفي' %}
 <div class="container va-page" data-analyse-url="{{ url_for('video_analyse', video_id=v.video_id) }}"
      data-status-url="{{ url_for('video_analysis_status', video_id=v.video_id) }}"
-     data-state="{{ row.status if row else 'none' }}">
+     data-state="{{ row.status if row else ('waiting' if waiting else 'none') }}">
   <a class="va-back" href="{{ url_for('expert_cases') }}"><i data-lucide="arrow-right"></i> العودة إلى الحالات</a>
 
   <section class="va-hero">
@@ -24,7 +24,10 @@
 
   {% if not result %}
   <section class="va-card va-wait" aria-live="polite">
-    {% if row and row.status == 'failed' %}
+    {% if waiting and not row %}
+      <h2>لم يبدأ التحليل بعد</h2>
+      <p class="va-muted">يبدأ التحليل الآلي تلقائيًا عندما يُكمل الطرفان بياناتهما وتصبح الحالة «قيد المراجعة».</p>
+    {% elif row and row.status == 'failed' %}
       <h2>تعذر تحليل الفيديو</h2>
       <p class="va-muted">{{ row.error }}</p>
       <button class="btn primary" type="button" id="va-start">إعادة المحاولة</button>

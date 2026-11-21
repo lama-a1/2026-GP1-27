@@ -25,11 +25,23 @@ FAKE = {'version': 'test', 'accident_type': 'LANE_CHANGE', 'vehicle_b': 2, 'coll
         'timing_s': {'total': 6.2}}
 
 
-def setup_case(db):
+def setup_case(db, both_submitted=True):
     a, _ = factory.make_party(db, 'Party A')
     case_id = factory.make_case(db, a, accident_type='LANE_CHANGE', with_vehicles=True)
     vid = factory.add_video(db, case_id, a, uuid.uuid4().hex + '.mp4', camera='rear')
+    if both_submitted:
+        submit_party_b(db, case_id)
     return a, case_id, vid
+
+
+def submit_party_b(db, case_id, name='Party B submitted'):
+    # Party B joins and submits: the case becomes IN_PROGRESS, which is when the analysis may start
+    b, _ = factory.make_party(db, name)
+    db.execute('INSERT INTO participates(national_id,case_id) VALUES(?,?)', (b, case_id))
+    db.execute('INSERT INTO participation_progress(national_id,case_id,position,progress,completed) VALUES(?,?,?,?,1)', (b, case_id, 'B', 6))
+    factory.add_vehicle(db, b, case_id)
+    db.execute("UPDATE accident_case SET status='in_progress' WHERE case_id=?", (case_id,))
+    return b
 
 
 def login_expert(client):
@@ -108,13 +120,14 @@ def test_second_party_cannot_reach_the_first_party_video(monkeypatch):
     import siyaq_cv.analyse
     monkeypatch.setattr(siyaq_cv.analyse, 'analyse_video', lambda path, typ, camera='front': FAKE)
     with module.conn() as db:
-        a, case_id, vid = setup_case(db)
+        a, case_id, vid = setup_case(db, both_submitted=False)
         b, _ = factory.make_party(db, 'Party B')
         db.execute('INSERT INTO participates(national_id,case_id) VALUES(?,?)', (b, case_id))
         db.execute('INSERT INTO participation_progress(national_id,case_id,position,progress) VALUES(?,?,?,?)', (b, case_id, 'B', 0))
     with app.test_client() as client:
         login(client, b)
-        assert client.post(f'/videos/{vid}/analyse', headers={'X-CSRF-Token': 'va-csrf'}).status_code == 403
+        # the case is still PENDING: nobody can start the analysis yet
+        assert client.post(f'/videos/{vid}/analyse', headers={'X-CSRF-Token': 'va-csrf'}).status_code == 409
         assert client.get(f'/videos/{vid}/stream').status_code == 403
         assert client.get(f'/videos/{vid}/analysis-status').status_code == 403
 
@@ -123,12 +136,24 @@ def test_status_page_starts_the_analysis_and_expert_list_shows_it(monkeypatch):
     import siyaq_cv.analyse
     monkeypatch.setattr(siyaq_cv.analyse, 'analyse_video', lambda path, typ, camera='front': FAKE)
     with module.conn() as db:
-        nid, case_id, vid = setup_case(db)
+        nid, case_id, vid = setup_case(db, both_submitted=False)
         db.execute('UPDATE participation_progress SET completed=1 WHERE case_id=?', (case_id,))
     with app.test_client() as client:
         login(client, nid)
+        # only Party A has submitted: the analysis waits for Party B (case PENDING)
+        assert '/analyse' not in client.get(f'/cases/{case_id}/steps/7').data.decode()
+    with app.test_client() as expert:
+        login_expert(expert)
+        assert 'ينتظر الطرف الثاني' in expert.get('/expert/cases').data.decode()
+    with module.conn() as db:
+        b = submit_party_b(db, case_id)
+    with app.test_client() as client:
+        login(client, b)
         page = client.get(f'/cases/{case_id}/steps/7').data.decode()
-        assert f'"{vid}"' in page and '/analyse' in page          # the background start for this party's video
+        assert f'"{vid}"' in page and '/analyse' in page          # Party B submitted last: it starts Party A's video too
+        assert client.get(f'/videos/{vid}/stream').status_code == 403   # ...but still cannot watch it
+    with app.test_client() as client:
+        login(client, nid)
         client.post(f'/videos/{vid}/analyse', headers={'X-CSRF-Token': 'va-csrf'})
         # once it is done, the page no longer starts it again
         assert '/analyse' not in client.get(f'/cases/{case_id}/steps/7').data.decode()

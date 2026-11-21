@@ -388,9 +388,10 @@
     </form>
     {% endif %}
 
-    <!-- Sprint 2: start the automatic analysis of this party's own video after they submit (runs in the background) -->
-    {% if step==7 and party.completed %}
-    {% set mine = case_analysis(case.id).videos|selectattr('position','equalto',party.position)|selectattr('status','equalto','none')|list %}
+    <!-- Sprint 2: once both parties have submitted (case IN_PROGRESS), start the automatic analysis of every video
+         of the case that has not started yet - normally from the page of whoever submitted last (runs in the background) -->
+    {% if step==7 and party.completed and other_done %}
+    {% set mine = case_analysis(case.id).videos|selectattr('status','equalto','none')|list %}
     {% if mine %}
     <script>
     (function(){
