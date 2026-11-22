@@ -64,10 +64,16 @@ def _floor():
     return min(config.CONF_LOW, config.BT_LOW_THRESH) if config.TRACKER == "bytetrack" else config.CONF_LOW
 
 
-def detect_all(frames):
-    """Vehicle boxes for every frame: [[(x1, y1, x2, y2, score, class), ...], ...]"""
+def detect_all(frames, progress=None):
+    """Vehicle boxes for every frame: [[(x1, y1, x2, y2, score, class), ...], ...]
+    progress(done, total) is called after each frame when given (the page shows how far detection is)."""
     det = detector()
-    return [det(f) for f in frames]
+    out = []
+    for i, f in enumerate(frames):
+        out.append(det(f))
+        if progress:
+            progress(i + 1, len(frames))
+    return out
 
 
 def detector():
@@ -85,9 +91,9 @@ def _iou(a, b):
     return inter / u if u > 0 else 0.0
 
 
-def track(frames, detections=None):
+def track(frames, detections=None, progress=None):
     """Returns ({track_id: {frame: (x1, y1, x2, y2, score)}}, {track_id: class})."""
-    dets_all = detections if detections is not None else detect_all(frames)
+    dets_all = detections if detections is not None else detect_all(frames, progress)
     if config.TRACKER == "bytetrack":
         from . import bytetrack
         tracks, classes = bytetrack.track(dets_all, config.FPS)

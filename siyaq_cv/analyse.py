@@ -121,17 +121,28 @@ def _rear_sides(evs):
             m["crossed_line_side"] = flip[m["crossed_line_side"]]
 
 
-def analyse_video(path, accident_type=None, thumbnails=True, camera="front"):
+STAGES = ("read", "detect", "motion", "events", "lanes", "finish")
+
+
+def analyse_video(path, accident_type=None, thumbnails=True, camera="front", progress=None):
+    """progress(stage, share) is called as the analysis moves on (stage from STAGES, share 0..1 inside the stage),
+    so the page can show where the analysis is. It never changes the result."""
+    step = progress or (lambda stage, share=None: None)
     camera = "rear" if camera == "rear" else "front"
     t0 = time.time()
+    step("read")
     v = video.load(path)
     frames, times, W, H = v["frames"], v["times"], v["width"], v["height"]
-    tracks, classes = detect_track.track(frames)
+    step("detect", 0.0)
+    tracks, classes = detect_track.track(frames, progress=lambda done, total: step("detect", done / max(total, 1)))
     t_det = time.time() - t0
+    step("motion")
     flow = motion.flow_series(frames, tracks)
     meas = {tid: motion.vehicle_measures(tr, classes[tid], W, H, flow["box_flow"].get(tid)) for tid, tr in tracks.items()}
+    step("events")
     b = events.pick_vehicle_b(tracks, W, H, len(frames))
     evs, crash = events.analyse(meas, b, flow, times, accident_type, camera=camera)
+    step("lanes")
     t1 = time.time()
     lane_frames, lane_info, lane_band = {}, None, None
     try:
@@ -149,6 +160,7 @@ def analyse_video(path, accident_type=None, thumbnails=True, camera="front"):
                  "lane_band": None if not lane_band else [lane_band[0] / H, lane_band[1] / H]}
         evs, crash = events.analyse(meas, b, flow, times, accident_type, scene, camera=camera)
         lane_info = _lane_summary(evs, votes, times)
+    step("finish")
     if camera == "rear" and crash is not None and b is not None:
         stop = _rear_stop(frames, tracks, meas.get(b, {}), b, crash, times, evs)
         if stop:

@@ -228,7 +228,7 @@ def register(app, h):
         videos = []
         for r in rows:
             st = r['status'] or 'none'
-            if st == 'running' and _age_s(r['started_at']) >= 330:     # the run was cut off (time limit)
+            if st == 'running' and timed_out(r['started_at']):     # the run was cut off (time limit)
                 st = 'failed'
             videos.append({'video_id': r['video_id'], 'position': r['position'], 'camera': r['camera_type'], 'status': st})
         states = {v['status'] for v in videos}
@@ -326,9 +326,15 @@ def register(app, h):
         v, case = load_video(video_id)
         with h.conn() as c:
             row = c.execute('SELECT * FROM video_analysis WHERE video_id=?', (video_id,)).fetchone()
+            position = c.execute('SELECT position FROM participation_progress WHERE case_id=? AND national_id=?',
+                                 (v['case_id'], v['national_id'])).fetchone()
         row = dict(row) if row else None
+        if row and row['status'] == 'running' and timed_out(row['started_at']):
+            row['status'] = 'timeout'                           # the run was cut off by the time limit
         result = json.loads(row['result_json']) if row and row.get('result_json') else None
         return render_template('video_analysis.html', v=v, case=case, row=row, result=result,
+                               party_position=position['position'] if position else None,
+                               limit_min=ANALYSIS_LIMIT_S // 60,
                                waiting=h.status_key(case['status']) == 'pending',
                                event_ar=EVENT_AR, vehicle_ar=VEHICLE_AR, measure_ar=MEASURE_AR, value_ar=VALUE_AR)
 
@@ -356,19 +362,20 @@ def register(app, h):
             row = c.execute('SELECT status, started_at FROM video_analysis WHERE video_id=?', (video_id,)).fetchone()
             if row and row['status'] == 'done' and not is_expert():
                 return jsonify(status='done')                   # a party never re-runs a finished analysis
-            if row and row['status'] == 'running' and row['started_at'] and _age_s(row['started_at']) < 330:
+            if row and row['status'] == 'running' and row['started_at'] and not timed_out(row['started_at']):
                 return jsonify(status='running')
             if row:
                 c.execute("UPDATE video_analysis SET status='running', error=NULL, started_at=? WHERE video_id=?", (_now(), video_id))
             else:
                 c.execute("INSERT INTO video_analysis(video_id,status,started_at) VALUES(?,?,?)", (video_id, 'running', _now()))
-            c.execute("UPDATE video_processing SET job_status='running', updated_at=? WHERE video_id=?", (_now(), video_id))
+            c.execute("UPDATE video_processing SET job_status='running', job_details=NULL, updated_at=? WHERE video_id=?", (_now(), video_id))
         try:
             with tempfile.TemporaryDirectory(prefix='siyaq_') as tmp:
                 path = fetch_video(h, v, tmp)
                 from siyaq_cv.analyse import analyse_video
                 # accident type and camera = the user's choices (the camera tells whether Vehicle B is ahead or behind)
-                result = analyse_video(path, case['accident_type'], camera=v['camera'] or 'front')
+                result = analyse_video(path, case['accident_type'], camera=v['camera'] or 'front',
+                                       progress=progress_writer(h, video_id))
             with h.conn() as c:
                 save_result(h, c, video_id, result)
                 c.execute("UPDATE video_processing SET job_status='done', job_details=NULL, updated_at=? WHERE video_id=?", (_now(), video_id))
@@ -387,8 +394,17 @@ def register(app, h):
     def video_analysis_status(video_id):
         load_video(video_id)
         with h.conn() as c:
-            row = c.execute('SELECT status FROM video_analysis WHERE video_id=?', (video_id,)).fetchone()
-        return jsonify(status=row['status'] if row else None)
+            row = c.execute('SELECT a.status, a.started_at, p.job_details FROM video_analysis a '
+                            'LEFT JOIN video_processing p ON p.video_id=a.video_id WHERE a.video_id=?',
+                            (video_id,)).fetchone()
+        if not row:
+            return jsonify(status=None)
+        status = row['status']
+        if status == 'running' and timed_out(row['started_at']):
+            status = 'failed'
+        stage = read_stage(row['job_details']) if status == 'running' else {}
+        return jsonify(status=status, stage=stage.get('stage'), share=stage.get('share'),
+                       elapsed_s=int(_age_s(row['started_at'])) if row['started_at'] and status == 'running' else None)
 
     @app.get('/videos/<int:video_id>/stream')
     @expert_or_party
@@ -409,6 +425,41 @@ def register(app, h):
         if os.getenv('VERCEL'):
             abort(404)
         return send_from_directory(h.UPLOAD, stored, conditional=True)
+
+
+ANALYSIS_LIMIT_S = 330      # a run still "running" after this was cut off by the hosting time limit
+
+
+def timed_out(started_at):
+    return bool(started_at) and _age_s(started_at) >= ANALYSIS_LIMIT_S
+
+
+def read_stage(details):
+    try:
+        d = json.loads(details or '{}')
+    except ValueError:
+        return {}
+    return d if isinstance(d, dict) else {}
+
+
+def progress_writer(h, video_id):
+    """Saves the engine's current stage (and the share of frames done during detection) so the page can show it.
+    Writes only when the stage changes or detection moved on by 5%, so the database is not called per frame."""
+    last = {'stage': None, 'share': -1.0}
+
+    def write(stage, share=None):
+        moved = share is not None and share - last['share'] >= 0.05
+        if stage == last['stage'] and not moved and share != 1:
+            return
+        last['stage'], last['share'] = stage, (share if share is not None else -1.0)
+        try:
+            with h.conn() as c:
+                c.execute('UPDATE video_processing SET job_details=?, updated_at=? WHERE video_id=?',
+                          (json.dumps({'stage': stage, 'share': None if share is None else round(share, 2)}),
+                           _now(), video_id))
+        except Exception:
+            pass                                    # showing the stage must never stop the analysis
+    return write
 
 
 def _now():

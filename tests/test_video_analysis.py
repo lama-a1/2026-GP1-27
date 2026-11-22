@@ -60,7 +60,7 @@ def test_analyse_saves_result_and_eer_events(monkeypatch):
     app.config['TESTING'] = True
     import siyaq_cv.analyse
     seen = {}
-    monkeypatch.setattr(siyaq_cv.analyse, 'analyse_video', lambda path, typ, camera='front': seen.update(type=typ, camera=camera) or FAKE)
+    monkeypatch.setattr(siyaq_cv.analyse, 'analyse_video', lambda path, typ, camera='front', progress=None: seen.update(type=typ, camera=camera) or FAKE)
     with module.conn() as db:
         nid, case_id, vid = setup_case(db)
     with app.test_client() as client:
@@ -118,7 +118,7 @@ def test_real_engine_on_a_generated_video(tmp_path):
 
 def test_second_party_cannot_reach_the_first_party_video(monkeypatch):
     import siyaq_cv.analyse
-    monkeypatch.setattr(siyaq_cv.analyse, 'analyse_video', lambda path, typ, camera='front': FAKE)
+    monkeypatch.setattr(siyaq_cv.analyse, 'analyse_video', lambda path, typ, camera='front', progress=None: FAKE)
     with module.conn() as db:
         a, case_id, vid = setup_case(db, both_submitted=False)
         b, _ = factory.make_party(db, 'Party B')
@@ -134,7 +134,7 @@ def test_second_party_cannot_reach_the_first_party_video(monkeypatch):
 
 def test_status_page_starts_the_analysis_and_expert_list_shows_it(monkeypatch):
     import siyaq_cv.analyse
-    monkeypatch.setattr(siyaq_cv.analyse, 'analyse_video', lambda path, typ, camera='front': FAKE)
+    monkeypatch.setattr(siyaq_cv.analyse, 'analyse_video', lambda path, typ, camera='front', progress=None: FAKE)
     with module.conn() as db:
         nid, case_id, vid = setup_case(db, both_submitted=False)
         db.execute('UPDATE participation_progress SET completed=1 WHERE case_id=?', (case_id,))
@@ -229,3 +229,40 @@ def test_status_page_polls_until_the_other_party_submits():
             other, _ = factory.make_party(db, 'Not in case')
         login(stranger, other)
         assert stranger.get(f'/api/cases/{case_id}/progress').status_code == 403
+
+
+def test_analysis_page_shows_the_stage_and_a_run_cut_off_by_the_time_limit(monkeypatch):
+    import siyaq_cv.analyse
+    import video_analysis
+
+    def fake(path, typ, camera='front', progress=None):
+        progress('detect', 0.5)                       # the engine reports where it is
+        with module.conn() as db:
+            row = db.execute('SELECT job_details FROM video_processing WHERE video_id=?', (vid,)).fetchone()
+        seen['details'] = row['job_details']
+        return FAKE
+    seen = {}
+    monkeypatch.setattr(siyaq_cv.analyse, 'analyse_video', fake)
+    with module.conn() as db:
+        nid, case_id, vid = setup_case(db)
+    with app.test_client() as client:
+        login(client, nid)
+        assert client.post(f'/videos/{vid}/analyse', headers={'X-CSRF-Token': 'va-csrf'}).get_json()['status'] == 'done'
+    assert '"stage": "detect"' in seen['details'] and '"share": 0.5' in seen['details']
+    with app.test_client() as expert:
+        login_expert(expert)
+        page = expert.get(f'/videos/{vid}/analysis').data.decode()
+        # the header names the party, the camera and the reported accident type
+        assert 'الطرف الأول' in page and 'الخلفية' in page and 'تغيير مسار' in page and 'حسب البلاغ' in page
+        # a run still marked "running" after the time limit is shown as stopped, with a retry button
+        with module.conn() as db:
+            db.execute("UPDATE video_analysis SET status='running', result_json=NULL, started_at='2000-01-01 00:00:00' WHERE video_id=?", (vid,))
+        assert expert.get(f'/videos/{vid}/analysis-status').get_json()['status'] == 'failed'
+        page = expert.get(f'/videos/{vid}/analysis').data.decode()
+        assert 'أطول من الحد المسموح' in page and 'va-start' in page
+        # a run in progress reports its stage and how long it has been running
+        with module.conn() as db:
+            db.execute("UPDATE video_analysis SET started_at=? WHERE video_id=?", (video_analysis._now(), vid))
+            db.execute("UPDATE video_processing SET job_details='{\"stage\": \"lanes\", \"share\": null}' WHERE video_id=?", (vid,))
+        d = expert.get(f'/videos/{vid}/analysis-status').get_json()
+        assert d['status'] == 'running' and d['stage'] == 'lanes' and d['elapsed_s'] is not None
