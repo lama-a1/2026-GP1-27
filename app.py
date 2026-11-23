@@ -510,7 +510,7 @@ def notify_case(case_id, kind, only_user_id=None):
         case=get_case(c,case_id)
         users=c.execute('''SELECT DISTINCT ap.national_id AS id, ap.email FROM participates p
                            JOIN accident_party ap ON ap.national_id=p.national_id
-                           WHERE p.case_id=? AND (ap.notify_status_change=1 OR ?)''',(case_id,1 if kind in ALWAYS_SENT else 0)).fetchall()
+                           WHERE p.case_id=? AND (ap.notify_status_change=1 OR ?=1)''',(case_id,1 if kind in ALWAYS_SENT else 0)).fetchall()
     if not case: return
     public_base=os.getenv('PUBLIC_BASE_URL','').strip().rstrip('/')
     path=url_for('case_detail',case_id=case_id)
