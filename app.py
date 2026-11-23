@@ -837,8 +837,8 @@ def new_case():
         else:
             ref='SQ-'+datetime.now().strftime('%y%m')+'-'+secrets.token_hex(3).upper()
             with conn() as c:
-                # the case starts as a draft; the car position is chosen later, in the accident description step
-                c.execute('INSERT INTO accident_case(case_id,accident_type,accident_date,accident_time,location,status) VALUES(?,?,?,?,?,?)',(ref,typ,date,time,location,'draft'))
+                # the case starts as pending (shown as «قيد الانتظار»); the car position is chosen later, in the accident description step
+                c.execute('INSERT INTO accident_case(case_id,accident_type,accident_date,accident_time,location,status) VALUES(?,?,?,?,?,?)',(ref,typ,date,time,location,'pending'))
                 c.execute('INSERT INTO participates(national_id,case_id) VALUES(?,?)',(session['uid'],ref))
                 c.execute("INSERT INTO participation_progress(national_id,case_id,position) VALUES(?,?,'A')",(session['uid'],ref))
             return redirect(url_for('wizard',case_id=ref,step=1))

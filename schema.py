@@ -44,7 +44,7 @@ def statements(postgres=False):
             party_a_lane_changer TEXT, party_a_impact_zone TEXT,
             party_b_description_text TEXT, party_b_pre_impact_event TEXT, party_b_other_vehicle_side TEXT,
             party_b_lane_changer TEXT, party_b_impact_zone TEXT,
-            status TEXT NOT NULL DEFAULT 'draft',
+            status TEXT NOT NULL DEFAULT 'pending',
             reviewed_by_expert_id BIGINT REFERENCES authorized_expert(expert_id))''',
         '''CREATE TABLE IF NOT EXISTS participates (
             national_id TEXT NOT NULL REFERENCES accident_party(national_id) ON UPDATE CASCADE,
