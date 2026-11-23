@@ -37,7 +37,7 @@
 <main>
   {% if request.endpoint not in ('register','login','verify_email','expert_login','expert_register','forgot_password','reset_password','new_case') %}
     {% with msgs=get_flashed_messages(with_categories=true) %}
-      {% for category,message in msgs %}<div class="flash {{category}}" role="alert">{{message}}</div>{% endfor %}
+      {% for category,message in msgs %}<div class="flash {{category}}" role="{{'alert' if category=='error' else 'status'}}"><i data-lucide="{{'circle-check' if category=='success' else 'circle-alert' if category=='error' else 'info'}}"></i><span>{{message}}</span><button type="button" class="flash-close" aria-label="إغلاق الرسالة" onclick="this.parentElement.remove()"><i data-lucide="x"></i></button></div>{% endfor %}
     {% endwith %}
   {% endif %}
   {% block content %}{% endblock %}
@@ -90,6 +90,10 @@
 <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
 <script>
 if (window.lucide) lucide.createIcons();
+// success messages fade out after 6 s; error messages stay until closed
+document.querySelectorAll('.flash.success').forEach(function (el) {
+  setTimeout(function () { el.classList.add('flash-hide'); setTimeout(function () { el.remove(); }, 400); }, 6000);
+});
 document.querySelector('.nav-toggle')?.addEventListener('click', function () {
   const bar = document.querySelector('.topbar');
   bar.classList.toggle('nav-open');

@@ -629,3 +629,17 @@ form[data-step="7"] .wizardfooter{display:none}
 .va-tech{margin:8px auto 14px;max-width:520px;font-size:12px;color:#6b7f73}
 .va-tech code{display:block;margin-top:6px;white-space:pre-wrap;word-break:break-word}
 @media (prefers-reduced-motion:reduce){.va-steps li.is-now::before{animation:none;border-top-color:#006c35}}
+
+/* page messages (flash): clear colour, icon and close button */
+main .flash{display:flex;align-items:center;gap:12px;max-width:780px;margin:22px auto 0;padding:15px 18px;border-radius:10px;font-size:15px;font-weight:700;
+  background:#e3f2e8;color:#0b5a2f;border:1px solid #9fcdb1;border-inline-start:5px solid var(--green);box-shadow:0 6px 18px #0b2b1714;
+  animation:flash-in .35s ease;transition:opacity .4s,transform .4s}
+main .flash.error{background:#fdecea;color:#9a2f1f;border-color:#f0b5ab;border-inline-start-color:#c0392b}
+main .flash>svg{flex-shrink:0;width:22px;height:22px}
+main .flash>span{flex:1;line-height:1.6}
+main .flash-close{background:none;border:0;color:inherit;opacity:.6;padding:4px;display:flex;border-radius:6px}
+main .flash-close:hover{opacity:1;background:#0000000d}
+main .flash-close svg{width:18px;height:18px}
+main .flash.flash-hide{opacity:0;transform:translateY(-6px)}
+@keyframes flash-in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){main .flash{animation:none;transition:none}}
