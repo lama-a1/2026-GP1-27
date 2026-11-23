@@ -459,7 +459,13 @@ STATUS_EMAILS={
                    'أرسل الطرفان بياناتهما، وأصبح البلاغ قيد المراجعة. لا يمكن تعديل البيانات في هذه المرحلة.'),
     'completed':('تحديث حالة البلاغ','اكتملت مراجعة البلاغ',
                  'اكتملت مراجعة البلاغ، ويمكن الاطلاع على النتيجة من صفحة البلاغ في سياق.'),
+    'declined':('دعوة الطرف الثاني','المدعو أفاد أن الحادث لا يخصه',
+                'أفاد صاحب البريد المدعو أن هذا الحادث لا يخصه، وأُلغي رابط الدعوة. يمكنك إرسال دعوة جديدة بالبريد الإلكتروني الصحيح من صفحة البلاغ.'),
 }
+# emails sent even when the user turned status notifications off (the case cannot move on without them)
+ALWAYS_SENT={'declined'}
+def email_footer(kind):
+    return 'وصلتك هذه الرسالة لأنك منشئ البلاغ.' if kind in ALWAYS_SENT else 'يمكن إيقاف هذه الإشعارات من إعدادات الحساب في سياق.'
 
 def status_email_html(kind, reference, link):
     kicker,title,description=STATUS_EMAILS[kind]
@@ -472,14 +478,13 @@ def status_email_html(kind, reference, link):
            f'<table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr><td align="center" style="padding:26px 0 14px;">'
            f'<a href="{safe_link}" style="display:inline-block;background:#006b36;color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:16px 30px;border-radius:9px;">عرض البلاغ</a>'
            f'</td></tr></table>')
-    return branded_email_html(kicker,title,description,panel,
-                              'يمكن إيقاف هذه الإشعارات من إعدادات الحساب في سياق.')
+    return branded_email_html(kicker,title,description,panel,email_footer(kind))
 
 def send_status_email(email, kind, reference, link):
     # email one user about a change in their case
     kicker,title,description=STATUS_EMAILS[kind]
     subject='Siyaq | '+title
-    body=title+'\nرقم البلاغ: '+str(reference)+'\n\n'+description+'\n\n'+link+'\n\nيمكن إيقاف هذه الإشعارات من إعدادات الحساب في سياق.'
+    body=title+'\nرقم البلاغ: '+str(reference)+'\n\n'+description+'\n\n'+link+'\n\n'+email_footer(kind)
     html=status_email_html(kind,reference,link)
     if os.getenv('OTP_MODE','api').strip().lower()=='api':
         return send_brevo_api_email(email,subject,body,html)
@@ -505,7 +510,7 @@ def notify_case(case_id, kind, only_user_id=None):
         case=get_case(c,case_id)
         users=c.execute('''SELECT DISTINCT ap.national_id AS id, ap.email FROM participates p
                            JOIN accident_party ap ON ap.national_id=p.national_id
-                           WHERE p.case_id=? AND ap.notify_status_change=1''',(case_id,)).fetchall()
+                           WHERE p.case_id=? AND (ap.notify_status_change=1 OR ?)''',(case_id,1 if kind in ALWAYS_SENT else 0)).fetchall()
     if not case: return
     public_base=os.getenv('PUBLIC_BASE_URL','').strip().rstrip('/')
     path=url_for('case_detail',case_id=case_id)
@@ -1052,6 +1057,25 @@ def accept_invitation(token):
     # tell the first party that the second party joined
     if creator: notify_case(inv['case_id'],'joined',only_user_id=creator['creator_id'])
     return redirect(url_for('wizard',case_id=inv['case_id'],step=1))
+
+@app.post('/invite/<token>/decline')
+@login_required
+def decline_invitation(token):
+    # the invited person says the accident is not theirs: cancel the link, link nothing, tell the first party
+    digest=hashlib.sha256(token.encode()).hexdigest()
+    with conn() as c:
+        inv=c.execute('SELECT * FROM case_invitation WHERE token_hash=?',(digest,)).fetchone()
+        if not inv or not inv['recipient_email'] or inv['revoked_at'] or inv['expires_at']<=datetime.utcnow().isoformat() or inv['claimed_by']:
+            abort(403)
+        u=c.execute('SELECT email FROM accident_party WHERE national_id=?',(session['uid'],)).fetchone()
+        if not u or u['email'].strip().lower()!=inv['recipient_email'].strip().lower(): abort(403)
+        revoked=c.execute('UPDATE case_invitation SET revoked_at=? WHERE invitation_id=? AND claimed_by IS NULL AND revoked_at IS NULL',
+                          (datetime.utcnow().isoformat(),inv['invitation_id']))
+        if revoked.rowcount!=1: abort(403)
+        creator=get_case(c,inv['case_id'])
+    if creator: notify_case(inv['case_id'],'declined',only_user_id=creator['creator_id'])
+    flash('شكرًا لك. تم إبلاغ منشئ البلاغ بأن هذا الحادث لا يخصك، ولم يُربط أي شيء بحسابك.','success')
+    return redirect(url_for('dashboard'))
 
 # Saudi plate letters and their English letters
 PLATE_LETTERS={'أ':'A','ب':'B','ح':'J','د':'D','ر':'R','س':'S','ص':'X','ط':'T','ع':'E','ق':'G','ك':'K','ل':'L','م':'Z','ن':'N','هـ':'H','و':'U','ى':'V'}

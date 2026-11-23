@@ -143,3 +143,44 @@ def test_brevo_rest_api_sends_otp_and_invitation(monkeypatch):
     assert 'https://siyaq.example/invite/token' in sent[1]['htmlContent']
     assert 'الانضمام إلى البلاغ' in sent[1]['htmlContent']
     assert all(item['sender']['email']=='verified@example.com' for item in sent)
+
+
+def test_invited_party_can_say_the_accident_is_not_theirs(monkeypatch):
+    import app as module
+    from urllib.parse import urlparse
+    app.config['TESTING']=True
+    monkeypatch.setenv('PUBLIC_BASE_URL','https://siyaq.example')
+    delivered,notified=[],[]
+    monkeypatch.setattr(module,'send_case_invitation',lambda email,link,reference: delivered.append(link))
+    monkeypatch.setattr(module,'notify_case',lambda case_id,kind,only_user_id=None: notified.append((case_id,kind,only_user_id)))
+    target='notmine'+str(os.getpid())+'@example.com'
+    with app.test_client() as creator:
+        creator.get('/login')
+        with module.conn() as db:
+            uid,_=factory.make_party(db,'Creator')
+            case_id=factory.make_case(db,uid,progress=6)
+            db.execute('UPDATE participation_progress SET completed=1 WHERE case_id=?',(case_id,))
+        with creator.session_transaction() as sess: sess['uid']=uid
+        creator.post('/cases/'+str(case_id)+'/invite',data={'csrf_token':csrf(creator),'recipient_email':target})
+        link=urlparse(delivered[0]).path
+        # only the invited account can decline
+        assert creator.post(link+'/decline',data={'csrf_token':csrf(creator)}).status_code==403
+    with app.test_client() as other:
+        other.get('/login')
+        with module.conn() as db:
+            second_id,_=factory.make_party(db,'Second',email=target)
+        with other.session_transaction() as sess: sess['uid']=second_id
+        assert 'هذا الحادث لا يخصني' in other.get(link).get_data(as_text=True)
+        result=other.post(link+'/decline',data={'csrf_token':csrf(other)})
+        assert result.status_code==302 and result.location.endswith('/dashboard')
+        assert notified==[(case_id,'declined',uid)]
+        # the link no longer works and nothing was linked to the account
+        assert other.post(link+'/accept',data={'csrf_token':csrf(other)}).status_code==403
+        with module.conn() as db:
+            assert not db.execute('SELECT 1 FROM participates WHERE case_id=? AND national_id=?',(case_id,second_id)).fetchone()
+
+
+def test_declined_email_is_sent_even_with_notifications_off():
+    import app as module
+    assert 'وصلتك هذه الرسالة لأنك منشئ البلاغ' in module.status_email_html('declined','SQ-1','https://x.example/c')
+    assert 'يمكن إيقاف' in module.status_email_html('joined','SQ-1','https://x.example/c')

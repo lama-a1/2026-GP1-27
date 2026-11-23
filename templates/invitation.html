@@ -26,6 +26,11 @@
           <input type="hidden" name="csrf_token" value="{{csrf_token()}}">
           <button class="btn primary full">قبول الدعوة واستكمال بياناتي</button>
         </form>
+        <form method="post" action="{{url_for('decline_invitation',token=token)}}" style="margin-top:10px">
+          <input type="hidden" name="csrf_token" value="{{csrf_token()}}">
+          <button class="btn secondary full"><i data-lucide="x-circle"></i> هذا الحادث لا يخصني</button>
+        </form>
+        <p class="fineprint">إذا لم يكن الحادث يخصك، سيُلغى الرابط ويُبلَّغ منشئ البلاغ لإرسال دعوة إلى البريد الصحيح. لن يُربط أي شيء بحسابك.</p>
       {% else %}
         <div class="notice">هذا الرابط مخصص لبريد إلكتروني مختلف عن بريد حسابك الحالي. يُرجى تسجيل الخروج ثم الدخول بالحساب الذي يحمل البريد المدعو.</div>
         <form method="post" action="{{url_for('logout')}}"><input type="hidden" name="csrf_token" value="{{csrf_token()}}"><button class="btn secondary full">تسجيل الخروج</button></form>
