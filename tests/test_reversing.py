@@ -1,4 +1,4 @@
-# Rule R4 evidence (exploratory): the front vehicle B reverses into a standing recording car.
+# Rule R4 evidence: the front vehicle B reverses into a standing recording car.
 from siyaq_cv import config, events
 
 
@@ -24,7 +24,7 @@ def test_moving_car_is_not_reversing():
 
 def test_b_not_coming_closer_is_not_reversing():
     times = [i / 10 for i in range(50)]
-    assert events.reversing(_mb(3.4, 3.2), 1, _still(0.02), 30, times) is None
+    assert events.reversing(_mb(3.4, 3.39), 1, _still(0.02), 30, times) is None     # ratio 1.003 < REVERSE_CLOSE_RATIO
 
 
 def test_no_impact_or_no_b():

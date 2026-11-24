@@ -168,7 +168,6 @@ def summarise(result):
             facts.append(_fact('سيارة صاحب الفيديو', 'واقفة'))
             if m.get('closing_m') is not None:
                 facts.append(_fact('المركبة الأخرى رجعت نحوها', 'حوالي {} م'.format(_n(m['closing_m'])), None, 'تقديرية'))
-            facts.append(_fact('حالة الكشف', 'تجريبي', None, 'يحتاج تحقق الخبير'))
         elif e['type'] == 'overtaking':
             line = 'تجاوز من جهة ' + VALUE_AR.get(m.get('side'), '—')
             if m.get('duration_s') is not None:

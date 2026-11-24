@@ -56,13 +56,13 @@ SAFE_REF_S = 1.5              # seconds before the impact at which it is judged 
                               # approach has a small TTC). Both values are chosen by tools/cross_validate.py.
 # Settings per accident type of the user's report (lane change, sudden stop, following distance; they replace the
 # values in this file, which are used only when the type is unknown). Chosen per report type by tools/cross_validate.py.
-LANE_BY_TYPE = {   # repeated 5x5 CV with YOLOv8s, chosen on all 136 clips per report type, 2026-11-19
+LANE_BY_TYPE = {   # repeated 5x5 CV with YOLOv8s, chosen on all 136 clips per report type, 2026-11-24 (labels after the review of 23-24 Nov, original DADA clips)
     "REAR_END": {
         "LANE_SIDE_M": 1.0, "LANE_SHIFT_M": 1.5, "LANE_IN_M": 0.6, "LANE_ONSET_MPS": 0.2,
         "EGO_YAW_DEG": 20.0, "TTC_SUDDEN_STOP_S": 2.0, "SAFE_TTC_S": 4.5, "SAFE_REF_S": 1.5,
         "LANE_LINE_RULE": "and", "COLLISION_LOST_WIN": 5, "COLLISION_GAP_MIN": 0.5, "LANE_REQUIRE_IN": True,
         "LANE_END_AT_IMPACT": False, "LANE_FALLBACK_S": 0.0, "SAFE_RULE": "ttc", "SAFE_DRAC_MPS2": 2.0,
-        "SAFE_UNKNOWN": "Not maintained", "SAFE_SUDDEN_STOP": True, "SAFE_FALLBACK_S": 1.0},
+        "SAFE_UNKNOWN": "Not maintained", "SAFE_SUDDEN_STOP": False, "SAFE_FALLBACK_S": 1.0},
     "LANE_CHANGE": {
         "LANE_SIDE_M": 1.0, "LANE_SHIFT_M": 0.3, "LANE_IN_M": 0.6, "LANE_ONSET_MPS": 0.6,
         "EGO_YAW_DEG": 16.0, "TTC_SUDDEN_STOP_S": 1.0, "SAFE_TTC_S": 1.5, "SAFE_REF_S": 1.0,
@@ -91,13 +91,15 @@ SAFE_TTC_MODE = "at_ref"     # "at_ref": TTC at SAFE_REF_S before the impact; "m
 OVERTAKE_MIN_FRAMES = 5
 
 # ---- lane lines (TwinLiteNet, lane-line segmentation trained on BDD100K, MIT licence)
-# Reversing of the front vehicle (rule R4), exploratory: read in the last REVERSE_WINDOW frames before the impact.
-# Not tuned by cross-validation and not in the evaluation of Section 5.1: there are no reversing labels yet.
-REVERSE_WINDOW = 12           # frames (1.2 s) before the impact
+# Reversing of the front vehicle (rule R4): read in the last REVERSE_WINDOW frames before the impact.
+# Scored by tools/cross_validate.py on the clips tagged reversing_start / reversing_end in CVAT (9 rear-end clips);
+# values chosen on all 136 clips (repeated 5x5 CV, 2026-11-24); before: window 12, standing 0.15 px, ratio 1.10.
+REVERSE_WINDOW = 8            # frames (0.8 s) before the impact
+REVERSE_STILL_PX = 0.2        # rule R4: the recording car stands still (its own value; STILL_PX below serves the rear camera)
 STILL_PX = 0.15               # background moves less than this (px/frame at 640 px) = recording car standing still
 STILL_MIN_POINTS = 15         # corner points needed on the background in a frame
 STILL_BONNET_FRAC = 0.7       # rows below this share of the height are bonnet / dashboard, left out
-REVERSE_CLOSE_RATIO = 1.10    # B must come closer: distance at the start / at the end of the window (= growth of its
+REVERSE_CLOSE_RATIO = 1.02    # B must come closer: distance at the start / at the end of the window (= growth of its
                               # image size, the scale change TTC is built on [Dagan]); metres alone are unreliable close up
 # Rear camera (the user chose "rear" for the video: Vehicle B is behind the recording car)
 REAR_MIRRORED = False         # False: the rear picture is not mirrored, so its left is the car's right

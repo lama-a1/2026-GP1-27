@@ -77,7 +77,7 @@ siyaq_CCD_2,35,000967,Lane-change,test,1700-1749,1700,50,Waad,Raneem,,yes,test,
 siyaq_CCD_2,36,001135,Rear-end,train,1750-1799,1750,50,Waad,Raneem,Snow/rain seen - decide,yes,train,Restored 2026-11-18: labelled and completed in CVAT; the team saw no rain or snow
 siyaq_CCD_2,37,001264,Lane-change,train,1800-1849,1800,50,Waad,Raneem,,yes,train,
 siyaq_CCD_2,38,001269,Rear-end,train,1850-1899,1850,50,Waad,Raneem,,yes,train,
-siyaq_CCD_2,39,001396,Rear-end,test,1900-1949,1900,50,Waad,Raneem,,yes,test,
+siyaq_CCD_2,39,001396,Lane-change,test,1900-1949,1900,50,Waad,Raneem,,yes,test,
 siyaq_DADA,1,dada_testing_type11_111,Rear-end,train,0-49,0,50,Raneem,Jana,,yes,train,
 siyaq_DADA,2,dada_testing_type11_113,Lane-change,train,50-99,50,50,Raneem,Jana,,yes,train,
 siyaq_DADA,3,dada_testing_type12_15,Lane-change,train,100-149,100,50,Raneem,Jana,,yes,train,

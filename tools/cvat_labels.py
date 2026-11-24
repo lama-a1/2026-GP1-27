@@ -175,6 +175,11 @@ def build_reference(job, row, items, labels, idx, extracted=None):
     S = ref["sudden_stop"]
     if S and (S["start"] is None or S["end"] is None):
         issues.append("sudden stop start/end not paired")
+    R = ref["reversing"]
+    if R and (R["start"] is None or R["end"] is None):
+        issues.append("reversing start/end not paired")
+    elif R and R["start"] > R["end"]:
+        issues.append("reversing start after end")
     if not sd:
         issues.append("no safe_distance tag")
     if beyond:
@@ -190,6 +195,8 @@ def build_reference(job, row, items, labels, idx, extracted=None):
         "lane_change": (ref["lane_change"] is not None and None not in (ref["lane_change"]["start"], ref["lane_change"]["end"])
                         and ref["lane_change"]["start"] <= ref["lane_change"]["end"]) or ((acc or {}).get("value") == "Rear-end" and not ref["lane_change"]),
         "sudden_stop": not S or None not in (S["start"], S["end"]),
+        # rule R4: clips without reversing tags are scored as "no reversing"; tagged ones need a start and an end
+        "reversing": not R or (None not in (R["start"], R["end"]) and R["start"] <= R["end"]),
         "safe_distance": bool(sd),
         "accident_type": bool(acc)}
     return ref

@@ -14,6 +14,10 @@ How it works
      published sources: siyaq_cv/threshold_grid.py), then the held-out fold is scored with them. The held-out fold
      never takes part in the choice, which avoids the optimistic bias of choosing thresholds on all clips first
      (Varma & Simon 2006; Cawley & Talbot 2010; Vabalas et al. 2019).
+  3b. Rule R4 (the front vehicle reverses into the standing recording car) is scored on every clip: the clips tagged
+     reversing_start / reversing_end in CVAT must show it, the others must not. Its frame window and limits are chosen
+     like the other thresholds. On the reversing clips the following distance of the recording car does not apply,
+     so they are left out of the safe-distance score only.
   4. The same folds score three reference systems: the engine with its settings before cross-validation (DEFAULTS
      below, fixed so the column does not change when config.py changes), and two simple
      baselines (majority class of the training folds; impact at the median impact frame of the training folds).
@@ -45,7 +49,7 @@ from siyaq_cv import config, events  # noqa: E402
 from siyaq_cv.threshold_grid import GRID, STAGES  # noqa: E402
 from scoring import COLLISION_TOL, TIOU_THR, B_IOU_THR, B_FRAME_TOL, box_iou, tiou, sd_at  # noqa: E402
 
-METRICS = ["collision", "vehicle_b", "lane_change", "sudden_stop", "safe_distance", "lane_change_vehicle"]
+METRICS = ["collision", "vehicle_b", "lane_change", "sudden_stop", "safe_distance", "reversing", "lane_change_vehicle"]
 # lane_change_vehicle: the same lane-change labels scored on WHICH vehicle changed lane (A, B or none) only, without the
 # timing (temporal IoU); reported next to lane_change, never used to choose thresholds
 TUNED = list(GRID)
@@ -54,7 +58,7 @@ DEFAULTS = {"LANE_SIDE_M": 2.2, "LANE_SHIFT_M": 0.4, "LANE_IN_M": 0.8, "LANE_ONS
             "TTC_SUDDEN_STOP_S": 1.6, "SAFE_TTC_S": 2.0, "SAFE_REF_S": 2.0, "LANE_LINE_RULE": "off",
             "COLLISION_LOST_WIN": 0, "COLLISION_GAP_MIN": 0.0, "LANE_REQUIRE_IN": False, "LANE_END_AT_IMPACT": False, "LANE_FALLBACK_S": 0.0,
             "SAFE_RULE": "ttc", "SAFE_DRAC_MPS2": 3.35, "SAFE_UNKNOWN": "Maintained", "SAFE_SUDDEN_STOP": False,
-            "SAFE_FALLBACK_S": 0.0}
+            "SAFE_FALLBACK_S": 0.0, "REVERSE_WINDOW": 12, "REVERSE_STILL_PX": 0.15, "REVERSE_CLOSE_RATIO": 1.10}
 
 
 # ----------------------------------------------------------------------------------------- engine runs (cached)
@@ -73,13 +77,27 @@ def run_engine(clip, video, cache):
     if path.exists():
         r = json.loads(path.read_text())
         if r.get("_engine") == fp:
+            if "background" not in r:          # cache written before rule R4 was scored: add the background only
+                r["background"] = background_series(video, r["tracks"])
+                path.write_text(json.dumps(r))
             return r
     from siyaq_cv.analyse import analyse_video
     r = analyse_video(str(video), thumbnails=False)
     keep = {k: r[k] for k in ("vehicle_b", "collision_frame", "measures_b", "series", "events", "tracks", "video", "lanes", "lane_band")}
     keep["_engine"] = fp
+    keep["background"] = background_series(video, keep["tracks"])
     path.write_text(json.dumps(keep))
     return keep
+
+
+def background_series(video, tracks):
+    """Rule R4: background movement (px/frame) of every frame, as motion.background_still measures it in the engine,
+    so the folds can replay the reversing rule with other windows and limits. Reads the frames only (no detection)."""
+    from siyaq_cv import motion, video as vid
+    frames = vid.load(str(video))["frames"]
+    h, w = frames[0].shape[:2]
+    tr = {tid: {int(f): (x1 * w, y1 * h, x2 * w, y2 * h) for f, x1, y1, x2, y2 in boxes} for tid, boxes in tracks.items()}
+    return {str(f): v for f, v in motion.background_still(frames, tr, 1, len(frames) - 1).items()}
 
 
 # ----------------------------------------------------------------------------------------- replay with thresholds
@@ -99,6 +117,13 @@ def replay(r, th):
         for ln in r.get("lanes", []):
             scene["lanes"].setdefault(int(ln["frame"]), []).append(ln)
         evs, crash = events.analyse({b: mb} if b is not None else {}, b, flow, s["t"], None, scene)
+        if crash is not None and b is not None and r.get("background") is not None:
+            # rule R4 as siyaq_cv/analyse.py adds it (front camera): background of the frames before the impact
+            bg = {int(k): v for k, v in r["background"].items()}
+            still = {f: bg[f] for f in range(max(1, crash - config.REVERSE_WINDOW), crash) if f in bg}
+            rev = events.reversing(mb, b, still, crash, s["t"])
+            if rev:
+                evs.append(rev)
     finally:
         for k, v in saved.items():
             setattr(config, k, v)
@@ -143,8 +168,15 @@ def score(ref, pred):
     if v["sudden_stop"]:
         out["sudden_stop"] = int(bool(ref["sudden_stop"]) == (ss is not None))
         out["_ss_ref"], out["_ss_pred"] = bool(ref["sudden_stop"]), ss is not None
+    rv_ev = next((e for e in pred["events"] if e["type"] == "reversing"), None)
+    if v.get("reversing", True):
+        # rule R4: clips without reversing tags count as "no reversing"
+        out["reversing"] = int(bool(ref.get("reversing")) == (rv_ev is not None))
+        out["_rv_ref"], out["_rv_pred"] = bool(ref.get("reversing")), rv_ev is not None
     fd = next((e for e in pred["events"] if e["type"] == "following_distance"), None)
-    if v["safe_distance"]:
+    # reversing clips (rule R4): the recording car stands still and B closes the gap, so the following distance of the
+    # recording car does not apply and is not scored there
+    if v["safe_distance"] and not ref.get("reversing"):
         rv = sd_at(ref, ref["collision_frame"])
         if rv in ("Maintained", "Not maintained"):
             p = fd["measures"].get("safe_distance") if fd else None
@@ -218,7 +250,9 @@ def baseline_rows(train, test, refs):
                   if refs[c]["valid_for"]["lane_change"]], "none")
     ss_maj = maj([bool(refs[c]["sudden_stop"]) for c in train if refs[c]["valid_for"]["sudden_stop"]], False)
     sd_maj = maj([sd_at(refs[c], refs[c]["collision_frame"]) for c in train if refs[c]["valid_for"]["safe_distance"]
+                  and not refs[c].get("reversing")
                   and sd_at(refs[c], refs[c]["collision_frame"]) in ("Maintained", "Not maintained")], "Maintained")
+    rv_maj = maj([bool(refs[c].get("reversing")) for c in train if refs[c]["valid_for"].get("reversing", True)], False)
     med = int(st.median([refs[c]["collision_frame"] for c in train if refs[c]["valid_for"]["collision"]] or [25]))
     out = []
     for c in test:
@@ -232,7 +266,9 @@ def baseline_rows(train, test, refs):
             r["lane_change"] = r["lane_change_vehicle"] = int(_vehicle(ref["lane_change"] and ref["lane_change"].get("vehicle")) == lc_maj)
         if v["sudden_stop"]:
             r["sudden_stop"] = int(bool(ref["sudden_stop"]) == ss_maj)
-        if v["safe_distance"]:
+        if v.get("reversing", True):
+            r["reversing"] = int(bool(ref.get("reversing")) == rv_maj)
+        if v["safe_distance"] and not ref.get("reversing"):
             rv = sd_at(ref, ref["collision_frame"])
             if rv in ("Maintained", "Not maintained"):
                 r["safe_distance"] = int(rv == sd_maj)
@@ -332,6 +368,7 @@ def main():
     cvrows = [r for r in per_clip if r["system"] == "cross-validated"]
     lc_p, lc_r, lc_f = prf(cvrows, "_lc_ref", "_lc_pred", "lane_change")
     ss_p, ss_r, ss_f = prf(cvrows, "_ss_ref", "_ss_pred", "sudden_stop")
+    rv_p, rv_r, rv_f = prf(cvrows, "_rv_ref", "_rv_pred", "reversing")
 
     stability = []
     for k in TUNED:
@@ -352,6 +389,7 @@ def main():
                            "vehicle_b_iou": B_IOU_THR, "engine": engine_fingerprint()},
               "summary": summary, "lane_change_prf": {"precision": lc_p, "recall": lc_r, "f1": lc_f},
               "sudden_stop_prf": {"precision": ss_p, "recall": ss_r, "f1": ss_f},
+              "reversing_prf": {"precision": rv_p, "recall": rv_r, "f1": rv_f},
               "threshold_stability": stability, "final_thresholds_all_clips": final,
               "fixed": a.fix,
               "folds": folds}
@@ -393,6 +431,8 @@ def write_excel(path, res, per_clip, idx):
                res["lane_change_prf"]["recall"], "F1", res["lane_change_prf"]["f1"]])
     ws.append(["Sudden stop (cross-validated)", "precision", res["sudden_stop_prf"]["precision"], "recall",
                res["sudden_stop_prf"]["recall"], "F1", res["sudden_stop_prf"]["f1"]])
+    ws.append(["Reversing R4 (cross-validated)", "precision", res["reversing_prf"]["precision"], "recall",
+               res["reversing_prf"]["recall"], "F1", res["reversing_prf"]["f1"]])
     sheet(wb.create_sheet("Folds"), res["folds"], list(res["folds"][0].keys()) if res["folds"] else [])
     sheet(wb.create_sheet("Thresholds"), res["threshold_stability"] +
           [{"threshold": "FINAL (all clips) -> config.py", "most_chosen": json.dumps(res["final_thresholds_all_clips"])}],

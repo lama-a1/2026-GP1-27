@@ -30,6 +30,9 @@ Sources
               depends on the prior probability of each class (here: the accident type of the user's report).
   [Dagan]     E. Dagan et al., "Forward collision warning with a single camera", IEEE IV 2004 - TTC from the change of
               the vehicle's image size (the method used in motion.py).
+  [Bouguet]   J.-Y. Bouguet, "Pyramidal implementation of the Lucas Kanade feature tracker", Intel Corporation, 2000 -
+              the corner-point tracker used for the background movement; it tracks to a fraction of a pixel, so a
+              standing camera still shows a small non-zero movement.
 """
 
 GRID = {
@@ -75,6 +78,15 @@ GRID = {
     "SAFE_SUDDEN_STOP": [False, True],
     # B not tracked at the judging moment: its nearest tracked frame within up to 1 s (the tracker's buffer) [ByteTrack].
     "SAFE_FALLBACK_S": [0.0, 0.5, 1.0],
+    # rule R4 (the front vehicle reverses into a standing recording car):
+    # frames before the impact that are read: 0.8-2 s, around the tracker's 1 s buffer [ByteTrack] and the critical
+    # TTC of 1.5 s [vdHorst].
+    "REVERSE_WINDOW": [8, 10, 12, 15, 20],
+    # the recording car stands still when the background moves less than this (px/frame at 640 px): above the
+    # sub-pixel error of the corner-point tracker [Bouguet].
+    "REVERSE_STILL_PX": [0.1, 0.15, 0.2, 0.3, 0.4, 0.5],
+    # B comes closer: distance at the start / at the end of the window, i.e. growth of B's image size [Dagan] by 2-30 %.
+    "REVERSE_CLOSE_RATIO": [1.02, 1.05, 1.10, 1.15, 1.20, 1.30],
 }
 
 # The rules run in this order (impact, Vehicle B's lane change, then the recording car's lane change only if B made
@@ -96,4 +108,6 @@ STAGES = [
     (("SAFE_UNKNOWN",), "safe_distance", True),
     (("SAFE_SUDDEN_STOP",), "safe_distance", True),
     (("SAFE_FALLBACK_S",), "safe_distance", False),
+    # rule R4 runs after the impact is found and changes no other event
+    (("REVERSE_WINDOW", "REVERSE_STILL_PX", "REVERSE_CLOSE_RATIO"), "reversing", False),
 ]

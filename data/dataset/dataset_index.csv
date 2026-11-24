@@ -99,7 +99,7 @@ dada_validation_type12_14,Lane-change,DADA-2000,train,videos/lane_change/dada_va
 001269,Rear-end,CCD,train,videos/rear_end/001269.mp4,48,4.8,50,10,Day,Normal,Yes
 001280,Rear-end,CCD,train,videos/rear_end/001280.mp4,45,4.5,50,10,Day,Normal,Yes
 001355,Rear-end,CCD,train,videos/rear_end/001355.mp4,42,4.2,50,10,Day,Normal,Yes
-001396,Rear-end,CCD,test,videos/rear_end/001396.mp4,35,3.5,50,10,Day,Normal,Yes
+001396,Lane-change,CCD,test,videos/rear_end/001396.mp4,35,3.5,50,10,Day,Normal,Yes
 dada_testing_type11_104,Rear-end,DADA-2000,train,videos/rear_end/dada_testing_type11_104.mp4,35,3.5,50,10,Day,Normal,Yes
 dada_testing_type11_105,Rear-end,DADA-2000,train,videos/rear_end/dada_testing_type11_105.mp4,35,3.5,50,10,Day,Normal,Yes
 dada_testing_type11_110,Rear-end,DADA-2000,test,videos/rear_end/dada_testing_type11_110.mp4,35,3.5,50,10,Day,Normal,Yes

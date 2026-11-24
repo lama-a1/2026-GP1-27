@@ -175,7 +175,7 @@ def analyse_video(path, accident_type=None, thumbnails=True, camera="front", pro
             if lane_info and "left_line" in lane_info:
                 lane_info["left_line"], lane_info["right_line"] = lane_info["right_line"], lane_info["left_line"]
         evs.sort(key=lambda e: (e["start"], e["type"] != "collision"))
-    # R4 (exploratory): the front vehicle reverses into a standing recording car; added beside the other events
+    # R4: the front vehicle reverses into a standing recording car; added beside the other events
     # (front camera only: with the rear camera B is the vehicle behind)
     if camera == "front" and crash is not None and b is not None:
         rev = events.reversing(meas.get(b), b, motion.background_still(frames, tracks, crash - config.REVERSE_WINDOW, crash - 1),
