@@ -40,6 +40,17 @@ def cloudinary_metadata(public_id):
     with urlopen(req, timeout=15) as response:
         return json.loads(response.read().decode('utf-8'))
 
+def cloudinary_prepare_silent(public_id):
+    """Ask Cloudinary to make the copy without sound (ac_none, mp4) in the background right after the upload, so the
+    page's player gets a finished file it can jump in (an on-the-fly copy cannot be sought the first time it is opened).
+    eager_async: the upload does not wait for it."""
+    params = {'public_id': public_id, 'type': 'authenticated', 'eager': 'ac_none/mp4', 'eager_async': 'true',
+              'timestamp': int(time.time())}
+    payload = urlencode({**params, 'api_key': os.environ['CLOUDINARY_API_KEY'], 'signature': cloudinary_sign(params)}).encode()
+    url = 'https://api.cloudinary.com/v1_1/' + quote(os.environ['CLOUDINARY_CLOUD_NAME'], safe='') + '/video/explicit'
+    with urlopen(Request(url, data=payload, method='POST'), timeout=15) as response:
+        return json.loads(response.read().decode('utf-8'))
+
 def stored_cloudinary_id(value):
     return value[len('cloudinary://'):] if value and value.startswith('cloudinary://') else None
 
@@ -1424,6 +1435,11 @@ def video_complete(case_id):
                 if not existing and not c.execute('SELECT 1 FROM dashcam_video WHERE case_id=? AND national_id=?',(case_id,party['national_id'])).fetchone():
                     add_video(c,case_id,party['national_id'],'cloudinary://' + pending['public_id'],pending.get('camera'),pending['name'])
             session.pop('pending_video', None)
+            try:
+                cloudinary_prepare_silent(pending['public_id'])
+            except Exception:
+                # not needed for the upload: without it the copy is made the first time the video is opened
+                app.logger.warning('Could not request the copy without sound', exc_info=True)
         except Exception:
             app.logger.exception('Could not verify video upload')
             return jsonify(error='تعذر تأكيد رفع الفيديو. يرجى المحاولة لاحقًا.'), 503

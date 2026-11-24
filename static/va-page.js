@@ -49,7 +49,9 @@ window.siyaqAnalysisView = function (root) {
   }
   // full screen shows the player box, so the boxes stay on the video (the browser's own full screen shows the bare video)
   var playerBox = cropped ? video.parentElement.parentElement : video.parentElement;
-  video.setAttribute('controlsList', 'nofullscreen');
+  // add to the page's own list (nodownload ...) instead of replacing it
+  if (video.controlsList && video.controlsList.add) video.controlsList.add('nofullscreen');
+  else video.setAttribute('controlsList', ((video.getAttribute('controlsList') || '') + ' nofullscreen').trim());
   var fsEl = function () { return document.fullscreenElement || document.webkitFullscreenElement; };
   var goFull = function () {
     if (fsEl()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
