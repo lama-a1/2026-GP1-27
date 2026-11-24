@@ -256,7 +256,7 @@
           <p><b>الإفادة:</b> {{party.description or 'لا توجد إفادة'}}</p>
           <p><b>هل يوجد فيديو؟</b> {{'نعم' if videos else 'لا'}}{% if videos and videos[0].camera %} ({{'الكاميرا الأمامية' if videos[0].camera=='front' else 'الكاميرا الخلفية'}}){% endif %}</p>
         </div>
-        <label class="check"><input type="checkbox" name="consent" value="yes" required> أؤكد صحة البيانات التي أدخلتها حسب علمي، وأوافق على استخدامها لأغراض هذا المشروع الأكاديمي.</label>
+        <label class="check"><input type="checkbox" name="consent" value="yes" required> أؤكد صحة البيانات التي أدخلتها حسب علمي، وأوافق على استخدامها لأغراض هذا المشروع الأكاديمي. أعلم أن الفيديو يُحفظ كما رفعته بما فيه الصوت، وأن الصوت لا يُستخدم في التحليل ولا يُعرض على الخبير.</label>
 
         {% elif step==7 %}
         <!-- step 7: invitation for party A and case status for both parties -->

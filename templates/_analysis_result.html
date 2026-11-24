@@ -50,7 +50,7 @@
       </div>
     </div>
     <div class="va-player">
-      <video id="va-video" controls muted playsinline preload="metadata" src="{{ video_src }}"></video>
+      <video id="va-video" controls muted playsinline preload="metadata" controlslist="nodownload noremoteplayback" disablepictureinpicture oncontextmenu="return false" src="{{ video_src }}"></video>
       <canvas id="va-overlay" aria-hidden="true"></canvas>
     </div>
 

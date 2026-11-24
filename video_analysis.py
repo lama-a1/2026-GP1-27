@@ -414,7 +414,7 @@ def register(app, h):
         if public_id:
             if not h.cloudinary_ready():
                 abort(503)
-            return redirect(cloudinary_video_url(public_id))
+            return redirect(cloudinary_video_url(public_id, mute=True))   # the sound track is never delivered to the page
         key = h.stored_s3_key(stored)
         if key:
             if not h.storage_ready():
@@ -515,14 +515,18 @@ def cloudinary_download_url(h, public_id, fmt):
             '/video/download?' + urlencode(params))
 
 
-def cloudinary_video_url(public_id, fmt='mp4'):
-    """Signed delivery URL for an authenticated video, converted to mp4 so every browser can play it."""
+def cloudinary_video_url(public_id, fmt='mp4', mute=False):
+    """Signed delivery URL for an authenticated video, converted to mp4 so every browser can play it.
+    mute=True adds Cloudinary's ac_none transformation: the delivered copy has no sound track, so the sound recorded
+    in the car can neither be heard nor saved from the page (the stored original keeps it). The signature covers the
+    transformation, so the link cannot be changed to get the sound back."""
     import base64
     import hashlib
-    to_sign = public_id + '.' + fmt
+    tr = 'ac_none/' if mute else ''
+    to_sign = tr + public_id + '.' + fmt
     sig = base64.urlsafe_b64encode(hashlib.sha1((to_sign + os.environ['CLOUDINARY_API_SECRET']).encode()).digest())[:8].decode()
     return ('https://res.cloudinary.com/' + quote(os.environ['CLOUDINARY_CLOUD_NAME'], safe='') +
-            '/video/authenticated/s--' + sig + '--/' + quote(public_id) + '.' + fmt)
+            '/video/authenticated/s--' + sig + '--/' + tr + quote(public_id) + '.' + fmt)
 
 
 def save_result(h, c, video_id, result):

@@ -6,7 +6,7 @@ window.siyaqAnalysisView = function (root) {
   var D = JSON.parse(dataEl.textContent);
   var video = root.querySelector('#va-video'), canvas = root.querySelector('#va-overlay'), ctx = canvas.getContext('2d');
   var show = root.querySelector('#va-show-boxes'), playhead = root.querySelector('#va-playhead');
-  // no sound: the videos are stored without audio, and a file that still has a sound track is never played aloud
+  // no sound: the stored video keeps its sound track, but the page receives a copy without it (ac_none) and never plays it aloud
   if (video) {
     video.muted = true; video.volume = 0;
     video.addEventListener('volumechange', function () { if (!video.muted || video.volume) { video.muted = true; video.volume = 0; } });
