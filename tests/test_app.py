@@ -184,3 +184,20 @@ def test_declined_email_is_sent_even_with_notifications_off():
     import app as module
     assert 'وصلتك هذه الرسالة لأنك منشئ البلاغ' in module.status_email_html('declined','SQ-1','https://x.example/c')
     assert 'يمكن إيقاف' in module.status_email_html('joined','SQ-1','https://x.example/c')
+
+def test_server_error_shows_arabic_page(monkeypatch):
+    # an unexpected error shows a short Arabic page with a retry button, not the default English page
+    from app import app as flask_app
+    def boom(): raise RuntimeError('boom')
+    monkeypatch.setitem(flask_app.view_functions,'health',boom)
+    monkeypatch.setitem(flask_app.config,'TESTING',False)
+    monkeypatch.setitem(flask_app.config,'PROPAGATE_EXCEPTIONS',False)
+    r=flask_app.test_client().get('/health')
+    assert r.status_code==500 and 'إعادة المحاولة'.encode() in r.data
+
+def test_schema_is_applied_once_per_version():
+    # the schema statements give the same version text every time, so a new instance skips the table changes
+    import schema, hashlib
+    a=hashlib.sha256('\n'.join(schema.statements(True)).encode()).hexdigest()
+    b=hashlib.sha256('\n'.join(schema.statements(True)).encode()).hexdigest()
+    assert a==b

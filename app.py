@@ -62,7 +62,14 @@ if DATABASE_URL:
 
     class PgConnection:
         def __init__(self):
-            self.connection=psycopg.connect(DATABASE_URL, row_factory=dict_row)
+            # the database sleeps after a few idle minutes (Neon): try again before showing an error page
+            for attempt in range(3):
+                try:
+                    self.connection=psycopg.connect(DATABASE_URL, row_factory=dict_row, connect_timeout=15)
+                    break
+                except psycopg.OperationalError:
+                    if attempt==2: raise
+                    time.sleep(1+attempt)
         def __enter__(self):
             return self
         def __exit__(self,typ,value,traceback):
@@ -93,9 +100,26 @@ def insert_id(c, sql, params, key='id'):
 def init_db():
     # create the EER tables and the supporting tables (see schema.py and database/EER_MAPPING.md)
     import schema
+    statements=schema.statements(bool(DATABASE_URL))
+    if not DATABASE_URL:
+        with conn() as c:
+            for statement in statements: c.execute(statement)
+        return
+    # every new server instance runs this at start-up. Changing tables and triggers locks them, so running it
+    # while another instance serves a page can deadlock that page. The schema is applied once per version only,
+    # and one instance at a time (advisory lock); later instances only read the stored version (the comment of the accident_case table).
+    version='siyaq schema '+hashlib.sha256('\n'.join(statements).encode()).hexdigest()
+    def applied(c):
+        # the version is kept as the comment of the accident_case table (no extra table)
+        row=c.execute("SELECT obj_description(to_regclass('accident_case'),'pg_class') AS v").fetchone()
+        return bool(row and row['v']==version)
     with conn() as c:
-        for statement in schema.statements(bool(DATABASE_URL)):
-            c.execute(statement)
+        if applied(c): return
+    with conn() as c:
+        c.execute('SELECT pg_advisory_xact_lock(4242001)')
+        if applied(c): return
+        for statement in statements: c.execute(statement)
+        c.execute("COMMENT ON TABLE accident_case IS '"+version+"'")
 
 # ready-made SELECTs that give each row the names the pages use
 USER_SQL='''SELECT national_id AS id, national_id, full_name, date_of_birth AS birth_date, phone, email, password_hash,
@@ -1643,6 +1667,11 @@ def cases_page():
     with conn() as c:
         cases=user_cases(c,session['uid'])
     return render_template('dashboard.html',cases=cases,all_cases=True)
+
+@app.errorhandler(500)
+def server_error(e):
+    # a short Arabic page instead of the default English error; it does not touch the database
+    return render_template('error.html'),500
 
 @app.get('/health')
 def health():
