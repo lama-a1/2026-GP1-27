@@ -17,7 +17,9 @@
             <td><div class="expert-analysis">{% set ana = case_analysis(c.case_id) %}
               {% if key=='pending' %}
               {# the analysis starts only when both parties have submitted, so there is nothing to open yet #}
-              <span class="ana-waiting">ينتظر الطرف الثاني · يبدأ التحليل بعد إرسال الطرفين</span>
+              {# a draft has not been submitted by party A yet; a pending case waits for party B #}
+              {% if c.status=='draft' %}<span class="ana-waiting">لم يُكمل الطرف الأول البلاغ بعد</span>
+              {% else %}<span class="ana-waiting">ينتظر الطرف الثاني · يبدأ التحليل بعد إرسال الطرفين</span>{% endif %}
               {% else %}
               {% for v in ana.videos %}
               {# a clear button: action + party, then the analysis state (coloured dot) and an arrow #}
