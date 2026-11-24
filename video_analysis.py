@@ -215,15 +215,30 @@ def register(app, h):
             return fn(*args, **kwargs)
         return wrapped
 
+    ANALYSIS_SQL = ('SELECT v.case_id, v.video_id, v.national_id, v.camera_type, pp.position, a.status, a.started_at '
+                    'FROM dashcam_video v '
+                    'LEFT JOIN participation_progress pp ON pp.case_id=v.case_id AND pp.national_id=v.national_id '
+                    'LEFT JOIN video_analysis a ON a.video_id=v.video_id ')
+
     def case_analysis(case_id):
-        """Analysis state of all videos in a case, for the party timeline and the expert list."""
+        """Analysis state of all videos in a case, for the party timeline."""
         with h.conn() as c:
-            rows = c.execute(
-                'SELECT v.video_id, v.national_id, v.camera_type, pp.position, a.status, a.started_at '
-                'FROM dashcam_video v '
-                'LEFT JOIN participation_progress pp ON pp.case_id=v.case_id AND pp.national_id=v.national_id '
-                'LEFT JOIN video_analysis a ON a.video_id=v.video_id '
-                'WHERE v.case_id=? ORDER BY pp.position', (case_id,)).fetchall()
+            rows = c.execute(ANALYSIS_SQL + 'WHERE v.case_id=? ORDER BY pp.position', (case_id,)).fetchall()
+        return analysis_summary(rows)
+
+    def cases_analysis(c, case_ids):
+        """The same for many cases with one query on an open connection (the expert list):
+        {case_id: {'videos': [...], 'state': ...}}. One query instead of one connection per case keeps the list fast."""
+        ids = list(case_ids)
+        rows_by_case = {i: [] for i in ids}
+        if ids:
+            rows = c.execute(ANALYSIS_SQL + 'WHERE v.case_id IN (' + ','.join('?' * len(ids)) + ') '
+                             'ORDER BY v.case_id, pp.position', tuple(ids)).fetchall()
+            for r in rows:
+                rows_by_case[r['case_id']].append(r)
+        return {i: analysis_summary(rows) for i, rows in rows_by_case.items()}
+
+    def analysis_summary(rows):
         videos = []
         for r in rows:
             st = r['status'] or 'none'
@@ -236,6 +251,7 @@ def register(app, h):
         return {'videos': videos, 'state': state}
 
     app.jinja_env.globals['case_analysis'] = case_analysis
+    app.jinja_env.globals['cases_analysis'] = cases_analysis
 
     # ---- expert trial: analyse any dashcam video without opening a case. Nothing is kept: the uploaded copy
     #      is deleted right after the analysis, and the result exists only in the expert's open page.

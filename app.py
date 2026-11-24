@@ -833,9 +833,32 @@ def expert_cases():
     if not session.get('expert_authenticated'):
         return redirect(url_for('expert_login'))
     with conn() as c:
-        cases = c.execute(CASE_SQL+' ORDER BY created_at DESC LIMIT 100').fetchall()
+        cases, groups, analyses = expert_case_list(c)
+    return render_template('expert_cases.html', cases=cases, groups=groups, analyses=analyses,
+                           list_key=expert_list_key(cases, analyses))
+
+def expert_case_list(c):
+    # the expert list: the latest 100 cases by status, and the analysis of the videos of every case
+    # outside «قيد الانتظار» (a pending case shows no analysis), read with one query on the same connection
+    cases = c.execute(CASE_SQL+' ORDER BY created_at DESC LIMIT 100').fetchall()
     groups = {k: [x for x in cases if status_key(x['status']) == k] for k in ('pending', 'in_progress', 'completed')}
-    return render_template('expert_cases.html', cases=cases, groups=groups)
+    analyses = app.jinja_env.globals['cases_analysis'](c, [x['case_id'] for x in cases if status_key(x['status']) != 'pending'])
+    return cases, groups, analyses
+
+def expert_list_key(cases, analyses):
+    # a short fingerprint of what the expert list shows; it changes when a case is added or changes, or an analysis moves on
+    parts = ['|'.join(str(x[k] or '') for k in ('case_id', 'status', 'accident_type', 'accident_date', 'accident_time')) for x in cases]
+    parts += ['%s|%s|%s' % (v['video_id'], v['position'], v['status']) for a in analyses.values() for v in a['videos']]
+    return hashlib.sha256('\n'.join(parts).encode()).hexdigest()[:16]
+
+@app.get('/api/expert/cases/key')
+def expert_cases_key():
+    # polled by the expert list, so a new or changed case shows without refreshing
+    if not session.get('expert_authenticated'):
+        abort(403)
+    with conn() as c:
+        cases, groups, analyses = expert_case_list(c)
+    return jsonify(key=expert_list_key(cases, analyses))
 
 @app.get('/expert/rules')
 def expert_rules():

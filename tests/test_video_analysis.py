@@ -138,6 +138,7 @@ def test_status_page_starts_the_analysis_and_expert_list_shows_it(monkeypatch):
     with module.conn() as db:
         nid, case_id, vid = setup_case(db, both_submitted=False)
         db.execute('UPDATE participation_progress SET completed=1 WHERE case_id=?', (case_id,))
+        db.execute("UPDATE accident_case SET status='pending' WHERE case_id=?", (case_id,))   # as Party A's submission does
     with app.test_client() as client:
         login(client, nid)
         # only Party A has submitted: the analysis waits for Party B (case PENDING)

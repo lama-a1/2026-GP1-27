@@ -14,13 +14,14 @@
         <tbody>
           {% for c in groups[key] %}
           <tr><td dir="ltr">{{c.reference}}</td><td>{{'حادث تغيير مسار' if c.accident_type=='LANE_CHANGE' else 'تصادم خلفي' if c.accident_type=='REAR_END' else c.accident_type}}</td><td>{{c.accident_date}}</td><td>{{c.accident_time}}</td>
-            <td><div class="expert-analysis">{% set ana = case_analysis(c.case_id) %}
+            <td><div class="expert-analysis">
               {% if key=='pending' %}
               {# the analysis starts only when both parties have submitted, so there is nothing to open yet #}
               {# a draft has not been submitted by party A yet; a pending case waits for party B #}
               {% if c.status=='draft' %}<span class="ana-waiting">لم يُكمل الطرف الأول البلاغ بعد</span>
               {% else %}<span class="ana-waiting">ينتظر الطرف الثاني · يبدأ التحليل بعد إرسال الطرفين</span>{% endif %}
               {% else %}
+              {% set ana = analyses[c.case_id] %}
               {% for v in ana.videos %}
               {# a clear button: action + party, then the analysis state (coloured dot) and an arrow #}
               <a class="ana-link ana-{{v.status}}" href="{{url_for('video_analysis_page',video_id=v.video_id)}}">
@@ -41,4 +42,17 @@
   </section>
   {% endfor %}
 </div>
+<!-- keep the list up to date: check every few seconds and reload when a case was added or changed -->
+<script>
+(function(){
+  var key={{ list_key|tojson }}, url='{{ url_for('expert_cases_key') }}';
+  function check(){
+    if(document.hidden)return;
+    fetch(url,{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null;})
+      .then(function(d){if(d && d.key && d.key!==key)location.reload();}).catch(function(){});
+  }
+  setInterval(check,8000);
+  document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});
+})();
+</script>
 {% endblock %}
