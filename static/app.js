@@ -130,6 +130,7 @@ function showFilename(input){
             xhr.onload=()=>{
               let result={};try{result=JSON.parse(xhr.responseText);}catch(_){}
               if(xhr.status>=200&&xhr.status<300 && !result.error)resolve(result);
+              else if(xhr.status===400&&/invalid|unsupported|corrupt/i.test(result.error?.message||''))reject(new Error('تعذر قراءة الفيديو: الملف تالف أو ليس فيديو صالحًا. يرجى اختيار فيديو آخر.'));
               else reject(new Error(result.error?.message||'تعذر رفع الفيديو. يرجى المحاولة مرة أخرى.'));
             };
             xhr.onerror=()=>reject(new Error('تعذر الاتصال بخدمة رفع الفيديو.'));
@@ -373,5 +374,68 @@ function showFilename(input){
     input.addEventListener('blur',()=>check(true));
     input.addEventListener('invalid',()=>check(true));
     if(input.value)check(false);
+  });
+})();
+
+(function(){
+  // check the chosen video before it is uploaded: a corrupted file or a file that is not a video is rejected here,
+  // so the user can choose another video in the same step (the server repeats the check, app.py video_file_ok)
+  const input=document.querySelector('input[type="file"][name="video"]');
+  if(!input)return;
+  const form=input.closest('form');
+  const message=document.getElementById('video-check-message');
+  const progress=document.getElementById('video-check-progress');
+  const BAD='تعذر قراءة الفيديو: الملف تالف أو ليس فيديو صالحًا. يرجى اختيار فيديو آخر.';
+  const MP4_FIRST=['ftyp','moov','mdat','wide','free','skip','pnot','uuid'];
+  let checking=false;
+  const bytes=async(file,start,len)=>new Uint8Array(await file.slice(start,start+len).arrayBuffer());
+  const text=(b,i)=>String.fromCharCode(b[i],b[i+1],b[i+2],b[i+3]);
+  async function containerOk(file){
+    // the same structure check as video_container_ok in app.py; nothing is decoded and the file is not changed
+    const size=file.size;
+    const head=await bytes(file,0,12);
+    if(head.length<12)return false;
+    if(head[0]===0x1a&&head[1]===0x45&&head[2]===0xdf&&head[3]===0xa3)return true;           // WebM / MKV
+    if(text(head,0)==='RIFF'&&text(head,8)==='AVI ')                                       // AVI
+      return (head[4]|head[5]<<8|head[6]<<16|head[7]<<24)>>>0 <= size-8;
+    const boxes=[];let off=0;                                                              // MP4 / MOV
+    while(off<size&&boxes.length<10000){
+      const h=await bytes(file,off,16);
+      if(h.length<8)return false;
+      let boxSize=((h[0]<<24)|(h[1]<<16)|(h[2]<<8)|h[3])>>>0;
+      if(boxSize===1){
+        if(h.length<16)return false;
+        boxSize=0;for(let i=8;i<16;i++)boxSize=boxSize*256+h[i];
+      }else if(boxSize===0){boxSize=size-off;}
+      if(boxSize<8||off+boxSize>size)return false;
+      boxes.push(text(h,4));
+      off+=boxSize;
+    }
+    return boxes.length>0&&MP4_FIRST.includes(boxes[0])&&boxes.includes('moov');
+  }
+  function durationOk(file){
+    // a video the browser can open must have a length; if the browser cannot play this format, it is not judged here
+    return new Promise((resolve)=>{
+      const v=document.createElement('video');const url=URL.createObjectURL(file);
+      const done=(r)=>{clearTimeout(t);URL.revokeObjectURL(url);v.removeAttribute('src');resolve(r);};
+      const t=setTimeout(()=>done(true),8000);
+      v.preload='metadata';v.muted=true;
+      v.onloadedmetadata=()=>done(!(isFinite(v.duration)&&v.duration<=0));
+      v.onerror=()=>done(true);
+      v.src=url;
+    });
+  }
+  function show(el,on,value){if(!el)return;if(value!==undefined)el.textContent=value;el.hidden=!on;}
+  form&&form.addEventListener('submit',(event)=>{if(checking){event.preventDefault();event.stopImmediatePropagation();}},true);
+  input.addEventListener('change',async()=>{
+    show(message,false);
+    const file=input.files&&input.files[0];
+    if(!file)return;
+    checking=true;show(progress,true);
+    let ok=false;
+    try{ok=await containerOk(file)&&await durationOk(file);}catch(_){ok=false;}
+    checking=false;show(progress,false);
+    if(input.files[0]!==file)return;            // another file was chosen meanwhile
+    if(!ok){input.value='';showFilename(input);show(message,true,BAD);}
   });
 })();

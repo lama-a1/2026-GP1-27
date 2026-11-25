@@ -215,6 +215,8 @@
           <input type="file" name="video" {% if not videos and is_a %}required{% endif %} accept="video/mp4,video/quicktime,video/x-msvideo,video/webm,video/x-matroska" onchange="showFilename(this)">
           <b id="filename"></b>
         </label>
+        <span id="video-check-progress" class="muted" role="status" hidden>جارٍ فحص الفيديو...</span>
+        <p id="video-check-message" class="field-error" role="alert" hidden></p>
         <div id="video-selection-controls" class="video-selection-controls" hidden>
           <button type="button" id="clear-selected-video" class="btn secondary">إزالة الفيديو المختار <i data-lucide="x"></i></button>
           <span class="muted">يمكن تغييره قبل الرفع.</span>

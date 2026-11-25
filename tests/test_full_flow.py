@@ -47,7 +47,7 @@ def test_whole_case_with_both_parties(monkeypatch):
         assert a.get(steps+'4').status_code==200
         r=post(a,steps+'4',{'pos':'REAR','rcase':'normal','zone':'front','description':'I hit the car in front of me.'})
         assert '/steps/5' in r.location
-        r=a.post(steps+'5',data={'csrf_token':'flow-csrf','camera':'front','video':(io.BytesIO(b'video'),'a.mp4')},content_type='multipart/form-data')
+        r=a.post(steps+'5',data={'csrf_token':'flow-csrf','camera':'front','video':(io.BytesIO(factory.tiny_video_bytes()),'a.mp4')},content_type='multipart/form-data')
         assert '/steps/6' in r.location
         assert a.get(steps+'5').status_code==200 and a.get(steps+'6').status_code==200
         assert '/steps/7' in post(a,steps+'6',{'consent':'yes'}).location

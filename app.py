@@ -24,6 +24,60 @@ UPLOAD.mkdir(parents=True,exist_ok=True)
 ALLOWED={'mp4','mov','avi','webm','mkv'}
 VIDEO_MAX_BYTES = 200 * 1024 * 1024
 VIDEO_MIME = {'mp4':'video/mp4','mov':'video/quicktime','avi':'video/x-msvideo','webm':'video/webm','mkv':'video/x-matroska'}
+CORRUPT_VIDEO_MSG = 'تعذر قراءة الفيديو: الملف تالف أو ليس فيديو صالحًا. يرجى اختيار فيديو آخر.'
+MP4_FIRST_BOXES = {'ftyp', 'moov', 'mdat', 'wide', 'free', 'skip', 'pnot', 'uuid'}
+
+def video_container_ok(path):
+    """Check the structure of the video file without decoding it (the same check runs in the browser, static/app.js).
+    MP4/MOV: the top-level boxes must fit the file and include 'moov' (a recording cut off before it was finished has
+    none, or its last box is longer than the file). WebM/MKV: the EBML header. AVI: RIFF/AVI with a size that fits."""
+    size = os.path.getsize(path)
+    with open(path, 'rb') as f:
+        head = f.read(12)
+        if len(head) < 12:
+            return False
+        if head[:4] == b'\x1a\x45\xdf\xa3':                      # WebM / MKV
+            return True
+        if head[:4] == b'RIFF' and head[8:12] == b'AVI ':          # AVI
+            return int.from_bytes(head[4:8], 'little') + 8 <= size
+        boxes, off = [], 0
+        while off < size and len(boxes) < 10000:                   # MP4 / MOV
+            f.seek(off)
+            h = f.read(8)
+            if len(h) < 8:
+                return False
+            box_size, kind = int.from_bytes(h[:4], 'big'), h[4:8].decode('latin-1')
+            if box_size == 1:
+                big = f.read(8)
+                if len(big) < 8:
+                    return False
+                box_size = int.from_bytes(big, 'big')
+            elif box_size == 0:
+                box_size = size - off
+            if box_size < 8 or off + box_size > size:
+                return False
+            boxes.append(kind)
+            off += box_size
+        return bool(boxes) and boxes[0] in MP4_FIRST_BOXES and 'moov' in boxes
+
+def video_file_ok(path):
+    """True when the file is a readable video: its structure is complete and OpenCV can read its first frame."""
+    try:
+        if not video_container_ok(path):
+            return False
+    except OSError:
+        return False
+    try:
+        import cv2
+    except ImportError:
+        return True
+    cap = cv2.VideoCapture(str(path))
+    try:
+        ok, frame = cap.read() if cap.isOpened() else (False, None)
+        return bool(ok) and frame is not None
+    finally:
+        cap.release()
+
 
 def cloudinary_ready():
     return all(os.getenv(k, '').strip() for k in ('CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'))
@@ -1323,6 +1377,10 @@ def wizard(case_id,step):
                 if ext not in ALLOWED: flash('صيغة الفيديو غير مدعومة.','error');return redirect(request.url)
                 filename=uuid.uuid4().hex+'.'+ext
                 f.save(UPLOAD/filename)
+                if not video_file_ok(UPLOAD/filename):
+                    # a corrupted file or not a video: delete it and stay on this step so another video can be chosen
+                    (UPLOAD/filename).unlink(missing_ok=True)
+                    flash(CORRUPT_VIDEO_MSG,'error');return redirect(request.url)
                 with conn() as c: add_video(c,case_id,nid,filename,camera,secure_filename(f.filename))
         elif step==6:
             with conn() as c:
@@ -1452,6 +1510,14 @@ def video_complete(case_id):
                 meta.get('resource_type') != 'video' or meta.get('type') != 'authenticated' or
                 meta.get('bytes') != pending['size']):
                 return jsonify(error='لم يكتمل رفع الفيديو. يرجى إعادة المحاولة.'), 400
+            if 'duration' in meta and not meta.get('duration'):
+                # Cloudinary could not read a duration: the file is corrupted, so it is deleted and not linked to the case
+                try:
+                    delete_stored_file('cloudinary://' + pending['public_id'])
+                except Exception:
+                    app.logger.warning('Could not delete a corrupted upload', exc_info=True)
+                session.pop('pending_video', None)
+                return jsonify(error=CORRUPT_VIDEO_MSG), 400
             with conn() as c:
                 existing = c.execute('SELECT video_id FROM dashcam_video WHERE storage_path=?',
                                      ('cloudinary://' + pending['public_id'],)).fetchone()

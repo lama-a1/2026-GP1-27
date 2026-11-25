@@ -37,3 +37,12 @@ def add_video(db, case_id, nid, stored, processed=None, camera='front', name='te
     vid=module.add_video(db,case_id,nid,stored,camera,name)
     if processed: db.execute('UPDATE video_processing SET processed_path=? WHERE video_id=?',(processed,vid))
     return vid
+
+def tiny_video_bytes():
+    """A real 1-second MP4 (the upload step now rejects files that are not readable videos)."""
+    import cv2, numpy as np, tempfile, os
+    path=os.path.join(tempfile.mkdtemp(),'tiny.mp4')
+    w=cv2.VideoWriter(path,cv2.VideoWriter_fourcc(*'mp4v'),10,(64,48))
+    for i in range(10): w.write(np.full((48,64,3),i*20,np.uint8))
+    w.release()
+    with open(path,'rb') as f: return f.read()

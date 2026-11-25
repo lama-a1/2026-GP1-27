@@ -30,7 +30,7 @@ def submit_case(client):
     post(client,steps+'1',{}); post(client,steps+'2',{})
     post(client,steps+'3',car('أ ب ح','1234'))
     post(client,steps+'4',{'pos':'REAR','rcase':'normal','zone':'front','description':'I hit the car in front of me.'})
-    client.post(steps+'5',data={'csrf_token':'flow-csrf','camera':'front','video':(io.BytesIO(b'video'),'a.mp4')},content_type='multipart/form-data')
+    client.post(steps+'5',data={'csrf_token':'flow-csrf','camera':'front','video':(io.BytesIO(factory.tiny_video_bytes()),'a.mp4')},content_type='multipart/form-data')
     assert '/steps/7' in post(client,steps+'6',{'consent':'yes'}).location
     return case_id
 
