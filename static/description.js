@@ -25,8 +25,8 @@
   if(type==='REAR_END')st.zone=st.pos?(st.pos==='FRONT'?'rear':'front'):'';
 
   const car=(x,y,c,o={})=>{
-    const tl=o.brake?'#ff3b2f':'#b3271b';
-    const glow=o.brake?'<ellipse cx="0" cy="36" rx="16" ry="6" fill="#ff3b2f" opacity=".35"/>':'';
+    const tl=o.rev?'#ffffff':o.brake?'#ff3b2f':'#b3271b';
+    const glow=o.rev?'<ellipse cx="0" cy="36" rx="16" ry="6" fill="#ffffff" opacity=".55"/>':o.brake?'<ellipse cx="0" cy="36" rx="16" ry="6" fill="#ff3b2f" opacity=".35"/>':'';
     return `<g transform="translate(${x} ${y}) rotate(${o.rot||0})">${glow}
      <rect x="-20.5" y="-14" width="4" height="7" rx="1.5" fill="${c}"/><rect x="16.5" y="-14" width="4" height="7" rx="1.5" fill="${c}"/>
      <rect x="-17" y="-31" width="34" height="62" rx="9" fill="${c}"/>
@@ -55,6 +55,7 @@
     const [fc,ft]=who2(pos==='FRONT'),[rc,rt]=who2(pos==='REAR');
     if(kind==='normal')return svg(240,road(240)+car(R,44,GREY)+car(R,118,fc,{brake:1})+car(R,186,rc)+star(R,152)+tag(114,44,'ازدحام','end')+tag(114,118,ft,'end')+tag(114,186,rt,'end'));
     if(kind==='sudden')return svg(240,road(240)+`<circle cx="${R}" cy="40" r="15" fill="#e5483b"/><text x="${R}" y="47" text-anchor="middle" font-size="20" font-weight="700" fill="#fff" ${F}>!</text>`+tag(114,40,'دون عائق','end')+car(R,118,fc,{brake:1})+car(R,186,rc)+star(R,152)+tag(114,118,ft,'end')+tag(114,186,rt,'end'));
+    if(kind==='reverse')return svg(240,road(240)+`<path d="M${R} 22 L${R} 70" fill="none" stroke="#f0937a" stroke-width="2.5" stroke-dasharray="6 5"/><path d="M${R-8} 66 L${R} 78 L${R+8} 66" fill="none" stroke="#f0937a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`+tag(114,44,'رجوع للخلف','end')+car(R,118,fc,{rev:1})+car(R,186,rc)+star(R,152)+tag(114,118,ft,'end')+tag(114,186,rt,'end'));
     return svg(240,road(240)+trail(66,236,124,140)+car(128,110,fc,{rot:16})+car(R,190,rc)+star(R,154)+tag(96,92,ft,'end')+tag(114,200,rt,'end'));
   }
   function laneScene(who,side){
@@ -73,7 +74,8 @@
   const POS={FRONT:'المركبة الأمامية',REAR:'المركبة الخلفية'};
   const RC={normal:['خفّضت المركبة الأمامية سرعتها أو توقفت بصورة اعتيادية','بسبب ازدحام مروري أو إشارة مرورية أو عائق أمامها'],
             sudden:['توقفت المركبة الأمامية فجأة دون وجود عائق ظاهر','لم يظهر أمام المركبة ما يستدعي التوقف'],
-            cutin:['غيّرت المركبة الأمامية مسارها قبل الاصطدام مباشرة','انتقلت إلى المسار أمام المركبة الخلفية ثم وقع الاصطدام']};
+            cutin:['غيّرت المركبة الأمامية مسارها قبل الاصطدام مباشرة','انتقلت إلى المسار أمام المركبة الخلفية ثم وقع الاصطدام'],
+            reverse:['رجعت المركبة الأمامية للخلف','تحركت للخلف واصطدمت بالمركبة الخلفية']};
   const WHO={me:'غيّرت مركبتي مسارها',other:'غيّرت مركبة الطرف الآخر مسارها',both:'غيّرت المركبتان مساريهما في الوقت نفسه'};
   const SIDE={left:'إلى يسار مركبتي',right:'إلى يمين مركبتي'};
   const opt=(key,val,art,label,sub,you)=>`<button type="button" class="desc-opt" ${unavailable(key,val)?'disabled aria-disabled="true"':''} data-k="${key}" data-v="${val}" aria-pressed="${st[key]===val}">${art}${you?'<em class="you">مركبتك</em>':''}<span>${label}</span>${sub?`<small>${sub}</small>`:''}</button>`;
@@ -85,7 +87,8 @@
       const me=st.pos==='FRONT';
       const s={normal:me?'خفّضت سرعة مركبتي أو توقفت بصورة اعتيادية، ثم اصطدمت بها المركبة الخلفية':'خفّضت المركبة الأمامية سرعتها أو توقفت بصورة اعتيادية، ثم اصطدمت بها مركبتي',
                sudden:me?'توقفت مركبتي فجأة دون وجود عائق ظاهر، ثم اصطدمت بها المركبة الخلفية':'توقفت المركبة الأمامية فجأة دون وجود عائق ظاهر، ثم اصطدمت بها مركبتي',
-               cutin:me?'غيّرت مركبتي مسارها أمام مركبة الطرف الآخر قبل الاصطدام مباشرة، ثم وقع الاصطدام من الخلف':'انتقلت مركبة الطرف الآخر إلى مساري قبل الاصطدام مباشرة، ثم اصطدمت بها مركبتي'}[st.rcase];
+               cutin:me?'غيّرت مركبتي مسارها أمام مركبة الطرف الآخر قبل الاصطدام مباشرة، ثم وقع الاصطدام من الخلف':'انتقلت مركبة الطرف الآخر إلى مساري قبل الاصطدام مباشرة، ثم اصطدمت بها مركبتي',
+               reverse:me?'رجعت بمركبتي للخلف فاصطدمت بالمركبة الخلفية':'رجعت المركبة الأمامية للخلف فاصطدمت بمركبتي'}[st.rcase];
       return `موضع الاصطدام: ${z}\nكانت مركبتي هي ${POS[st.pos]}، و${s}. وقع الاصطدام في ${z} من مركبتي.`;
     }
     if(!st.who||!st.side||!z)return '';
@@ -98,7 +101,7 @@
   function render(){
     if(type==='REAR_END'){
       $('d-pos').innerHTML=['REAR','FRONT'].map(v=>opt('pos',v,posScene(v),POS[v],'',1)).join('');
-      $('d-rcase').innerHTML=['normal','sudden','cutin'].map(v=>opt('rcase',v,rearScene(v,st.pos),...RC[v])).join('');
+      $('d-rcase').innerHTML=['normal','sudden','cutin','reverse'].map(v=>opt('rcase',v,rearScene(v,st.pos),...RC[v])).join('');
     }else{
       $('d-side').innerHTML=['left','right'].map(v=>opt('side',v,laneScene('none',v),SIDE[v])).join('');
       $('d-who').innerHTML=['me','other','both'].map(v=>opt('who',v,laneScene(v,st.side),WHO[v])).join('');

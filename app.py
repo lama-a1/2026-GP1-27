@@ -1329,7 +1329,7 @@ def wizard(case_id,step):
                 # the second party's car position is always the opposite of the first party's
                 if party['position']=='B' and case['party_a_position']: meta['pos']=OPPOSITE[case['party_a_position']]
                 if meta['pos'] not in ('FRONT','REAR'): errors.append('موقع المركبة مطلوب (الأمامية أو الخلفية).')
-                if meta['rcase'] not in ('normal','sudden','cutin'): errors.append('ما حدث قبل الصدمة مطلوب.')
+                if meta['rcase'] not in ('normal','sudden','cutin','reverse'): errors.append('ما حدث قبل الصدمة مطلوب.')
                 # rear-end: the place of the hit always follows the car position, for both parties
                 meta['zone']=REAR_END_ZONE.get(meta['pos'])
             else:
