@@ -1,3 +1,4 @@
+# Siyaq: Flask application (routes, accounts, cases and expert interface)
 import os, re, sqlite3, secrets, uuid, json, time, hmac, hashlib, smtplib, ssl
 from urllib.request import Request, urlopen
 from urllib.parse import quote, urlencode
