@@ -25,6 +25,8 @@ The eight entities map to eight tables. Composite attributes are flattened into 
 
 `vehicle.manufacturer`, `model`, `year` and `color` are the components of `car_details`. Plate letters and numbers are separate fields. All other entity attributes retain the EER names.
 
+`vehicle.is_current` marks the version of a car shown in "My vehicles" (1 = current). When a car that is in a submitted case is edited or removed, its row is kept unchanged for that case with `is_current = 0`, and the new details are saved as a new row with `is_current = 1`; cases not submitted yet move to the new row. A car in no submitted case is changed or deleted in place.
+
 Each case has at most two participants and two linked vehicles. A linked vehicle belongs to a participant, with one vehicle per party in a case. Each party can upload one video per case. An event can involve at most two detected vehicles. A case has at most one final report, with up to two recipients who participate in that case.
 
 Draft cases are allowed while the user enters the required data. Submission requires a participant, a linked vehicle and a video. Both parties and both vehicles are required when the case enters review. PostgreSQL also checks minimum bounding boxes and report recipients through deferred constraints.

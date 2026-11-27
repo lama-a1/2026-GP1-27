@@ -169,6 +169,9 @@ def init_db():
     if not DATABASE_URL:
         with conn() as c:
             for statement in statements: c.execute(statement)
+            # an SQLite file made before vehicle versions has no is_current column yet (every car is current)
+            if 'is_current' not in [r['name'] for r in c.execute('PRAGMA table_info(vehicle)').fetchall()]:
+                c.execute('ALTER TABLE vehicle ADD COLUMN is_current INTEGER NOT NULL DEFAULT 1 CHECK (is_current IN (0,1))')
         return
     # every new server instance runs this at start-up. Changing tables and triggers locks them, so running it
     # while another instance serves a page can deadlock that page. The schema is applied once per version only,
@@ -194,7 +197,7 @@ CASE_SQL='''SELECT ca.*, ca.case_id AS id, ca.case_id AS reference,
     (SELECT joined_at FROM participation_progress WHERE case_id=ca.case_id AND position='A') AS created_at
     FROM accident_case ca'''
 VEHICLE_SQL='''SELECT vehicle_id AS id, vehicle_id, plate_letters, plate_number, plate_letters||' '||plate_number AS plate,
-    manufacturer, model, year, color, national_id FROM vehicle'''
+    manufacturer, model, year, color, national_id, is_current FROM vehicle'''
 VIDEO_SQL='''SELECT v.video_id AS id, v.video_id, v.case_id, v.national_id AS party_id, v.national_id,
     v.storage_path AS stored_name, v.camera_type AS camera, v.uploaded_at,
     COALESCE(p.original_name,'video') AS original_name, p.processed_path AS processed_name,
@@ -1225,30 +1228,44 @@ def vehicle_form_errors(form):
     return data,errors
 
 def vehicle_locked(c, vehicle_id):
-    # a car can't be changed or deleted while it is in a case its owner already submitted
+    # the car is in a case its owner already submitted: that case must keep the car as it was
     return bool(c.execute('''SELECT 1 FROM involves i JOIN vehicle v ON v.vehicle_id=i.vehicle_id
         JOIN participation_progress pp ON pp.case_id=i.case_id AND pp.national_id=v.national_id
         WHERE i.vehicle_id=? AND pp.completed=1''',(vehicle_id,)).fetchone())
+
+def draft_cases_of(c, vehicle_id):
+    # the cases that use this car and that its owner has not submitted yet
+    return [r['case_id'] for r in c.execute('''SELECT i.case_id FROM involves i JOIN vehicle v ON v.vehicle_id=i.vehicle_id
+        JOIN participation_progress pp ON pp.case_id=i.case_id AND pp.national_id=v.national_id
+        WHERE i.vehicle_id=? AND pp.completed=0''',(vehicle_id,)).fetchall()]
 
 def save_owner_vehicle(c, owner, data, vehicle_id=None):
     # add or update a car in the owner's "My vehicles" (VEHICLE, registered by ACCIDENT_PARTY)
     # returns (vehicle_id, error, changed)
     values=(data['plate_letters'],data['plate_number'],data['manufacturer'],data['model'],int(data['year']),data['color'])
-    same=c.execute('SELECT * FROM vehicle WHERE national_id=? AND plate_letters=? AND plate_number=?',(owner,data['plate_letters'],data['plate_number'])).fetchone()
+    same=c.execute('SELECT * FROM vehicle WHERE national_id=? AND plate_letters=? AND plate_number=? AND is_current=1',(owner,data['plate_letters'],data['plate_number'])).fetchone()
     if vehicle_id:
-        old=c.execute('SELECT * FROM vehicle WHERE vehicle_id=? AND national_id=?',(vehicle_id,owner)).fetchone()
+        old=c.execute('SELECT * FROM vehicle WHERE vehicle_id=? AND national_id=? AND is_current=1',(vehicle_id,owner)).fetchone()
         if not old: return None,'المركبة غير موجودة.',False
         if same and same['vehicle_id']!=old['vehicle_id']: return None,'هذه اللوحة مسجلة مسبقًا في مركباتك.',False
     else:
         old=same
-    if old:
-        changed=(old['plate_letters'],old['plate_number'],old['manufacturer'],old['model'],int(old['year']),old['color'])!=values
-        if changed and vehicle_locked(c,old['vehicle_id']):
-            return None,'لا يمكن تعديل هذه المركبة لأنها مرتبطة ببلاغ تم إرساله.',False
-        if changed:
-            c.execute('UPDATE vehicle SET plate_letters=?,plate_number=?,manufacturer=?,model=?,year=?,color=? WHERE vehicle_id=?',(*values,old['vehicle_id']))
-        return old['vehicle_id'],None,changed
-    new_id=insert_id(c,'INSERT INTO vehicle(plate_letters,plate_number,manufacturer,model,year,color,national_id) VALUES(?,?,?,?,?,?,?)',(*values,owner),'vehicle_id')
+    if not old:
+        return insert_id(c,'INSERT INTO vehicle(plate_letters,plate_number,manufacturer,model,year,color,national_id,is_current) VALUES(?,?,?,?,?,?,?,1)',(*values,owner),'vehicle_id'),None,True
+    changed=(old['plate_letters'],old['plate_number'],old['manufacturer'],old['model'],int(old['year']),old['color'])!=values
+    if not changed: return old['vehicle_id'],None,False
+    if not vehicle_locked(c,old['vehicle_id']):
+        # not in any submitted case: change the same row (a draft case simply shows the new details)
+        c.execute('UPDATE vehicle SET plate_letters=?,plate_number=?,manufacturer=?,model=?,year=?,color=? WHERE vehicle_id=?',(*values,old['vehicle_id']))
+        return old['vehicle_id'],None,True
+    # in a submitted case: keep the old row as it is for that case, and save the new details as a new current row
+    drafts=draft_cases_of(c,old['vehicle_id'])
+    c.execute('UPDATE vehicle SET is_current=0 WHERE vehicle_id=?',(old['vehicle_id'],))
+    new_id=insert_id(c,'INSERT INTO vehicle(plate_letters,plate_number,manufacturer,model,year,color,national_id,is_current) VALUES(?,?,?,?,?,?,?,1)',(*values,owner),'vehicle_id')
+    # cases not submitted yet move to the new details (delete + insert: a party has one car per case)
+    for case_id in drafts:
+        c.execute('DELETE FROM involves WHERE case_id=? AND vehicle_id=?',(case_id,old['vehicle_id']))
+        c.execute('INSERT INTO involves(case_id,vehicle_id) VALUES(?,?)',(case_id,new_id))
     return new_id,None,True
 
 def save_party_progress(case_id,national_id,step):
@@ -1308,7 +1325,7 @@ def wizard(case_id,step):
                 if other_car:
                     flash('هذه اللوحة مسجلة لمركبة الطرف الآخر في نفس البلاغ.','error')
                     return redirect(request.url)
-                is_new=not c.execute('SELECT 1 FROM vehicle WHERE national_id=? AND plate_letters=? AND plate_number=?',(nid,data['plate_letters'],data['plate_number'])).fetchone()
+                is_new=not c.execute('SELECT 1 FROM vehicle WHERE national_id=? AND plate_letters=? AND plate_number=? AND is_current=1',(nid,data['plate_letters'],data['plate_number'])).fetchone()
                 # also saves the car in "My vehicles" (updates it if it's already there)
                 vehicle_id,error,changed=save_owner_vehicle(c,nid,data,int(garage_id) if garage_id.isdigit() else None)
                 if error:
@@ -1408,7 +1425,7 @@ def wizard(case_id,step):
         invited=c.execute("SELECT * FROM case_invitation WHERE case_id=? ORDER BY invitation_id DESC LIMIT 1",(case_id,)).fetchone()
         party_b=party_at(c,case,'B')
         other_party={'user_id':party_b['national_id']} if party_b else None
-        garage=c.execute(VEHICLE_SQL+' WHERE national_id=? ORDER BY vehicle_id DESC',(nid,)).fetchall()
+        garage=c.execute(VEHICLE_SQL+' WHERE national_id=? AND is_current=1 ORDER BY vehicle_id DESC',(nid,)).fetchall()
         other=party_at(c,case,'B' if party['position']=='A' else 'A')
         first_vehicle=party_vehicle(c,case_id,case['creator_id']) if party['position']=='B' else None
     try: desc_meta=json.loads(party['description_meta'] or '{}')
@@ -1730,7 +1747,7 @@ def profile():
             with conn() as c:c.execute('UPDATE accident_party SET notify_status_change=? WHERE national_id=?',(int(request.form.get('status')=='on'),session['uid']))
             flash('تم حفظ تفضيلات الإشعارات بنجاح.','success')
         return redirect(url_for('profile',tab=tab))
-    with conn() as c: cars=c.execute(VEHICLE_SQL+' WHERE national_id=? ORDER BY vehicle_id DESC',(session['uid'],)).fetchall()
+    with conn() as c: cars=c.execute(VEHICLE_SQL+' WHERE national_id=? AND is_current=1 ORDER BY vehicle_id DESC',(session['uid'],)).fetchall()
     pending_email=session.get('pending_email')
     return render_template('profile.html',tab=tab,cars=cars,pending_email=pending_email,
                            demo_code=pending_email.get('demo_code') if pending_email and os.getenv('OTP_MODE','api').lower()=='demo' else None)
@@ -1753,11 +1770,17 @@ def save_vehicle():
 @login_required
 def delete_vehicle(vehicle_id):
     with conn() as c:
-        car=c.execute('SELECT vehicle_id FROM vehicle WHERE vehicle_id=? AND national_id=?',(vehicle_id,session['uid'])).fetchone()
+        car=c.execute('SELECT vehicle_id FROM vehicle WHERE vehicle_id=? AND national_id=? AND is_current=1',(vehicle_id,session['uid'])).fetchone()
         if not car: abort(404)
-        if c.execute('SELECT 1 FROM involves WHERE vehicle_id=?',(vehicle_id,)).fetchone():
-            flash('لا يمكن حذف هذه المركبة لأنها مرتبطة ببلاغ.','error');return redirect(url_for('profile',tab='vehicles'))
-        c.execute('DELETE FROM vehicle WHERE vehicle_id=?',(vehicle_id,))
+        # a case not submitted yet loses this car: the party chooses a car again (back to step 3)
+        for case_id in draft_cases_of(c,vehicle_id):
+            c.execute('DELETE FROM involves WHERE case_id=? AND vehicle_id=?',(case_id,vehicle_id))
+            c.execute('UPDATE participation_progress SET progress=2 WHERE case_id=? AND national_id=? AND progress>2',(case_id,session['uid']))
+        if vehicle_locked(c,vehicle_id):
+            # still in a submitted case: hide it from "My vehicles" but keep the row for that case
+            c.execute('UPDATE vehicle SET is_current=0 WHERE vehicle_id=?',(vehicle_id,))
+        else:
+            c.execute('DELETE FROM vehicle WHERE vehicle_id=?',(vehicle_id,))
     flash('تم حذف المركبة.','success');return redirect(url_for('profile',tab='vehicles'))
 
 @app.get('/privacy')

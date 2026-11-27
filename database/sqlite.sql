@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS vehicle (
             vehicle_id INTEGER PRIMARY KEY, plate_number TEXT NOT NULL CHECK (length(plate_number) BETWEEN 1 AND 4),
             plate_letters TEXT NOT NULL CHECK (length(plate_letters) BETWEEN 1 AND 8),
             manufacturer TEXT NOT NULL, model TEXT NOT NULL, year INTEGER NOT NULL, color TEXT NOT NULL,
-            national_id TEXT NOT NULL REFERENCES accident_party(national_id) ON UPDATE CASCADE);
+            national_id TEXT NOT NULL REFERENCES accident_party(national_id) ON UPDATE CASCADE,
+            is_current INTEGER NOT NULL DEFAULT 1 CHECK (is_current IN (0,1)));
 
 CREATE TABLE IF NOT EXISTS accident_case (
             case_id TEXT PRIMARY KEY NOT NULL, party_b_email TEXT, accident_type TEXT NOT NULL
