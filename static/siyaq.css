@@ -509,19 +509,6 @@ form[data-step="7"] .wizardfooter{display:none}
 .src-inferred{background:#fdf0dc;color:#8a5a12}
 .va-src-legend .va-src{margin-inline-start:0}
 .va-src-note{font-size:13px;color:#8a5a12;background:#fdf6ea;border-radius:8px;padding:5px 9px;margin:6px 0 0}
-.try-form{display:flex;flex-direction:column;gap:14px}
-.try-file{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;border:2px dashed #b8d9c5;border-radius:14px;padding:26px 16px;text-align:center;cursor:pointer;background:#f7fbf9;color:#143c2b;font-weight:700}
-.try-file:hover,.try-file:focus-within{border-color:#006c35;background:#eef7f2}
-.try-file svg{width:28px;height:28px;color:#006c35}
-.try-file small{font-weight:400;color:#6b7f73;direction:ltr;unicode-bidi:isolate}
-.try-file input{position:absolute;width:1px;height:1px;opacity:0}
-.try-type{border:0;padding:0;margin:0;display:flex;gap:18px;flex-wrap:wrap;align-items:center}
-.try-type legend{font-weight:700;margin-bottom:6px;color:#143c2b}
-.try-type label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap}
-.try-type input{width:auto;margin:0}
-.try-form .btn{align-self:flex-start}
-.try-privacy{display:flex;align-items:center;gap:6px;margin-top:12px}.try-privacy svg{width:16px;height:16px;color:#006c35;flex:none}
-#try-progress{height:100%;width:0;background:#006c35;transition:width .2s}
 .va-table-wrap{overflow-x:auto}
 .va-vehicles{width:100%;border-collapse:collapse;font-size:14px;min-width:640px}
 .va-vehicles th{background:#f4f8f6;text-align:start;padding:8px;font-size:13px;color:#284434}

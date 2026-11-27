@@ -1,4 +1,4 @@
-{# The analysis result of one video: shared by the case page (video_analysis.html) and the expert's trial page.
+{# The analysis result of one video: shared by the case page (video_analysis.html).
    Needs: result, video_src, event_ar, vehicle_ar, measure_ar, value_ar. #}
 {% macro val(k, x) -%}
   {%- if x is none -%}—{%- elif x is string -%}{{ value_ar.get(x, x) }}{%- elif x is number and x is not integer -%}{{ x|round(2) }}{%- else -%}{{ x }}{%- endif -%}
