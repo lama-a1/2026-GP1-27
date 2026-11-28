@@ -20,7 +20,8 @@
     <span><i data-lucide="check"></i> تم الحفظ</span>
   </div>
 
-  <!-- case form steps -->
+  <!-- case form steps (hidden after submission: the page then shows the case status) -->
+  {% if not party.completed %}
   <div class="stepper">
     {% set reachable = 0 if party.completed else [progress+1,6]|min %}
     {% for name in steps %}
@@ -36,6 +37,7 @@
     {% endif %}
     {% endfor %}
   </div>
+  {% endif %}
 
   <div class="wizardcard panel">
 
@@ -104,7 +106,7 @@
             <select id="garage-select">
               <option value="">مركبة أخرى</option>
               {% for g in garage %}
-              <option value="{{g.id}}" data-plate="{{g.plate}}" data-manufacturer="{{g.manufacturer}}" data-model="{{g.model}}" data-year="{{g.year}}" data-color="{{g.color}}" {{'selected' if pre_garage.id==g.id}}>{{g.manufacturer}} {{g.model}} {{g.year}} — {{g.plate}}</option>
+              <option value="{{g.id}}" data-plate="{{g.plate}}" data-manufacturer="{{g.manufacturer}}" data-model="{{g.model}}" data-year="{{g.year}}" data-color="{{g.color}}" {{'selected' if pre_garage.id==g.id}}>{{g.manufacturer}} {{g.model}} {{g.year}} — {{g.color}} — {{g.plate}}</option>
               {% endfor %}
             </select>
           </label>
@@ -297,24 +299,36 @@
             </div>
 
             <h4 class="timeline-title">حالة البلاغ</h4>
+            <!-- one stage at a time is current (clock): second party, then analysis, then expert review -->
+            {% set finished = case.status|status_key == 'completed' %}
+            {% set ana = case_analysis(case.id) if other_done else none %}
+            {% set ana_state = ana.state if ana else '' %}
             <ol class="timeline">
               <li class="done"><span class="dot"><i data-lucide="check"></i></span><div><b>تم إرسال بياناتك</b><small>اكتملت بياناتك في البلاغ</small></div></li>
               {% if other_done %}
               <li class="done"><span class="dot"><i data-lucide="check"></i></span><div><b>{{'اكتملت بيانات الطرف الثاني' if is_a else 'اكتملت بيانات الطرف الأول'}}</b><small>تم استلام بيانات الطرفين</small></div></li>
-              {% set ana = case_analysis(case.id) %}
-              {% if ana.state == 'done' %}
+              {% else %}
+              <li class="current"><span class="dot"><i data-lucide="clock"></i></span><div><b>{{'بانتظار الطرف الثاني' if is_a else 'بانتظار الطرف الأول'}}</b><small>{% if is_a %}{{'انضم إلى البلاغ ولم يُكمل بياناته بعد' if other_joined else 'أُرسل رابط الدعوة إلى ' ~ invite.recipient_email}}{% else %}لم يُكمل الطرف الأول بياناته بعد{% endif %}</small></div></li>
+              {% endif %}
+              {% if not other_done %}
+              <li><span class="dot">3</span><div><b>تحليل الحالة</b><small>يبدأ بعد اكتمال بيانات الطرفين</small></div></li>
+              {% elif ana_state == 'done' or finished %}
               <li class="done"><span class="dot"><i data-lucide="check"></i></span><div><b>تحليل الحالة</b><small>اكتمل التحليل الآلي للفيديو</small></div></li>
-              {% elif ana.state == 'failed' %}
-              <li class="current"><span class="dot"><i data-lucide="clock"></i></span><div><b>تحليل الحالة</b><small>تعذّر التحليل الآلي، وسيتابع الخبير الحالة</small></div></li>
+              {% elif ana_state == 'failed' %}
+              <li class="done"><span class="dot"><i data-lucide="alert-triangle"></i></span><div><b>تحليل الحالة</b><small>تعذّر التحليل الآلي، وسيتابع الخبير الحالة</small></div></li>
               {% else %}
               <li class="current"><span class="dot"><i data-lucide="clock"></i></span><div><b>تحليل الحالة</b><small>جارٍ التحليل الآلي للفيديو</small></div></li>
               {% endif %}
+              {% if finished %}
+              <li class="done"><span class="dot"><i data-lucide="check"></i></span><div><b>مراجعة الخبير</b><small>اعتمد الخبير المختص النتيجة النهائية</small></div></li>
+              <li class="done"><span class="dot"><i data-lucide="check"></i></span><div><b>النتيجة النهائية</b><small>النتيجة النهائية متاحة</small></div></li>
+              {% elif ana_state in ('done','failed') %}
+              <li class="current"><span class="dot"><i data-lucide="clock"></i></span><div><b>مراجعة الخبير</b><small>بانتظار مراجعة الخبير المختص واعتماده النتيجة النهائية</small></div></li>
+              <li><span class="dot">5</span><div><b>النتيجة النهائية</b><small>تظهر هنا بعد اعتمادها</small></div></li>
               {% else %}
-              <li class="current"><span class="dot"><i data-lucide="clock"></i></span><div><b>بانتظار الطرف الثاني</b><small>{{'انضم إلى البلاغ ولم يُكمل بياناته بعد' if other_joined else 'أُرسل رابط الدعوة إلى ' ~ invite.recipient_email}}</small></div></li>
-              <li><span class="dot">3</span><div><b>تحليل الحالة</b><small>يبدأ بعد اكتمال بيانات الطرفين</small></div></li>
-              {% endif %}
               <li><span class="dot">4</span><div><b>مراجعة الخبير</b><small>يعتمد الخبير المختص النتيجة النهائية</small></div></li>
               <li><span class="dot">5</span><div><b>النتيجة النهائية</b><small>تظهر هنا بعد اعتمادها</small></div></li>
+              {% endif %}
             </ol>
 
             {% if is_a and invite_sent and not other_joined %}

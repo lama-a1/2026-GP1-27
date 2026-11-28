@@ -11,12 +11,14 @@
 
   <!-- case form steps -->
   <div class="stepper">
-    <div class="step active"><span>١</span><small>الأهلية</small></div>
-    <div class="step"><span>٢</span><small>بيانات الحادث</small></div>
-    <div class="step"><span>٣</span><small>بيانات الطرف</small></div>
-    <div class="step"><span>٤</span><small>المركبة</small></div>
-    <div class="step"><span>٥</span><small>الفيديو</small></div>
-    <div class="step"><span>٦</span><small>المراجعة</small></div>
+    <!-- the same steps as the case form; the eligibility questions are part of step 1 -->
+    <div class="step active"><span>1</span><small>بيانات الحادث</small></div>
+    <div class="step"><span>2</span><small>بيانات الطرف</small></div>
+    <div class="step"><span>3</span><small>بيانات المركبة</small></div>
+    <div class="step"><span>4</span><small>وصف الحادث</small></div>
+    <div class="step"><span>5</span><small>رفع الفيديو</small></div>
+    <div class="step"><span>6</span><small>المراجعة</small></div>
+    <div class="step"><span>7</span><small>دعوة الطرف الثاني</small></div>
   </div>
 
   <form method="post" class="wizardcard panel" id="new-case-form" novalidate {% if editing %}action="{{url_for('edit_case',case_id=editing.id)}}" data-original="{{editing.accident_date}} {{(editing.accident_time|string)[:5]}}"{% endif %}>
