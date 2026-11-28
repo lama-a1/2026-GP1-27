@@ -23,20 +23,20 @@
         <label>الاسم الثلاثي<input name="full_name" required autocomplete="name" value="{{request.form.get('full_name','')}}"><span class="field-error" data-error-for="full_name" hidden></span></label>
         <label>تاريخ الميلاد<input name="birth_date" type="date" required value="{{request.form.get('birth_date','')}}"><span class="field-error" data-error-for="birth_date" hidden></span></label>
         <label>رقم الهوية / الإقامة<input name="national_id" inputmode="numeric" dir="ltr" maxlength="10" required placeholder="١٠ أرقام" value="{{request.form.get('national_id','')}}"><span class="field-error" data-error-for="national_id" hidden></span></label>
-        <label>البريد الإلكتروني<input name="email" type="email" required autocomplete="email" placeholder="name@example.com" value="{{request.form.get('email','')}}"><span class="field-error" data-error-for="email" hidden></span></label>
+        <label>البريد الإلكتروني<input name="email" type="email" dir="ltr" required autocomplete="email" placeholder="name@example.com" value="{{request.form.get('email','')}}"><span class="field-error" data-error-for="email" hidden></span></label>
         <label>رقم الجوال<input name="phone" inputmode="tel" dir="ltr" maxlength="10" required placeholder="05xxxxxxxx" value="{{request.form.get('phone','')}}"><span class="field-error" data-error-for="phone" hidden></span></label>
-        <label>كلمة المرور<input name="password" type="password" required autocomplete="new-password">
+        <label>كلمة المرور<input name="password" type="password" dir="ltr" required autocomplete="new-password">
           <span class="pw-meter" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
           <small class="pw-label" aria-live="polite">٨ أحرف على الأقل، وتتضمن حرفًا ورقمًا.</small>
           <span class="field-error" data-error-for="password" hidden></span></label>
-        <label>تأكيد كلمة المرور<input name="confirm_password" type="password" required autocomplete="new-password"><span class="field-error" data-error-for="confirm_password" hidden></span></label>
+        <label>تأكيد كلمة المرور<input name="confirm_password" type="password" dir="ltr" required autocomplete="new-password"><span class="field-error" data-error-for="confirm_password" hidden></span></label>
       </div>
       <button class="siyaq-auth-submit" type="submit">إنشاء الحساب ←</button>
       <p class="identity-note">سيُرسل رمز تحقق من 6 أرقام إلى بريدك الإلكتروني قبل تفعيل الحساب.</p>
       {% else %}
       <div class="identity-stack">
         <label>رقم الهوية الوطنية<input name="national_id" inputmode="numeric" dir="ltr" minlength="10" maxlength="10" pattern="[0-9٠-٩]{10}" required placeholder="١٠ أرقام" autocomplete="username"></label>
-        <label>كلمة المرور<input name="password" type="password" required autocomplete="current-password"></label>
+        <label>كلمة المرور<input name="password" type="password" dir="ltr" required autocomplete="current-password"></label>
       </div>
       <a class="forgot-link" href="{{url_for('forgot_password')}}">نسيت كلمة المرور؟</a>
       <button class="siyaq-auth-submit guarded-submit" type="submit" disabled>تسجيل الدخول ←</button>
