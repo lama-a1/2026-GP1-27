@@ -1040,7 +1040,8 @@ def cancel_case(case_id):
         # deleting the case also deletes its parties, vehicles links, videos and invitations (ON DELETE CASCADE);
         # the cars stay in the users' "My vehicles"
         c.execute('DELETE FROM accident_case WHERE case_id=?',(case_id,))
-    flash('تم إلغاء البلاغ '+case['reference']+' وحذف بياناته والفيديو.','success')
+    # mention the video only when one was uploaded and deleted
+    flash('تم إلغاء البلاغ '+case['reference']+' وحذف بياناته'+(' والفيديو' if videos else '')+'.','success')
     return redirect(url_for('cases_page'))
 
 def delete_stored_file(path):
