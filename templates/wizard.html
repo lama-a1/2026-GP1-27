@@ -14,10 +14,16 @@
   <div class="wizardhero pattern">
     <a class="hero-back" href="{{url_for('dashboard')}}">→ رجوع</a>
     <div>
+      {% if party.completed %}
+      <!-- after submission this page follows the case status -->
+      <h1>متابعة البلاغ</h1>
+      <p>البلاغ <span dir="ltr">{{case.reference}}</span> · الطرف {{'الأول' if is_a else 'الثاني'}}</p>
+      {% else %}
       <h1>{{'إبلاغ عن حادث' if is_a else 'المشاركة في بلاغ'}}</h1>
       <p>الطرف {{'الأول' if is_a else 'الثاني'}} · سنحفظ تقدمك عند إكمال الخطوات.</p>
+      {% endif %}
     </div>
-    <span><i data-lucide="check"></i> تم الحفظ</span>
+    {% if not party.completed %}<span><i data-lucide="check"></i> تم الحفظ</span>{% endif %}
   </div>
 
   <!-- case form steps (hidden after submission: the page then shows the case status) -->
@@ -75,7 +81,7 @@
           <div class="wide"><span>موقع مركبتك</span><b>{{'المركبة الأمامية (اصطُدم بها من الخلف)' if party.vehicle_role=='FRONT' else 'المركبة الخلفية (اصطدمت بالمركبة الأمامية)'}}</b></div>
           {% endif %}
           {% if first_vehicle %}
-          <div class="wide"><span>مركبة الطرف الأول</span><b>{{first_vehicle.manufacturer}} {{first_vehicle.model}} — <span dir="ltr">{{first_vehicle.plate}}</span></b></div>
+          <div class="wide"><span>مركبة الطرف الأول</span><b>{{first_vehicle.manufacturer}} {{first_vehicle.model}} — {{first_vehicle.color}} — <span dir="ltr">{{first_vehicle.plate}}</span></b></div>
           {% endif %}
           <div class="wide"><span>موقع الحادث</span><b>{{case.location}}</b></div>
         </div>
@@ -256,7 +262,7 @@
           <h3>ملخص البيانات</h3>
           <p><b>الاسم:</b> {{party.full_name or 'غير مدخل'}}</p>
           <p><b>الجوال:</b> {{party.phone or 'غير مدخل'}}</p>
-          <p><b>المركبة:</b> {{(vehicle.manufacturer or '') ~ ' ' ~ (vehicle.model or '') ~ ' — ' ~ (vehicle.plate or '') if vehicle else 'غير مدخلة'}}</p>
+          <p><b>المركبة:</b> {{(vehicle.manufacturer or '') ~ ' ' ~ (vehicle.model or '') ~ ' — ' ~ (vehicle.color or '') ~ ' — ' ~ (vehicle.plate or '') if vehicle else 'غير مدخلة'}}</p>
           <p><b>الإفادة:</b> {{party.description or 'لا توجد إفادة'}}</p>
           <p><b>هل يوجد فيديو؟</b> {{'نعم' if videos else 'لا'}}{% if videos and videos[0].camera %} ({{'الكاميرا الأمامية' if videos[0].camera=='front' else 'الكاميرا الخلفية'}}){% endif %}</p>
         </div>
@@ -350,7 +356,7 @@
                 {% if case.accident_type=='REAR_END' and party.vehicle_role %}
                 <div class="wide"><span>موقع مركبتك</span><b>{{'المركبة الأمامية' if party.vehicle_role=='FRONT' else 'المركبة الخلفية'}}</b></div>
                 {% endif %}
-                <div class="wide"><span>المركبة</span><b>{% if vehicle %}{{vehicle.manufacturer}} {{vehicle.model}} {{vehicle.year}} — <span dir="ltr">{{vehicle.plate}}</span>{% else %}غير مدخلة{% endif %}</b></div>
+                <div class="wide"><span>المركبة</span><b>{% if vehicle %}{{vehicle.manufacturer}} {{vehicle.model}} {{vehicle.year}} — {{vehicle.color}} — <span dir="ltr">{{vehicle.plate}}</span>{% else %}غير مدخلة{% endif %}</b></div>
                 <div class="wide"><span>وصف الحادث</span><b class="pre">{{party.description or 'لا يوجد وصف'}}</b></div>
                 <div class="wide"><span>هل يوجد فيديو؟</span><b>{{'نعم' if videos else 'لا'}}{% if videos and videos[0].camera %} ({{'الكاميرا الأمامية' if videos[0].camera=='front' else 'الكاميرا الخلفية'}}){% endif %}</b></div>
               </div>

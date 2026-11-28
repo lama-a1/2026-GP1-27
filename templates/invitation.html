@@ -17,7 +17,7 @@
           <div><span>تاريخ الحادث</span><b>{{summary.date}}</b></div>
           <div><span>وقت الحادث</span><b>{{summary.time}}</b></div>
           {% if summary.car %}
-          <div><span>مركبة الطرف الأول</span><b>{{summary.car.manufacturer}} {{summary.car.model}} — <span dir="ltr">{{summary.car.plate}}</span></b></div>
+          <div><span>مركبة الطرف الأول</span><b>{{summary.car.manufacturer}} {{summary.car.model}} — {{summary.car.color}} — <span dir="ltr">{{summary.car.plate}}</span></b></div>
           {% endif %}
           <div><span>موقع الحادث</span><b>{{summary.location}}</b></div>
         </div>
