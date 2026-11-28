@@ -11,7 +11,7 @@
 <div class="wizardwrap">
 
   <!-- page heading -->
-  <div class="wizardhero pattern">
+  <div class="wizardhero pattern{{' hero-compact' if party.completed}}">
     <a class="hero-back" href="{{url_for('dashboard')}}">→ رجوع</a>
     <div>
       {% if party.completed %}
